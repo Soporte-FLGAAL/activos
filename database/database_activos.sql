@@ -173,15 +173,15 @@ CREATE TABLE IF NOT EXISTS Unidades(
     Uni_empresa_actual INT NOT NULL,
     Uni_fecha_alta_SCT DATE NOT NULL,
     Uni_valor_factura DECIMAL(12,2) NOT NULL,
-    Uni_factura_url VARCHAR(255) NOT NULL,
+    Uni_factura_url VARCHAR(255),
     Uni_fecha_verificacion_mecanica DATE NOT NULL,
     Uni_costo_verificacion_mecanica DECIMAL(12,2) NOT NULL,
     Uni_periodo_verificacion_mecanica INT NOT NULL,
     Uni_fecha_verificacion_contaminantes DATE NOT NULL,
     Uni_costo_verificacion_contaminantes DECIMAL(12,2) NOT NULL,
     Uni_periodo_verificacion_contaminantes INT NOT NULL,
-    Uni_url_verificacion_contaminantes VARCHAR(255) NOT NULL,
-    Uni_url_verificacion_mecanica VARCHAR(255) NOT NULL,
+    Uni_url_verificacion_contaminantes VARCHAR(255),
+    Uni_url_verificacion_mecanica VARCHAR(255),
     PRIMARY KEY (Uni_id),
     FOREIGN KEY (Uni_tipo) REFERENCES Tipo_unidad(TpU_id)
         ON DELETE RESTRICT
@@ -212,14 +212,28 @@ CREATE TABLE IF NOT EXISTS Unidades(
 -- aseguradoras pueden utilizar el mismo numero.
 -- =========================================================
 CREATE TABLE IF NOT EXISTS Aseguradoras(
-    Ase_id INT NOT NULL AUTO_INCREMENT,
+	Ase_id INT NOT NULL AUTO_INCREMENT,
     Ase_nombre VARCHAR(100) NOT NULL,
     Ase_direccion VARCHAR(150) NOT NULL,
     Ase_telefono VARCHAR(13) NOT NULL,
-    Ase_responsable VARCHAR(100) NOT NULL,
-    Ase_responsable_telefono VARCHAR(13) NOT NULL,
-    Ase_rfc VARCHAR(13) NOT NULL UNIQUE,
+    Ase_rfc VARCHAR(13) NOT NULL,
     PRIMARY KEY(Ase_id)
+);
+
+CREATE TABLE IF NOT EXISTS Responsables_Aseguradoras(
+	RA_id INT NOT NULL AUTO_INCREMENT,
+    RA_aseguradora INT NOT NULL,
+    RA_responsable VARCHAR(100) NOT NULL,
+    RA_puesto_responsable VARCHAR(50),
+    RA_telefono VARCHAR(13) NOT NULL,
+    RA_empresa_responsable INT, 
+    PRIMARY KEY (RA_id),
+    FOREIGN KEY (RA_aseguradora) REFERENCES Aseguradoras(Ase_id)
+    ON DELETE RESTRICT
+    ON UPDATE CASCADE,
+    FOREIGN KEY (RA_empresa_responsable) REFERENCES Empresas(Emp_id)
+    ON DELETE RESTRICT
+    ON UPDATE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS Polizas(
@@ -231,7 +245,7 @@ CREATE TABLE IF NOT EXISTS Polizas(
     Pol_fecha_inicio DATE NOT NULL,
     Pol_fecha_fin DATE NOT NULL,
     Pol_costo DECIMAL(12,2) NOT NULL,
-    Pol_url VARCHAR(255) NOT NULL,
+    Pol_url VARCHAR(255),
     PRIMARY KEY (Pol_id),
     FOREIGN KEY (Pol_aseguradora) REFERENCES Aseguradoras(Ase_id)
         ON DELETE RESTRICT
@@ -249,7 +263,7 @@ CREATE TABLE IF NOT EXISTS Endoso(
     End_id INT NOT NULL AUTO_INCREMENT,
     End_endoso VARCHAR(6) NOT NULL,
     End_poliza INT NOT NULL,
-    End_url VARCHAR(255) NOT NULL,
+    End_url VARCHAR(255),
     PRIMARY KEY (End_id),
     UNIQUE KEY uq_endoso_poliza_numero (End_poliza, End_endoso),
     FOREIGN KEY (End_poliza) REFERENCES Polizas(Pol_id)
@@ -262,7 +276,7 @@ CREATE TABLE IF NOT EXISTS Inciso(
     Inc_id INT NOT NULL AUTO_INCREMENT,
     Inc_endoso INT NOT NULL,
     Inc_inciso VARCHAR(6) NOT NULL,
-    Inc_url VARCHAR(255) NOT NULL,
+    Inc_url VARCHAR(255),
     PRIMARY KEY (Inc_id),
     UNIQUE KEY uq_inciso_endoso_numero (Inc_endoso, Inc_inciso),
     FOREIGN KEY (Inc_endoso) REFERENCES Endoso(End_id)
@@ -279,7 +293,7 @@ CREATE TABLE IF NOT EXISTS Doble_articulado(
     PDA_unidad_id BIGINT UNSIGNED NOT NULL,
     PDA_fecha_obtencion DATE NOT NULL,
     PDA_fecha_vencimiento DATE NOT NULL,
-    PDA_url VARCHAR(255) NOT NULL,
+    PDA_url VARCHAR(255),
     PRIMARY KEY (PDA_id),
     FOREIGN KEY (PDA_unidad_id) REFERENCES Unidades(Uni_id)
         ON DELETE RESTRICT
@@ -292,7 +306,7 @@ CREATE TABLE IF NOT EXISTS SICT(
     SICT_unidad_id BIGINT UNSIGNED NOT NULL,
     SICT_fecha_obtencion DATE NOT NULL,
     SICT_fecha_vencimiento DATE NOT NULL,
-    SICT_url VARCHAR(255) NOT NULL,
+    SICT_url VARCHAR(255),
     PRIMARY KEY (SICT_id),
     FOREIGN KEY (SICT_unidad_id) REFERENCES Unidades(Uni_id)
         ON DELETE RESTRICT
@@ -325,7 +339,7 @@ CREATE TABLE IF NOT EXISTS Detalle_placas(
     DP_tipo_movimiento INT NOT NULL,
     DP_costo DECIMAL(12,2) NOT NULL,
     DP_fecha DATE NOT NULL,
-    DP_url VARCHAR(255) NOT NULL,
+    DP_url VARCHAR(255),
     PRIMARY KEY (DP_id),
     FOREIGN KEY (DP_placas_id) REFERENCES Placas(Pla_id)
         ON DELETE RESTRICT
@@ -354,7 +368,7 @@ CREATE TABLE IF NOT EXISTS Tarjeta_circulacion(
     TC_fecha_vencimiento DATE,
     TC_fecha_reposicion DATE,
     TC_costo_reposicion DECIMAL(12,2),
-    TC_url VARCHAR(255) NOT NULL,
+    TC_url VARCHAR(255),
     TC_url_reposicion VARCHAR(255),
     PRIMARY KEY (TC_id),
     FOREIGN KEY (TC_unidad_id) REFERENCES Unidades(Uni_id)

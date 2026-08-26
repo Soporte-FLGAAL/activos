@@ -1,0 +1,17 @@
+const express = require('express');
+const router = express.Router();
+const controller = require('./placas.controller');
+const auth = require('../../middlewares/auth');
+const rbac = require('../../middlewares/rbac');
+const validate = require('../../middlewares/validate');
+const schemas = require('./placas.schema');
+
+router.use(auth);
+
+router.get('/', rbac('placas:ver'), controller.listar);
+router.get('/:id', rbac('placas:ver'), validate({ params: schemas.paramsIdSchema }), controller.obtener);
+router.post('/', rbac('placas:crear'), validate({ body: schemas.crearPlacaSchema }), controller.crear);
+router.put('/:id', rbac('placas:editar'), validate({ params: schemas.paramsIdSchema, body: schemas.actualizarPlacaSchema }), controller.actualizar);
+router.delete('/:id', rbac('placas:eliminar'), validate({ params: schemas.paramsIdSchema }), controller.eliminar);
+
+module.exports = router;

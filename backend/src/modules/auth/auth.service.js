@@ -1,32 +1,26 @@
-const db = require('../../config/database');
+const authRepository = require('./auth.repository');
 const { comparePassword } = require('../../utils/password');
 const { generateAccessToken, generateRefreshToken, verifyRefreshToken } = require('../../utils/jwt');
 
 class AuthService {
   async login(email, password) {
-    const [rows] = await db.query(
-      'SELECT * FROM Usuario WHERE Usu_correo = ? AND Usu_status = "ACTIVO"',
-      [email]
-    );
-    if (rows.length === 0) {
+    const user = await authRepository.findByEmail(email);
+    if (!user) {
       const error = new Error('Credenciales inválidas');
       error.status = 401;
       throw error;
     }
-    const user = rows[0];
     const valid = await comparePassword(password, user.Usu_password);
     if (!valid) {
       const error = new Error('Credenciales inválidas');
       error.status = 401;
       throw error;
     }
-
-    await db.query('UPDATE Usuario SET Usu_ultimo_acceso = NOW() WHERE Usu_id = ?', [user.Usu_id]);
-
+    await authRepository.updateLastAccess(user.Usu_id);
     const accessToken = generateAccessToken(user);
     const refreshToken = generateRefreshToken(user);
     return {
-      user: { id: user.Usu_id, email: user.Usu_correo, nombres: user.Usu_nombres },
+      user: { id: user.Usu_id, email: user.Usu_correo, nombres: `${user.Usu_nombres} ${user.Usu_ap_paterno}` },
       accessToken,
       refreshToken,
     };
@@ -41,13 +35,12 @@ class AuthService {
       error.status = 401;
       throw error;
     }
-    const [rows] = await db.query('SELECT * FROM Usuario WHERE Usu_id = ? AND Usu_status = "ACTIVO"', [decoded.userId]);
-    if (rows.length === 0) {
+    const user = await authRepository.findById(decoded.userId);
+    if (!user) {
       const error = new Error('Usuario no encontrado o inactivo');
       error.status = 401;
       throw error;
     }
-    const user = rows[0];
     const accessToken = generateAccessToken(user);
     const refreshToken = generateRefreshToken(user);
     return { accessToken, refreshToken };
