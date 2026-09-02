@@ -4,7 +4,7 @@ const crearDetallePlacaSchema = z.object({
   placasId: z.number().int().positive(),
   tipoMovimientoId: z.number().int().positive(),
   costo: z.number().nonnegative(),
-  fecha: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  fecha: z.coerce.date().refine((date) => date instanceof Date && !isNaN(date.getTime()), 'Fecha inválida'),
   url: z.string().url(),
 });
 

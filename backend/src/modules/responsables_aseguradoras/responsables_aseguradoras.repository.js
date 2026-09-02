@@ -1,21 +1,38 @@
 const db = require('../../config/database');
 
 class ResponsablesAseguradorasRepository {
-  async findAll(aseguradoraId = null) {
+  async findAll(filters = {}) {
+    const { aseguradoraId, limit, offset } = filters;
     let sql = `
       SELECT ra.*, a.Ase_nombre AS aseguradora_nombre, e.Emp_nombre AS empresa_nombre
       FROM Responsables_Aseguradoras ra
       JOIN Aseguradoras a ON ra.RA_aseguradora = a.Ase_id
       LEFT JOIN Empresas e ON ra.RA_empresa_responsable = e.Emp_id
+      WHERE 1=1
     `;
     const params = [];
     if (aseguradoraId) {
-      sql += ' WHERE ra.RA_aseguradora = ?';
+      sql += ' AND ra.RA_aseguradora = ?';
       params.push(aseguradoraId);
     }
-    sql += ' ORDER BY ra.RA_id DESC';
+    if (limit !== undefined && offset !== undefined) {
+      sql += ' LIMIT ? OFFSET ?';
+      params.push(limit, offset);
+    }
     const [rows] = await db.query(sql, params);
     return rows;
+  }
+
+  async count(filters = {}) {
+    const { aseguradoraId } = filters;
+    let sql = 'SELECT COUNT(*) AS total FROM Responsables_Aseguradoras ra WHERE 1=1';
+    const params = [];
+    if (aseguradoraId) {
+      sql += ' AND ra.RA_aseguradora = ?';
+      params.push(aseguradoraId);
+    }
+    const [rows] = await db.query(sql, params);
+    return rows[0].total;
   }
 
   async findById(id) {

@@ -2,7 +2,7 @@ const db = require('../../config/database');
 
 class AuditoriaRepository {
   async findAll(filters = {}) {
-    const { tabla, accionId, usuarioId, fechaInicio, fechaFin } = filters;
+    const { tabla, accionId, usuarioId, fechaInicio, fechaFin, limit, offset } = filters;
     let sql = `
       SELECT m.*, a.AcM_nombre AS accion_nombre, u.Usu_correo AS usuario_email
       FROM Movimientos m
@@ -11,29 +11,30 @@ class AuditoriaRepository {
       WHERE 1=1
     `;
     const params = [];
-    if (tabla) {
-      sql += ' AND m.Mov_tabla_afectada = ?';
-      params.push(tabla);
+    if (tabla) { sql += ' AND m.Mov_tabla_afectada = ?'; params.push(tabla); }
+    if (accionId) { sql += ' AND m.Mov_accion = ?'; params.push(accionId); }
+    if (usuarioId) { sql += ' AND m.Mov_usu_id = ?'; params.push(usuarioId); }
+    if (fechaInicio) { sql += ' AND m.Mov_fecha >= ?'; params.push(fechaInicio); }
+    if (fechaFin) { sql += ' AND m.Mov_fecha <= ?'; params.push(fechaFin); }
+    if (limit !== undefined && offset !== undefined) {
+      sql += ' LIMIT ? OFFSET ?';
+      params.push(limit, offset);
     }
-    if (accionId) {
-      sql += ' AND m.Mov_accion = ?';
-      params.push(accionId);
-    }
-    if (usuarioId) {
-      sql += ' AND m.Mov_usu_id = ?';
-      params.push(usuarioId);
-    }
-    if (fechaInicio) {
-      sql += ' AND m.Mov_fecha >= ?';
-      params.push(fechaInicio);
-    }
-    if (fechaFin) {
-      sql += ' AND m.Mov_fecha <= ?';
-      params.push(fechaFin);
-    }
-    sql += ' ORDER BY m.Mov_fecha DESC';
     const [rows] = await db.query(sql, params);
     return rows;
+  }
+
+  async count(filters = {}) {
+    const { tabla, accionId, usuarioId, fechaInicio, fechaFin } = filters;
+    let sql = 'SELECT COUNT(*) AS total FROM Movimientos m WHERE 1=1';
+    const params = [];
+    if (tabla) { sql += ' AND m.Mov_tabla_afectada = ?'; params.push(tabla); }
+    if (accionId) { sql += ' AND m.Mov_accion = ?'; params.push(accionId); }
+    if (usuarioId) { sql += ' AND m.Mov_usu_id = ?'; params.push(usuarioId); }
+    if (fechaInicio) { sql += ' AND m.Mov_fecha >= ?'; params.push(fechaInicio); }
+    if (fechaFin) { sql += ' AND m.Mov_fecha <= ?'; params.push(fechaFin); }
+    const [rows] = await db.query(sql, params);
+    return rows[0].total;
   }
 
   async findById(id) {

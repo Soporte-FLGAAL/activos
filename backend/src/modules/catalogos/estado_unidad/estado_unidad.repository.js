@@ -1,9 +1,21 @@
 const db = require('../../../config/database');
 
 class EstadoUnidadRepository {
-  async findAll() {
-    const [rows] = await db.query('SELECT * FROM Estado_unidad');
+  async findAll(filters = {}) {
+    const { limit, offset } = filters;
+    let sql = 'SELECT * FROM Estado_unidad';
+    const params = [];
+    if (limit !== undefined && offset !== undefined) {
+      sql += ' LIMIT ? OFFSET ?';
+      params.push(limit, offset);
+    }
+    const [rows] = await db.query(sql, params);
     return rows;
+  }
+
+  async count(filters = {}) {
+    const [rows] = await db.query('SELECT COUNT(*) AS total FROM Estado_unidad');
+    return rows[0].total;
   }
 
   async findById(id) {

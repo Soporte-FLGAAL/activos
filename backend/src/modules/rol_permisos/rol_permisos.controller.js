@@ -1,11 +1,17 @@
 const rolPermisosService = require('./rol_permisos.service');
 const { success } = require('../../utils/response');
+const { paginate } = require('../../utils/pagination');
 
 exports.listarPermisosDeRol = async (req, res, next) => {
   try {
     const { rolId } = req.params;
-    const permisos = await rolPermisosService.listarPermisosDeRol(rolId);
-    return success(res, permisos, 'Permisos del rol');
+    const resultado = await paginate(
+      (f) => rolPermisosService.listarPermisosDeRol(rolId, f),
+      () => rolPermisosService.contarPermisosDeRol(rolId),
+      req.query,
+      {}
+    );
+    return success(res, resultado, 'Permisos del rol');
   } catch (err) { next(err); }
 };
 

@@ -5,8 +5,8 @@ const crearPolizaSchema = z.object({
   aseguradoraId: z.number().int().positive(),
   unidadId: z.number().int().positive(),
   tipoPolizaId: z.number().int().positive(),
-  fechaInicio: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  fechaFin: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  fechaInicio: z.coerce.date().refine((date) => date instanceof Date && !isNaN(date.getTime()), 'Fecha inválida'),
+  fechaFin: z.coerce.date().refine((date) => date instanceof Date && !isNaN(date.getTime()), 'Fecha inválida'),
   costo: z.number().nonnegative(),
   url: z.string().url(),
 });
@@ -27,10 +27,28 @@ const paramsIdSchema = z.object({
   id: z.string().regex(/^\d+$/).transform(Number),
 });
 
+const incisoSchema = z.object({
+  inciso: z.string().max(6),
+  url: z.string().url(),
+});
+
+const endosoConIncisosSchema = z.object({
+  endoso: z.string().max(6),
+  url: z.string().url(),
+  incisos: z.array(incisoSchema).optional().default([]),
+});
+
+const crearPolizaConEndososSchema = z.object({
+  poliza: crearPolizaSchema,
+  endosos: z.array(endosoConIncisosSchema).min(1, 'Debe incluir al menos un endoso'),
+});
+
+
 module.exports = {
   crearPolizaSchema,
   actualizarPolizaSchema,
   filtrosPolizaSchema,
   actualizarUrlSchema,
+  crearPolizaConEndososSchema,
   paramsIdSchema,
 };

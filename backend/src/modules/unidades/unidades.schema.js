@@ -16,13 +16,13 @@ const crearUnidadSchema = z.object({
   viapass: z.string().max(15),
   propietarioId: z.number().int().positive(),
   empresaActualId: z.number().int().positive(),
-  fechaAltaSCT: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), // Formato YYYY-MM-DD
+  fechaAltaSCT: z.coerce.date().refine((date) => date instanceof Date && !isNaN(date.getTime()), 'Fecha inválida'), // Formato YYYY-MM-DD
   valorFactura: z.number().nonnegative(),
   facturaUrl: z.string().url().optional().nullable(),
-  fechaVerificacionMecanica: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  fechaVerificacionMecanica: z.coerce.date().refine((date) => date instanceof Date && !isNaN(date.getTime()), 'Fecha inválida'),
   costoVerificacionMecanica: z.number().nonnegative(),
   periodoVerificacionMecanicaId: z.number().int().positive(),
-  fechaVerificacionContaminantes: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  fechaVerificacionContaminantes: z.coerce.date().refine((date) => date instanceof Date && !isNaN(date.getTime()), 'Fecha inválida'),
   costoVerificacionContaminantes: z.number().nonnegative(),
   periodoVerificacionContaminantesId: z.number().int().positive(),
   urlVerificacionContaminantes: z.string().url().optional().nullable(),

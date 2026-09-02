@@ -3,8 +3,20 @@ const { success } = require('../../utils/response');
 
 exports.listar = async (req, res, next) => {
   try {
-    const movimientos = await auditoriaService.listar(req.query);
-    return success(res, movimientos, 'Movimientos obtenidos');
+    const filtros = {
+      tabla: req.query.tabla || null,
+      accionId: req.query.accionId || null,
+      usuarioId: req.query.usuarioId || null,
+      fechaInicio: req.query.fechaInicio || null,
+      fechaFin: req.query.fechaFin || null,
+    };
+    const resultado = await paginate(
+      (f) => auditoriaService.listar(f),
+      (f) => auditoriaService.contar(f),
+      req.query,
+      filtros
+    );
+    return success(res, resultado, 'Movimientos obtenidos');
   } catch (err) { next(err); }
 };
 

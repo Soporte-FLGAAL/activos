@@ -1,16 +1,42 @@
 const db = require('../../config/database');
 
 class IncisosRepository {
-  async findAll(endosoId = null) {
-    let sql = 'SELECT * FROM Inciso';
+  async findAll(filters = {}) {
+    const { endosoId, limit, offset } = filters;
+    let sql = `
+      SELECT i.*, e.End_endoso
+      FROM Inciso i
+      JOIN Endoso e ON i.Inc_endoso = e.End_id
+      WHERE 1=1
+    `;
     const params = [];
+
     if (endosoId) {
-      sql += ' WHERE Inc_endoso = ?';
+      sql += ' AND i.Inc_endoso = ?';
       params.push(endosoId);
     }
-    sql += ' ORDER BY Inc_id DESC';
+
+    if (limit !== undefined && offset !== undefined) {
+      sql += ' LIMIT ? OFFSET ?';
+      params.push(limit, offset);
+    }
+
     const [rows] = await db.query(sql, params);
     return rows;
+  }
+
+  async count(filters = {}) {
+    const { endosoId } = filters;
+    let sql = 'SELECT COUNT(*) AS total FROM Inciso i WHERE 1=1';
+    const params = [];
+
+    if (endosoId) {
+      sql += ' AND i.Inc_endoso = ?';
+      params.push(endosoId);
+    }
+
+    const [rows] = await db.query(sql, params);
+    return rows[0].total;
   }
 
   async findById(id) {

@@ -1,11 +1,23 @@
 const db = require('../../../config/database');
 
 class TipoMovimientoPlacaRepository {
-  async findAll() {
-    const [rows] = await db.query('SELECT * FROM Tipo_movimiento_placa');
+  async findAll(filters = {}) {
+    const { limit, offset } = filters;
+    let sql = 'SELECT * FROM Tipo_movimiento_placa';
+    const params = [];
+    if (limit !== undefined && offset !== undefined) {
+      sql += ' LIMIT ? OFFSET ?';
+      params.push(limit, offset);
+    }
+    const [rows] = await db.query(sql, params);
     return rows;
   }
 
+  async count(filters = {}) {
+    const [rows] = await db.query('SELECT COUNT(*) AS total FROM Tipo_movimiento_placa');
+    return rows[0].total;
+  }
+  
   async findById(id) {
     const [rows] = await db.query('SELECT * FROM Tipo_movimiento_placa WHERE TpMP_id = ?', [id]);
     return rows[0] || null;

@@ -1,8 +1,13 @@
 const dobleArticuladoRepository = require('./doble_articulado.repository');
+const { registrarMovimiento } = require('../../utils/audit');
 
 class DobleArticuladoService {
-  async listar(unidadId) {
-    return dobleArticuladoRepository.findAll(unidadId);
+  async listar(filters) {
+      return dobleArticuladoRepository.findAll(filters);
+    }
+  
+  async contar(filters) {
+    return dobleArticuladoRepository.count(filters);
   }
 
   async obtener(id) {
@@ -15,7 +20,13 @@ class DobleArticuladoService {
     return permiso;
   }
 
-  async crear(data) {
+  async crear(data, usuarioId) {
+    if (!(await existeRegistro('Unidades', 'Uni_id', data.unidadId))) {
+      const error = new Error('La unidad no existe');
+      error.status = 422;
+      throw error;
+    }
+
     const dbData = {
       PDA_permiso: data.permiso,
       PDA_unidad_id: data.unidadId,
@@ -23,11 +34,19 @@ class DobleArticuladoService {
       PDA_fecha_vencimiento: data.fechaVencimiento,
       PDA_url: data.url,
     };
-    return dobleArticuladoRepository.create(dbData);
+    const nuevo = await dobleArticuladoRepository.create(dbData);
+    await registrarMovimiento('Doble_articulado', nuevo.PDA_id, 'INSERT', dbData, usuarioId);
+    return nuevo;
   }
 
-  async actualizar(id, data) {
+  async actualizar(id, data, usuarioId) {
     await this.obtener(id);
+    if (!(await existeRegistro('Unidades', 'Uni_id', data.unidadId))) {
+      const error = new Error('La unidad no existe');
+      error.status = 422;
+      throw error;
+    }
+
     const map = {
       permiso: 'PDA_permiso',
       unidadId: 'PDA_unidad_id',
@@ -39,12 +58,18 @@ class DobleArticuladoService {
     for (const key in data) {
       if (map[key]) dbData[map[key]] = data[key];
     }
-    return dobleArticuladoRepository.update(id, dbData);
+    const actualizado = await dobleArticuladoRepository.update(id, dbData);
+    await registrarMovimiento('Doble_articulado', id, 'UPDATE', dbData, usuarioId);
+    return actualizado;
   }
 
-  async eliminar(id) {
+  async eliminar(id, usuarioId) {
     await this.obtener(id);
-    return dobleArticuladoRepository.delete(id);
+    const eliminado = await dobleArticuladoRepository.delete(id);
+    if (eliminado) {
+      await registrarMovimiento('Doble_articulado', id, 'DELETE', {}, usuarioId);
+    }
+    return eliminado;
   }
 }
 

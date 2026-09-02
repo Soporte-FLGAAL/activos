@@ -1,8 +1,13 @@
 const tipoTarjetaRepository = require('./tipo_tarjeta.repository');
+const { registrarMovimiento } = require('../../../utils/audit');
 
 class TipoTarjetaService {
-  async listar() {
-    return tipoTarjetaRepository.findAll();
+  async listar(filters) {
+    return tipoTarjetaRepository.findAll(filters);
+  }
+
+  async contar(filters) {
+    return tipoTarjetaRepository.count(filters);
   }
 
   async obtener(id) {
@@ -15,21 +20,29 @@ class TipoTarjetaService {
     return item;
   }
 
-  async crear(data) {
+  async crear(data, usuarioId) {
     const dbData = { TpT_nombre: data.nombre };
-    return tipoTarjetaRepository.create(dbData);
+    const nuevo = await tipoTarjetaRepository.create(dbData);
+    await registrarMovimiento('Tipo_tarjeta', nuevo.CampoId, 'INSERT', dbData, usuarioId);
+    return nuevo;
   }
 
-  async actualizar(id, data) {
+  async actualizar(id, data, usuarioId) {
     await this.obtener(id);
     const dbData = {};
     if (data.nombre !== undefined) dbData.TpT_nombre = data.nombre;
-    return tipoTarjetaRepository.update(id, dbData);
+    const actualizado = await tipoTarjetaRepository.update(id, dbData);
+    await registrarMovimiento('Tipo_tarjeta', id, 'UPDATE', dbData, usuarioId);
+    return actualizado;
   }
 
-  async eliminar(id) {
+  async eliminar(id, usuarioId) {
     await this.obtener(id);
-    return tipoTarjetaRepository.delete(id);
+    const eliminado = await tipoTarjetaRepository.delete(id);
+    if (eliminado) {
+      await registrarMovimiento('Tipo_tarjeta', id, 'DELETE', {}, usuarioId);
+    }
+    return eliminado;
   }
 }
 

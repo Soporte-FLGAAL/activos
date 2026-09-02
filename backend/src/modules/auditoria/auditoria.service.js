@@ -5,6 +5,10 @@ class AuditoriaService {
     return auditoriaRepository.findAll(filters);
   }
 
+  async contar(filters) {
+    return auditoriaRepository.count(filters);
+  }
+
   async obtener(id) {
     const movimiento = await auditoriaRepository.findById(id);
     if (!movimiento) {

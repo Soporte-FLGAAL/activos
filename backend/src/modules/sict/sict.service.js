@@ -1,8 +1,13 @@
 const sictRepository = require('./sict.repository');
+const { registrarMovimiento } = require('../../utils/audit');
 
 class SictService {
-  async listar(unidadId) {
-    return sictRepository.findAll(unidadId);
+  async listar(filters) {
+    return sictRepository.findAll(filters);
+  }
+
+  async contar(filters) {
+    return sictRepository.count(filters);
   }
 
   async obtener(id) {
@@ -15,7 +20,13 @@ class SictService {
     return permiso;
   }
 
-  async crear(data) {
+  async crear(data, usuarioId) {
+    if (!(await existeRegistro('Unidades', 'Uni_id', data.unidadId))) {
+      const error = new Error('La unidad no existe');
+      error.status = 422;
+      throw error;
+    }
+
     const dbData = {
       SICT_permiso: data.permiso,
       SICT_unidad_id: data.unidadId,
@@ -23,11 +34,19 @@ class SictService {
       SICT_fecha_vencimiento: data.fechaVencimiento,
       SICT_url: data.url,
     };
-    return sictRepository.create(dbData);
+    const nuevo = await sictRepository.create(dbData);
+    await registrarMovimiento('SICT', nuevo.SICT_id, 'INSERT', dbData, usuarioId);
+    return nuevo;
   }
 
-  async actualizar(id, data) {
+  async actualizar(id, data, usuarioId) {
     await this.obtener(id);
+    if (!(await existeRegistro('Unidades', 'Uni_id', data.unidadId))) {
+      const error = new Error('La unidad no existe');
+      error.status = 422;
+      throw error;
+    }
+
     const map = {
       permiso: 'SICT_permiso',
       unidadId: 'SICT_unidad_id',
@@ -39,12 +58,18 @@ class SictService {
     for (const key in data) {
       if (map[key]) dbData[map[key]] = data[key];
     }
-    return sictRepository.update(id, dbData);
+    const actualizado = await sictRepository.update(id, dbData);
+    await registrarMovimiento('SICT', id, 'UPDATE', dbData, usuarioId);
+    return actualizado;
   }
 
-  async eliminar(id) {
+  async eliminar(id, usuarioId) {
     await this.obtener(id);
-    return sictRepository.delete(id);
+    const eliminado = await sictRepository.delete(id);
+    if (eliminado) {
+      await registrarMovimiento('SICT', id, 'DELETE', {}, usuarioId);
+    }
+    return eliminado;
   }
 }
 

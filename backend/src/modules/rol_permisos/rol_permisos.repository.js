@@ -1,15 +1,26 @@
 const db = require('../../config/database');
 
 class RolPermisosRepository {
-  async findPermisosByRol(rolId) {
-    const [rows] = await db.query(
-      `SELECT p.PerM_id, p.PerM_nombre 
-       FROM Permisos p
-       JOIN Rol_Permisos rp ON p.PerM_id = rp.RP_permiso
-       WHERE rp.RP_rol = ?`,
-      [rolId]
-    );
+  async findPermisosByRol(rolId, filters = {}) {
+    const { limit, offset } = filters;
+    let sql = `
+      SELECT p.PerM_id, p.PerM_nombre 
+      FROM Permisos p
+      JOIN Rol_Permisos rp ON p.PerM_id = rp.RP_permiso
+      WHERE rp.RP_rol = ?
+    `;
+    const params = [rolId];
+    if (limit !== undefined && offset !== undefined) {
+      sql += ' LIMIT ? OFFSET ?';
+      params.push(limit, offset);
+    }
+    const [rows] = await db.query(sql, params);
     return rows;
+  }
+
+  async countByRol(rolId) {
+    const [rows] = await db.query('SELECT COUNT(*) AS total FROM Rol_Permisos WHERE RP_rol = ?', [rolId]);
+    return rows[0].total;
   }
 
   async asignar(rolId, permisoId) {

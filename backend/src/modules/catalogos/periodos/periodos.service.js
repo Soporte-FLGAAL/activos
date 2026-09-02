@@ -1,8 +1,13 @@
 const periodosRepository = require('./periodos.repository');
+const { registrarMovimiento } = require('../../../utils/audit');
 
 class PeriodosService {
-  async listar() {
-    return periodosRepository.findAll();
+  async listar(filters) {
+    return periodosRepository.findAll(filters);
+  }
+
+  async contar(filters) {
+    return periodosRepository.count(filters);
   }
 
   async obtener(id) {
@@ -15,21 +20,29 @@ class PeriodosService {
     return item;
   }
 
-  async crear(data) {
+  async crear(data, usuarioId) {
     const dbData = { Per_nombre: data.nombre };
-    return periodosRepository.create(dbData);
+    const nuevo = await periodosRepository.create(dbData);
+    await registrarMovimiento('Periodos', nuevo.CampoId, 'INSERT', dbData, usuarioId);
+    return nuevo;
   }
 
-  async actualizar(id, data) {
+  async actualizar(id, data, usuarioId) {
     await this.obtener(id);
     const dbData = {};
     if (data.nombre !== undefined) dbData.Per_nombre = data.nombre;
-    return periodosRepository.update(id, dbData);
+    const actualizado = await periodosRepository.update(id, dbData);
+    await registrarMovimiento('Periodos', id, 'UPDATE', dbData, usuarioId);
+    return actualizado;
   }
 
-  async eliminar(id) {
+  async eliminar(id, usuarioId) {
     await this.obtener(id);
-    return periodosRepository.delete(id);
+    const eliminado = await periodosRepository.delete(id);
+    if (eliminado) {
+      await registrarMovimiento('Periodos', id, 'DELETE', {}, usuarioId);
+    }
+    return eliminado;
   }
 }
 

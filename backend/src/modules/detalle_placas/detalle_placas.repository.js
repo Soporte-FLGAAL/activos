@@ -2,20 +2,37 @@ const db = require('../../config/database');
 
 class DetallePlacasRepository {
   async findAll(placasId = null) {
+    const { placasId, limit, offset } = filters;
     let sql = `
       SELECT dp.*, p.Pla_placas, tm.TpMP_nombre AS tipo_movimiento_nombre
       FROM Detalle_placas dp
       JOIN Placas p ON dp.DP_placas_id = p.Pla_id
       JOIN Tipo_movimiento_placa tm ON dp.DP_tipo_movimiento = tm.TpMP_id
+      WHERE 1=1
     `;
     const params = [];
     if (placasId) {
-      sql += ' WHERE dp.DP_placas_id = ?';
+      sql += ' AND dp.DP_placas_id = ?';
       params.push(placasId);
     }
-    sql += ' ORDER BY dp.DP_id DESC';
+    if (limit !== undefined && offset !== undefined) {
+      sql += ' LIMIT ? OFFSET ?';
+      params.push(limit, offset);
+    }
     const [rows] = await db.query(sql, params);
     return rows;
+  }
+
+  async count(filters = {}) {
+    const { placasId } = filters;
+    let sql = 'SELECT COUNT(*) AS total FROM Detalle_placas dp WHERE 1=1';
+    const params = [];
+    if (placasId) {
+      sql += ' AND dp.DP_placas_id = ?';
+      params.push(placasId);
+    }
+    const [rows] = await db.query(sql, params);
+    return rows[0].total;
   }
 
   async findById(id) {

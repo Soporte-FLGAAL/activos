@@ -11,6 +11,7 @@ router.use(auth);
 router.get('/', rbac('placas:ver'), controller.listar);
 router.get('/:id', rbac('placas:ver'), validate({ params: schemas.paramsIdSchema }), controller.obtener);
 router.post('/', rbac('placas:crear'), validate({ body: schemas.crearPlacaSchema }), controller.crear);
+router.post('/:id/actualizar-con-movimiento', rbac('placas:editar'), validate({ params: schemas.paramsIdSchema, body: schemas.actualizarPlacaConMovimientoSchema }), controller.actualizarConMovimiento);
 router.put('/:id', rbac('placas:editar'), validate({ params: schemas.paramsIdSchema, body: schemas.actualizarPlacaSchema }), controller.actualizar);
 router.delete('/:id', rbac('placas:eliminar'), validate({ params: schemas.paramsIdSchema }), controller.eliminar);
 

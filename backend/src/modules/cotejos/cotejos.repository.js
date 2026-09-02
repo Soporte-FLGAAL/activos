@@ -1,20 +1,37 @@
 const db = require('../../config/database');
 
 class CotejosRepository {
-  async findAll(tarjetaId = null) {
+  async findAll(filters = {}) {
+    const { tarjetaId, limit, offset } = filters;
     let sql = `
       SELECT c.*, tc.TC_tarjeta
       FROM Cotejos c
       JOIN Tarjeta_circulacion tc ON c.Cot_tarjeta_id = tc.TC_id
+      WHERE 1=1
     `;
     const params = [];
     if (tarjetaId) {
-      sql += ' WHERE c.Cot_tarjeta_id = ?';
+      sql += ' AND c.Cot_tarjeta_id = ?';
       params.push(tarjetaId);
     }
-    sql += ' ORDER BY c.Cot_id DESC';
+    if (limit !== undefined && offset !== undefined) {
+      sql += ' LIMIT ? OFFSET ?';
+      params.push(limit, offset);
+    }
     const [rows] = await db.query(sql, params);
     return rows;
+  }
+
+  async count(filters = {}) {
+    const { tarjetaId } = filters;
+    let sql = 'SELECT COUNT(*) AS total FROM Cotejos c WHERE 1=1';
+    const params = [];
+    if (tarjetaId) {
+      sql += ' AND c.Cot_tarjeta_id = ?';
+      params.push(tarjetaId);
+    }
+    const [rows] = await db.query(sql, params);
+    return rows[0].total;
   }
 
   async findById(id) {

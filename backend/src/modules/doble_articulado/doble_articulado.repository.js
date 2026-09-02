@@ -1,20 +1,37 @@
 const db = require('../../config/database');
 
 class DobleArticuladoRepository {
-  async findAll(unidadId = null) {
+  async findAll(filters = {}) {
+    const { unidadId, limit, offset } = filters;
     let sql = `
       SELECT pda.*, u.Uni_no_economico
       FROM Doble_articulado pda
       JOIN Unidades u ON pda.PDA_unidad_id = u.Uni_id
+      WHERE 1=1
     `;
     const params = [];
     if (unidadId) {
-      sql += ' WHERE pda.PDA_unidad_id = ?';
+      sql += ' AND pda.PDA_unidad_id = ?';
       params.push(unidadId);
     }
-    sql += ' ORDER BY pda.PDA_id DESC';
+    if (limit !== undefined && offset !== undefined) {
+      sql += ' LIMIT ? OFFSET ?';
+      params.push(limit, offset);
+    }
     const [rows] = await db.query(sql, params);
     return rows;
+  }
+
+  async count(filters = {}) {
+    const { unidadId } = filters;
+    let sql = 'SELECT COUNT(*) AS total FROM Doble_articulado pda WHERE 1=1';
+    const params = [];
+    if (unidadId) {
+      sql += ' AND pda.PDA_unidad_id = ?';
+      params.push(unidadId);
+    }
+    const [rows] = await db.query(sql, params);
+    return rows[0].total;
   }
 
   async findById(id) {

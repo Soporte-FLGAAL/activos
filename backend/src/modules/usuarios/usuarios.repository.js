@@ -2,12 +2,24 @@ const db = require('../../config/database');
 const { hashPassword } = require('../../utils/password');
 
 class UsuariosRepository {
-  async findAll() {
-    const [rows] = await db.query(
-      `SELECT Usu_id, Usu_nombres, Usu_ap_paterno, Usu_ap_materno, Usu_telefono, Usu_correo, Usu_status, Usu_fecha_creacion, Usu_ultimo_acceso
-       FROM Usuario`
-    );
+  async findAll(filters = {}) {
+    const { limit, offset } = filters;
+    let sql = `SELECT Usu_id, Usu_nombres, Usu_ap_paterno, Usu_ap_materno, Usu_telefono, Usu_correo, Usu_status, Usu_fecha_creacion, Usu_ultimo_acceso
+               FROM Usuario`;
+    const params = [];
+
+    if (limit !== undefined && offset !== undefined) {
+      sql += ' LIMIT ? OFFSET ?';
+      params.push(limit, offset);
+    }
+
+    const [rows] = await db.query(sql, params);
     return rows;
+  }
+
+  async count(filters = {}) {
+    const [rows] = await db.query('SELECT COUNT(*) AS total FROM Usuario');
+    return rows[0].total;
   }
 
   async findById(id) {

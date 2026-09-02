@@ -1,8 +1,13 @@
 const detallePlacasRepository = require('./detalle_placas.repository');
+const { registrarMovimiento } = require('../../utils/audit');
 
 class DetallePlacasService {
-  async listar(placasId) {
-    return detallePlacasRepository.findAll(placasId);
+  async listar(filters) {
+    return detallePlacasRepository.findAll(filters);
+  }
+
+  async contar(filters) {
+    return detallesPlacasRepository.count(filters);
   }
 
   async obtener(id) {
@@ -15,7 +20,18 @@ class DetallePlacasService {
     return detalle;
   }
 
-  async crear(data) {
+  async crear(data, usuarioId) {
+    if (!(await existeRegistro('Placas', 'Pla_id', data.placasId))) {
+      const error = new Error('La placa no existe');
+      error.status = 422;
+      throw error;
+    }
+    if (!(await existeRegistro('Tipo_movimiento_placa', 'TpMP_id', data.tipoMovimientoId))) {
+      const error = new Error('El tipo de movimiento no existe');
+      error.status = 422;
+      throw error;
+    }
+
     const dbData = {
       DP_placas_id: data.placasId,
       DP_tipo_movimiento: data.tipoMovimientoId,
@@ -23,11 +39,25 @@ class DetallePlacasService {
       DP_fecha: data.fecha,
       DP_url: data.url,
     };
-    return detallePlacasRepository.create(dbData);
+
+    const nuevo = await detallePlacasRepository.create(dbData);
+    await registrarMovimiento('Detalle_placas', nuevo.DP_id, 'INSERT', dbData, usuarioId);
+    return nuevo;
   }
 
-  async actualizar(id, data) {
+  async actualizar(id, data, usuarioId) {
     await this.obtener(id);
+    if (!(await existeRegistro('Placas', 'Pla_id', data.placasId))) {
+      const error = new Error('La placa no existe');
+      error.status = 422;
+      throw error;
+    }
+    if (!(await existeRegistro('Tipo_movimiento_placa', 'TpMP_id', data.tipoMovimientoId))) {
+      const error = new Error('El tipo de movimiento no existe');
+      error.status = 422;
+      throw error;
+    }
+    
     const map = {
       placasId: 'DP_placas_id',
       tipoMovimientoId: 'DP_tipo_movimiento',
@@ -39,12 +69,18 @@ class DetallePlacasService {
     for (const key in data) {
       if (map[key]) dbData[map[key]] = data[key];
     }
-    return detallePlacasRepository.update(id, dbData);
+    const actualizado = await detallePlacasRepository.update(id, dbData);
+    await registrarMovimiento('Detalle_placas', id, 'UPDATE', dbData, usuarioId);
+    return actualizado;
   }
 
-  async eliminar(id) {
+  async eliminar(id, usuarioId) {
     await this.obtener(id);
-    return detallePlacasRepository.delete(id);
+    const eliminado = await detallePlacasRepository.delete(id);
+    if (eliminado) {
+      await registrarMovimiento('Detalle_placas', id, 'DELETE', {}, usuarioId);
+    }
+    return eliminado;
   }
 }
 

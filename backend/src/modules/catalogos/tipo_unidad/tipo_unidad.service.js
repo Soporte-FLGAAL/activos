@@ -1,8 +1,13 @@
 const tipoUnidadRepository = require('./tipo_unidad.repository');
+const { registrarMovimiento } = require('../../../utils/audit');
 
 class TipoUnidadService {
-  async listar() {
-    return tipoUnidadRepository.findAll();
+  async listar(filters) {
+    return tipoUnidadRepository.findAll(filters);
+  }
+
+  async contar(filters) {
+    return tipoUnidadRepository.count(filters);
   }
 
   async obtener(id) {
@@ -15,15 +20,17 @@ class TipoUnidadService {
     return item;
   }
 
-  async crear(data) {
+  async crear(data, usuarioId) {
     const dbData = {
       TpU_nombre: data.nombre,
       TpU_nombre_corto: data.nombreCorto || null,
     };
-    return tipoUnidadRepository.create(dbData);
+    const nuevo = await tipoUnidadRepository.create(dbData);
+    await registrarMovimiento('Tipo_unidad', nuevo.CampoId, 'INSERT', dbData, usuarioId);
+    return nuevo;
   }
 
-  async actualizar(id, data) {
+  async actualizar(id, data, usuarioId) {
     await this.obtener(id);
     const map = {
       nombre: 'TpU_nombre',
@@ -33,12 +40,18 @@ class TipoUnidadService {
     for (const key in data) {
       if (map[key]) dbData[map[key]] = data[key];
     }
-    return tipoUnidadRepository.update(id, dbData);
+    const actualizado = await tipoUnidadRepository.update(id, dbData);
+    await registrarMovimiento('Tipo_unidad', id, 'UPDATE', dbData, usuarioId);
+    return actualizado;
   }
 
-  async eliminar(id) {
+  async eliminar(id, usuarioId) {
     await this.obtener(id);
-    return tipoUnidadRepository.delete(id);
+    const eliminado = await tipoUnidadRepository.delete(id);
+    if (eliminado) {
+      await registrarMovimiento('Tipo_unidad', id, 'DELETE', {}, usuarioId);
+    }
+    return eliminado;
   }
 }
 

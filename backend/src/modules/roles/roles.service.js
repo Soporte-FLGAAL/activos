@@ -1,8 +1,13 @@
 const rolesRepository = require('./roles.repository');
+const { registrarMovimiento } = require('../../utils/audit');
 
 class RolesService {
-  async listar() {
-    return rolesRepository.findAll();
+  async listar(filters) {
+    return rolesRepository.findAll(filters);
+  }
+
+  async contar(filters) {
+    return rolesRepository.count(filters);
   }
 
   async obtener(id) {
@@ -15,18 +20,25 @@ class RolesService {
     return rol;
   }
 
-  async crear(data) {
-    return rolesRepository.create({ Rol_nombre: data.nombre });
+  async crear(data, usuarioId) {
+    const nuevo = await rolesRepository.create({ Rol_nombre: data.nombre });
+    await registrarMovimiento('Roles', nuevo.Rol_id, 'INSERT', { nombre: data.nombre }, usuarioId);
+    return nuevo;
   }
 
-  async actualizar(id, data) {
+  async actualizar(id, data, usuarioId) {
     await this.obtener(id);
-    return rolesRepository.update(id, { Rol_nombre: data.nombre });
+    const actualizado = await rolesRepository.update(id, { Rol_nombre: data.nombre });
+    await registrarMovimiento('Roles', id, 'UPDATE', { nombre: data.nombre }, usuarioId);
+    return actualizado;
   }
 
-  async eliminar(id) {
-    await this.obtener(id);
-    return rolesRepository.delete(id);
+  async eliminar(id, usuarioId) {
+    const eliminado = await rolesRepository.delete(id);
+    if (eliminado) {
+      await registrarMovimiento('Roles', id, 'DELETE', {}, usuarioId);
+    }
+    return eliminado;
   }
 }
 

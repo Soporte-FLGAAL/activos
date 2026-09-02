@@ -1,9 +1,14 @@
 const usuariosRepository = require('./usuarios.repository');
 const { comparePassword } = require('../../utils/password');
+const { registrarMovimiento } = require('../../utils/audit');
 
 class UsuariosService {
-  async listar() {
-    return usuariosRepository.findAll();
+  async listar(filters) {
+    return usuariosRepository.findAll(filters);
+  }
+
+  async contar(filters) {
+    return usuariosRepository.count(filters);
   }
 
   async obtener(id) {
@@ -16,7 +21,7 @@ class UsuariosService {
     return usuario;
   }
 
-  async crear(data) {
+  async crear(data, usuarioId) {
     const existe = await usuariosRepository.findByEmail(data.correo);
     if (existe) {
       const error = new Error('El correo ya está registrado');
@@ -31,10 +36,12 @@ class UsuariosService {
       Usu_correo: data.correo,
       Usu_password: data.password,
     };
-    return usuariosRepository.create(usuarioData);
+    const nuevoUsuario = await usuariosRepository.create(usuarioData);
+    await registrarMovimiento('Usuario', nuevoUsuario.Usu_id, 'INSERT', { correo: nuevoUsuario.Usu_correo }, usuarioId);
+    return nuevoUsuario;
   }
 
-  async actualizar(id, data) {
+  async actualizar(id, data, usuarioId) {
     await this.obtener(id);
     const map = {
       nombres: 'Usu_nombres',
@@ -48,10 +55,12 @@ class UsuariosService {
     for (const key in data) {
       if (map[key]) dbData[map[key]] = data[key];
     }
-    return usuariosRepository.update(id, dbData);
+    const usuarioActualizado = await usuariosRepository.update(id, dbData);
+    await registrarMovimiento('Usuario', id, 'UPDATE', dbData, usuarioId);
+    return usuarioActualizado;
   }
 
-  async cambiarPasswordPropio(id, { passwordActual, nuevaPassword }) {
+  async cambiarPasswordPropio(id, { passwordActual, nuevaPassword }, usuarioId) {
     const usuarioCompleto = await usuariosRepository.findByEmail((await this.obtener(id)).Usu_correo);
     const valida = await comparePassword(passwordActual, usuarioCompleto.Usu_password);
     if (!valida) {
@@ -60,16 +69,22 @@ class UsuariosService {
       throw error;
     }
     await usuariosRepository.updatePassword(id, nuevaPassword);
+    await registrarMovimiento('Usuario', id, 'UPDATE', { cambio: 'password' }, usuarioId);
   }
 
-  async adminCambiarPassword(id, { nuevaPassword }) {
+  async adminCambiarPassword(id, { nuevaPassword }, usuarioId) {
     await this.obtener(id);
     await usuariosRepository.updatePassword(id, nuevaPassword);
+    await registrarMovimiento('Usuario', id, 'UPDATE', { cambio: 'password_admin' }, usuarioId);
   }
 
-  async eliminar(id) {
+  async eliminar(id, usuarioId) {
     await this.obtener(id);
-    return usuariosRepository.delete(id);
+    const eliminado = await usuariosRepository.delete(id);
+    if (eliminado) {
+      await registrarMovimiento('Usuario', id, 'DELETE', {}, usuarioId);
+    }
+    return eliminado;
   }
 }
 

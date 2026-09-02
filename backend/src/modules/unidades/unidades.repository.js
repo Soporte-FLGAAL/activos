@@ -2,7 +2,7 @@ const db = require('../../config/database');
 
 class UnidadesRepository {
   async findAll(filters = {}) {
-    const { empresaId, tipoId, combustibleId, ejes, status, search } = filters;
+    const { empresaId, tipoId, combustibleId, ejes, status, search, limit, offset } = filters;
     let sql = `
       SELECT u.*, tu.TpU_nombre AS tipo_nombre, eu.EsU_estado AS estado_nombre,
              c.Com_nombre AS combustible_nombre, p1.Emp_nombre AS propietario_nombre,
@@ -46,9 +46,27 @@ class UnidadesRepository {
       params.push(like, like, like, like, like);
     }
     sql += ' ORDER BY u.Uni_id DESC';
-
+    if (limit !== undefined && offset !== undefined) {
+      sql += ' LIMIT ? OFFSET ?';
+      params.push(limit, offset);
+    }
     const [rows] = await db.query(sql, params);
     return rows;
+  }
+
+  async count(filters = {}) {
+    const { empresaId, tipoId, combustibleId, ejes, status, search } = filters;
+    let sql = `SELECT COUNT(*) AS total FROM Unidades u WHERE 1=1`;
+    const params = [];
+    // aplicar mismas condiciones de filtrado que en findAll (sin limit/offset)
+    if (empresaId) { sql += ' AND u.Uni_empresa_actual = ?'; params.push(empresaId); }
+    if (tipoId) { sql += ' AND u.Uni_tipo = ?'; params.push(tipoId); }
+    if (combustibleId) { sql += ' AND u.Uni_combustible = ?'; params.push(combustibleId); }
+    if (ejes) { sql += ' AND u.Uni_ejes = ?'; params.push(ejes); }
+    if (status) { sql += ' AND u.Uni_status = ?'; params.push(status); }
+    if (search) { sql += ' AND (u.Uni_no_economico LIKE ? OR u.Uni_no_serie LIKE ? OR u.Uni_no_motor LIKE ? OR u.Uni_marca LIKE ? OR u.Uni_modelo LIKE ?)'; const like = `%${search}%`; params.push(like, like, like, like, like); }
+    const [rows] = await db.query(sql, params);
+    return rows[0].total;
   }
 
   async findById(id) {

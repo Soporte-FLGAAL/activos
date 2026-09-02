@@ -44,6 +44,21 @@ CREATE TABLE IF NOT EXISTS Usuario(
 );
 
 -- =========================================================
+-- TOKENS
+-- =========================================================
+
+CREATE TABLE IF NOT EXISTS RefreshTokens (
+  RT_id INT NOT NULL AUTO_INCREMENT,
+  RT_usuario INT NOT NULL,
+  RT_token VARCHAR(500) NOT NULL,
+  RT_expiracion DATETIME NOT NULL,
+  RT_creado_en DATETIME DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (RT_id),
+  UNIQUE KEY uq_token (RT_token),
+  FOREIGN KEY (RT_usuario) REFERENCES Usuario(Usu_id) ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+-- =========================================================
 -- CATALOGOS PARA VALORES QUE FORMAN PARTE DEL MODELO
 -- =========================================================
 CREATE TABLE IF NOT EXISTS Acciones_movimiento(

@@ -1,10 +1,16 @@
 const usuariosService = require('./usuarios.service');
 const { success } = require('../../utils/response');
+const { paginate } = require('../../utils/pagination');
 
 exports.listar = async (req, res, next) => {
   try {
-    const usuarios = await usuariosService.listar();
-    return success(res, usuarios, 'Usuarios obtenidos');
+    const resultado = await paginate(
+      (f) => usuariosService.listar(f),
+      (f) => usuariosService.contar(f),
+      req.query,
+      {} // Filtros adicionales (puedes añadir más si es necesario)
+    );
+    return success(res, resultado, 'Usuarios obtenidos');
   } catch (err) { next(err); }
 };
 
@@ -17,14 +23,14 @@ exports.obtener = async (req, res, next) => {
 
 exports.crear = async (req, res, next) => {
   try {
-    const nuevo = await usuariosService.crear(req.body);
+    const nuevo = await usuariosService.crear(req.body, req.user.userId);
     return success(res, nuevo, 'Usuario creado', 201);
   } catch (err) { next(err); }
 };
 
 exports.actualizar = async (req, res, next) => {
   try {
-    const actualizado = await usuariosService.actualizar(req.params.id, req.body);
+    const actualizado = await usuariosService.actualizar(req.params.id, req.body, req.user.userId);
     return success(res, actualizado, 'Usuario actualizado');
   } catch (err) { next(err); }
 };
@@ -32,21 +38,21 @@ exports.actualizar = async (req, res, next) => {
 exports.cambiarPasswordPropio = async (req, res, next) => {
   try {
     const userId = req.user.userId;
-    await usuariosService.cambiarPasswordPropio(userId, req.body);
+    await usuariosService.cambiarPasswordPropio(userId, req.body, req.user.userId);
     return success(res, null, 'Contraseña actualizada correctamente');
   } catch (err) { next(err); }
 };
 
 exports.adminCambiarPassword = async (req, res, next) => {
   try {
-    await usuariosService.adminCambiarPassword(req.params.id, req.body);
+    await usuariosService.adminCambiarPassword(req.params.id, req.body, req.user.userId);
     return success(res, null, 'Contraseña actualizada por administrador');
   } catch (err) { next(err); }
 };
 
 exports.eliminar = async (req, res, next) => {
   try {
-    await usuariosService.eliminar(req.params.id);
+    await usuariosService.eliminar(req.params.id, req.user.userId);
     return success(res, null, 'Usuario eliminado');
   } catch (err) { next(err); }
 };

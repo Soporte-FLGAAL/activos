@@ -1,8 +1,13 @@
 const combustibleRepository = require('./combustible.repository');
+const { registrarMovimiento } = require('../../../utils/audit');
 
 class CombustibleService {
-  async listar() {
-    return combustibleRepository.findAll();
+  async listar(filters) {
+    return combustibleRepository.findAll(filters);
+  }
+
+  async contar(filters) {
+    return combustibleRepository.count(filters);
   }
 
   async obtener(id) {
@@ -15,21 +20,29 @@ class CombustibleService {
     return item;
   }
 
-  async crear(data) {
+  async crear(data, usuarioId) {
     const dbData = { Com_nombre: data.nombre };
-    return combustibleRepository.create(dbData);
+    const nuevo = await combustibleRepository.create(dbData);
+    await registrarMovimiento('Combustible', nuevo.CampoId, 'INSERT', dbData, usuarioId);
+    return nuevo;
   }
 
-  async actualizar(id, data) {
+  async actualizar(id, data, usuarioId) {
     await this.obtener(id);
     const dbData = {};
     if (data.nombre !== undefined) dbData.Com_nombre = data.nombre;
-    return combustibleRepository.update(id, dbData);
+    const actualizado = await combustibleRepository.update(id, dbData);
+    await registrarMovimiento('Combustible', id, 'UPDATE', dbData, usuarioId);
+    return actualizado;
   }
 
-  async eliminar(id) {
+  async eliminar(id, usuarioId) {
     await this.obtener(id);
-    return combustibleRepository.delete(id);
+    const eliminado = await combustibleRepository.delete(id);
+    if (eliminado) {
+      await registrarMovimiento('Combustible', id, 'DELETE', {}, usuarioId);
+    }
+    return eliminado;
   }
 }
 

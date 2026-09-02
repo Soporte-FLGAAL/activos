@@ -1,5 +1,6 @@
 const polizasService = require('./polizas.service');
 const { success } = require('../../utils/response');
+const { paginate } = require('../../utils/pagination');
 
 exports.listar = async (req, res, next) => {
   try {
@@ -17,28 +18,36 @@ exports.obtener = async (req, res, next) => {
 
 exports.crear = async (req, res, next) => {
   try {
-    const nueva = await polizasService.crear(req.body);
+    const nueva = await polizasService.crear(req.body, req.user.userId);
     return success(res, nueva, 'Póliza creada', 201);
+  } catch (err) { next(err); }
+};
+
+exports.crearConEndosos = async (req, res, next) => {
+  try {
+    const { poliza, endosos } = req.body;
+    const polizaId = await polizasService.crearPolizaConEndosos(poliza, endosos, req.user.userId);
+    return success(res, { id: polizaId }, 'Póliza y endosos creados', 201);
   } catch (err) { next(err); }
 };
 
 exports.actualizar = async (req, res, next) => {
   try {
-    const actualizada = await polizasService.actualizar(req.params.id, req.body);
+    const actualizada = await polizasService.actualizar(req.params.id, req.body, req.user.userId);
     return success(res, actualizada, 'Póliza actualizada');
   } catch (err) { next(err); }
 };
 
 exports.actualizarUrl = async (req, res, next) => {
   try {
-    const actualizada = await polizasService.actualizarUrl(req.params.id, req.body.url);
+    const actualizada = await polizasService.actualizarUrl(req.params.id, req.body.url, req.user.userId);
     return success(res, actualizada, 'URL actualizada');
   } catch (err) { next(err); }
 };
 
 exports.eliminar = async (req, res, next) => {
   try {
-    await polizasService.eliminar(req.params.id);
+    await polizasService.eliminar(req.params.id, req.user.userId);
     return success(res, null, 'Póliza eliminada');
   } catch (err) { next(err); }
 };

@@ -1,8 +1,13 @@
 const estadoUnidadRepository = require('./estado_unidad.repository');
+const { registrarMovimiento } = require('../../../utils/audit');
 
 class EstadoUnidadService {
-  async listar() {
-    return estadoUnidadRepository.findAll();
+  async listar(filters) {
+    return estadoUnidadRepository.findAll(filters);
+  }
+
+  async contar(filters) {
+    return estadoUnidadRepository.count(filters);
   }
 
   async obtener(id) {
@@ -15,21 +20,29 @@ class EstadoUnidadService {
     return item;
   }
 
-  async crear(data) {
+  async crear(data, usuarioId) {
     const dbData = { EsU_estado: data.estado };
-    return estadoUnidadRepository.create(dbData);
+    const nuevo = await estadoUnidadRepository.create(dbData);
+    await registrarMovimiento('Estado_Unidad', nuevo.CampoId, 'INSERT', dbData, usuarioId);
+    return nuevo;
   }
 
-  async actualizar(id, data) {
+  async actualizar(id, data, usuarioId) {
     await this.obtener(id);
     const dbData = {};
     if (data.estado !== undefined) dbData.EsU_estado = data.estado;
-    return estadoUnidadRepository.update(id, dbData);
+    const actualizado = await estadoUnidadRepository.update(id, dbData);
+    await registrarMovimiento('Estado_Unidad', id, 'UPDATE', dbData, usuarioId);
+    return actualizado;
   }
 
-  async eliminar(id) {
+  async eliminar(id, usuarioId) {
     await this.obtener(id);
-    return estadoUnidadRepository.delete(id);
+    const eliminado = await estadoUnidadRepository.delete(id);
+    if (eliminado) {
+      await registrarMovimiento('Estado_Unidad', id, 'DELETE', {}, usuarioId);
+    }
+    return eliminado;
   }
 }
 

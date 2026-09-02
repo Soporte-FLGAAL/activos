@@ -1,8 +1,13 @@
 const unidadesRepository = require('./unidades.repository');
+const { registrarMovimiento } = require('../../utils/audit');
 
 class UnidadesService {
-  async listar(filters = {}) {
+  async listar(filters) {
     return unidadesRepository.findAll(filters);
+  }
+
+    async contar(filters) {
+    return unidadesRepository.count(filters);
   }
 
   async obtener(id) {
@@ -15,18 +20,22 @@ class UnidadesService {
     return unidad;
   }
 
-  async crear(data) {
+  async crear(data, usuarioId) {
     const dbData = this._toDbData(data);
-    return unidadesRepository.create(dbData);
+    const nuevo = await unidadesRepository.create(dbData);
+    await registrarMovimiento('Unidades', nuevo.Uni_id, 'INSERT', dbData, usuarioId);
+    return nuevo;
   }
 
-  async actualizar(id, data) {
+  async actualizar(id, data, usuarioId) {
     await this.obtener(id);
     const dbData = this._toDbData(data, true);
-    return unidadesRepository.update(id, dbData);
+    const actualizada = await unidadesRepository.update(id, dbData);
+    await registrarMovimiento('Unidades', id, 'UPDATE', dbData, usuarioId);
+    return actualizada;
   }
 
-  async actualizarCampo(id, { campo, valor }) {
+  async actualizarCampo(id, { campo, valor }, usuarioId) {
     await this.obtener(id);
     // Validar que el campo sea permitido y el valor adecuado según el campo
     if (campo === 'Uni_status') {
@@ -42,12 +51,18 @@ class UnidadesService {
       error.status = 500;
       throw error;
     }
+    await unidadesRepository.updateCampo(id, campo, valor);
+    await registrarMovimiento('Unidades', id, 'UPDATE', { campo, valor }, usuarioId);
     return this.obtener(id);
   }
 
-  async eliminar(id) {
+  async eliminar(id, usuarioId) {
     await this.obtener(id);
-    return unidadesRepository.delete(id);
+    const eliminado = await unidadesRepository.delete(id);
+    if (eliminado) {
+      await registrarMovimiento('Unidades', id, 'DELETE', {}, usuarioId);
+    }
+    return eliminado;
   }
 
   async totalPorEmpresa(empresaId) {

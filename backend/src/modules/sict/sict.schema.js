@@ -3,8 +3,8 @@ const { z } = require('zod');
 const crearSictSchema = z.object({
   permiso: z.string().max(30),
   unidadId: z.number().int().positive(),
-  fechaObtencion: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  fechaVencimiento: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  fechaObtencion: z.coerce.date().refine((date) => date instanceof Date && !isNaN(date.getTime()), 'Fecha inválida'),
+  fechaVencimiento: z.coerce.date().refine((date) => date instanceof Date && !isNaN(date.getTime()), 'Fecha inválida'),
   url: z.string().url(),
 });
 

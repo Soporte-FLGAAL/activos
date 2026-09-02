@@ -1,8 +1,13 @@
 const endososRepository = require('./endosos.repository');
+const { registrarMovimiento } = require('../../utils/audit');
 
 class EndososService {
-  async listar(polizaId) {
-    return endososRepository.findAll(polizaId);
+  async listar(filters) {
+    return endososRepository.findAll(filters);
+  }
+
+  async contar(filters) {
+    return endososRepository.count(filters);
   }
 
   async obtener(id) {
@@ -15,17 +20,31 @@ class EndososService {
     return endoso;
   }
 
-  async crear(data) {
+  async crear(data, usuarioId) {
+    if (!(await existeRegistro('Polizas', 'Pol_id', data.polizaId))) {
+      const error = new Error('La póliza no existe');
+      error.status = 422;
+      throw error;
+    }
+
     const dbData = {
       End_endoso: data.endoso,
       End_poliza: data.polizaId,
       End_url: data.url,
     };
-    return endososRepository.create(dbData);
+    const nuevo = await endososRepository.create(dbData);
+    await registrarMovimiento('Endoso', nuevo.End_id, 'INSERT', dbData, usuarioId);
+    return nuevo;
   }
 
-  async actualizar(id, data) {
+  async actualizar(id, data, usuarioId) {
     await this.obtener(id);
+    if (!(await existeRegistro('Polizas', 'Pol_id', data.polizaId))) {
+      const error = new Error('La póliza no existe');
+      error.status = 422;
+      throw error;
+    }
+    
     const map = {
       endoso: 'End_endoso',
       polizaId: 'End_poliza',
@@ -35,12 +54,18 @@ class EndososService {
     for (const key in data) {
       if (map[key]) dbData[map[key]] = data[key];
     }
-    return endososRepository.update(id, dbData);
+    const actualizado = await endososRepository.update(id, dbData);
+    await registrarMovimiento('Endoso', id, 'UPDATE', dbData, usuarioId);
+    return actualizado;
   }
 
-  async eliminar(id) {
+  async eliminar(id, usuarioId) {
     await this.obtener(id);
-    return endososRepository.delete(id);
+    const eliminado = await endososRepository.delete(id);
+    if (eliminado) {
+      await registrarMovimiento('Endoso', id, 'DELETE', {}, usuarioId);
+    }
+    return eliminado;
   }
 }
 

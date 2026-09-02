@@ -1,8 +1,13 @@
 const tipoPolizaRepository = require('./tipo_poliza.repository');
+const { registrarMovimiento } = require('../../../utils/audit');
 
 class TipoPolizaService {
-  async listar() {
-    return tipoPolizaRepository.findAll();
+  async listar(filters) {
+    return tipoPolizaRepository.findAll(filters);
+  }
+
+  async contar(filters) {
+    return tipoPolizaRepository.count(filters);
   }
 
   async obtener(id) {
@@ -15,21 +20,29 @@ class TipoPolizaService {
     return item;
   }
 
-  async crear(data) {
+  async crear(data, usuarioId) {
     const dbData = { TpP_nombre: data.nombre };
-    return tipoPolizaRepository.create(dbData);
+    const nuevo = await tipoPolizaRepository.create(dbData);
+    await registrarMovimiento('Tipo_poliza', nuevo.CampoId, 'INSERT', dbData, usuarioId);
+    return nuevo;
   }
 
-  async actualizar(id, data) {
+  async actualizar(id, data, usuarioId) {
     await this.obtener(id);
     const dbData = {};
     if (data.nombre !== undefined) dbData.TpP_nombre = data.nombre;
-    return tipoPolizaRepository.update(id, dbData);
+    const actualizado = await tipoPolizaRepository.update(id, dbData);
+    await registrarMovimiento('Tipo_poliza', id, 'UPDATE', dbData, usuarioId);
+    return actualizado;
   }
 
-  async eliminar(id) {
+  async eliminar(id, usuarioId) {
     await this.obtener(id);
-    return tipoPolizaRepository.delete(id);
+    const eliminado = await tipoPolizaRepository.delete(id);
+    if (eliminado) {
+      await registrarMovimiento('Tipo_poliza', id, 'DELETE', {}, usuarioId);
+    }
+    return eliminado;
   }
 }
 

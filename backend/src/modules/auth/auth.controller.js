@@ -20,3 +20,11 @@ exports.refreshToken = async (req, res, next) => {
     next(err);
   }
 };
+
+exports.logout = async (req, res, next) => {
+  try {
+    const { refreshToken } = req.body;
+    await authService.logout(refreshToken);
+    return success(res, null, 'Sesión cerrada');
+  } catch (err) { next(err); }
+};

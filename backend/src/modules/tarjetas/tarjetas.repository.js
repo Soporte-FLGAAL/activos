@@ -2,7 +2,7 @@ const db = require('../../config/database');
 
 class TarjetasRepository {
   async findAll(filters = {}) {
-    const { unidadId, status, vencida } = filters;
+    const { unidadId, status, vencida, limit, offset } = filters;
     let sql = `
       SELECT tc.*, u.Uni_no_economico, tt.TpT_nombre AS tipo_tarjeta_nombre, p.Pla_placas
       FROM Tarjeta_circulacion tc
@@ -12,6 +12,7 @@ class TarjetasRepository {
       WHERE 1=1
     `;
     const params = [];
+
     if (unidadId) {
       sql += ' AND tc.TC_unidad_id = ?';
       params.push(unidadId);
@@ -25,9 +26,37 @@ class TarjetasRepository {
     } else if (vencida === 'false') {
       sql += ' AND (tc.TC_fecha_vencimiento >= CURDATE() OR tc.TC_fecha_vencimiento IS NULL)';
     }
-    sql += ' ORDER BY tc.TC_id DESC';
+
+    if (limit !== undefined && offset !== undefined) {
+      sql += ' LIMIT ? OFFSET ?';
+      params.push(limit, offset);
+    }
+
     const [rows] = await db.query(sql, params);
     return rows;
+  }
+
+  async count(filters = {}) {
+    const { unidadId, status, vencida } = filters;
+    let sql = 'SELECT COUNT(*) AS total FROM Tarjeta_circulacion tc WHERE 1=1';
+    const params = [];
+
+    if (unidadId) {
+      sql += ' AND tc.TC_unidad_id = ?';
+      params.push(unidadId);
+    }
+    if (status) {
+      sql += ' AND tc.TC_status = ?';
+      params.push(status);
+    }
+    if (vencida === 'true') {
+      sql += ' AND tc.TC_fecha_vencimiento < CURDATE()';
+    } else if (vencida === 'false') {
+      sql += ' AND (tc.TC_fecha_vencimiento >= CURDATE() OR tc.TC_fecha_vencimiento IS NULL)';
+    }
+
+    const [rows] = await db.query(sql, params);
+    return rows[0].total;
   }
 
   async findById(id) {

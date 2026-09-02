@@ -1,8 +1,13 @@
 const permisosRepository = require('./permisos.repository');
+const { registrarMovimiento } = require('../../utils/audit');
 
 class PermisosService {
-  async listar() {
-    return permisosRepository.findAll();
+  async listar(filters) {
+    return permisosRepository.findAll(filters);
+  }
+
+  async contar(filters) {
+    return permisosRepository.count(filters);
   }
 
   async obtener(id) {
@@ -15,18 +20,24 @@ class PermisosService {
     return permiso;
   }
 
-  async crear(data) {
-    return permisosRepository.create({ PerM_nombre: data.nombre });
+  async crear(data, usuarioId) {
+    const nuevo = await permisosRepository.create({ PerM_nombre: data.nombre });
+    await registrarMovimiento('Permisos', nuevo.PerM_id, 'INSERT', { nombre: data.nombre }, usuarioId);
+    return nuevo;
   }
 
-  async actualizar(id, data) {
-    await this.obtener(id);
-    return permisosRepository.update(id, { PerM_nombre: data.nombre });
+  async actualizar(id, data, usuarioId) {
+    const actualizado = await permisosRepository.update(id, { PerM_nombre: data.nombre });
+    await registrarMovimiento('Permisos', id, 'UPDATE', { nombre: data.nombre }, usuarioId);
+    return actualizado;
   }
 
-  async eliminar(id) {
-    await this.obtener(id);
-    return permisosRepository.delete(id);
+  async eliminar(id, usuarioId) {
+    const eliminado = await permisosRepository.delete(id);
+    if (eliminado) {
+      await registrarMovimiento('Permisos', id, 'DELETE', {}, usuarioId);
+    }
+    return eliminado;
   }
 }
 

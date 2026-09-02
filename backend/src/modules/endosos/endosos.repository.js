@@ -1,16 +1,42 @@
 const db = require('../../config/database');
 
 class EndososRepository {
-  async findAll(polizaId = null) {
-    let sql = 'SELECT * FROM Endoso';
+  async findAll(filters = {}) {
+    const { polizaId, limit, offset } = filters;
+    let sql = `
+      SELECT e.*, p.Pol_poliza
+      FROM Endoso e
+      JOIN Polizas p ON e.End_poliza = p.Pol_id
+      WHERE 1=1
+    `;
     const params = [];
+
     if (polizaId) {
-      sql += ' WHERE End_poliza = ?';
+      sql += ' AND e.End_poliza = ?';
       params.push(polizaId);
     }
-    sql += ' ORDER BY End_id DESC';
+
+    if (limit !== undefined && offset !== undefined) {
+      sql += ' LIMIT ? OFFSET ?';
+      params.push(limit, offset);
+    }
+
     const [rows] = await db.query(sql, params);
     return rows;
+  }
+
+  async count(filters = {}) {
+    const { polizaId } = filters;
+    let sql = 'SELECT COUNT(*) AS total FROM Endoso e WHERE 1=1';
+    const params = [];
+
+    if (polizaId) {
+      sql += ' AND e.End_poliza = ?';
+      params.push(polizaId);
+    }
+
+    const [rows] = await db.query(sql, params);
+    return rows[0].total;
   }
 
   async findById(id) {

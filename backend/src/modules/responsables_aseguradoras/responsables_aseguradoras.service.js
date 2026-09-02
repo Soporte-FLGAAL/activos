@@ -1,8 +1,14 @@
 const responsablesAseguradorasRepository = require('./responsables_aseguradoras.repository');
+const { registrarMovimiento } = require('../../utils/audit');
+const { existeRegistro } = require('../../utils/validators');
 
 class ResponsablesAseguradorasService {
-  async listar(aseguradoraId) {
-    return responsablesAseguradorasRepository.findAll(aseguradoraId);
+  async listar(filters) {
+    return responsablesAseguradorasRepository.findAll(filters);
+  }
+
+  async contar(filters) {
+    return responsablesAseguradorasRepository.count(filters);
   }
 
   async obtener(id) {
@@ -16,6 +22,17 @@ class ResponsablesAseguradorasService {
   }
 
   async crear(data) {
+    if (!(await existeRegistro('Aseguradoras', 'Ase_id', data.aseguradoraId))) {
+      const error = new Error('La aseguradora no existe');
+      error.status = 422;
+      throw error;
+    }
+    if (data.empresaResponsableId && !(await existeRegistro('Empresas', 'Emp_id', data.empresaResponsableId))) {
+      const error = new Error('La empresa responsable no existe');
+      error.status = 422;
+      throw error;
+    }
+
     const dbData = {
       RA_aseguradora: data.aseguradoraId,
       RA_responsable: data.responsable,
@@ -23,7 +40,9 @@ class ResponsablesAseguradorasService {
       RA_telefono: data.telefono,
       RA_empresa_responsable: data.empresaResponsableId || null,
     };
-    return responsablesAseguradorasRepository.create(dbData);
+    const nuevo = await responsablesAseguradorasRepository.create(dbData);
+    await registrarMovimiento('Responsables_Aseguradoras', nuevo.RA_id, 'INSERT', dbData, usuarioId);
+    return nuevo;
   }
 
   async actualizar(id, data) {
@@ -39,12 +58,18 @@ class ResponsablesAseguradorasService {
     for (const key in data) {
       if (map[key]) dbData[map[key]] = data[key];
     }
-    return responsablesAseguradorasRepository.update(id, dbData);
+    const actualizado = await responsablesAseguradorasRepository.update(id, dbData);
+    await registrarMovimiento('Responsables_Aseguradoras', id, 'UPDATE', dbData, usuarioId);
+    return actualizado;
   }
 
   async eliminar(id) {
     await this.obtener(id);
-    return responsablesAseguradorasRepository.delete(id);
+    const eliminado = await responsablesAseguradorasRepository.delete(id);
+    if (eliminado) {
+      await registrarMovimiento('Responsables_Aseguradoras', id, 'DELETE', {}, usuarioId);
+    }
+    return eliminado;
   }
 }
 
