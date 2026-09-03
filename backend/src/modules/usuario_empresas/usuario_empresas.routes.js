@@ -2,11 +2,13 @@ const express = require('express');
 const router = express.Router();
 const controller = require('./usuario_empresas.controller');
 const auth = require('../../middlewares/auth');
+const setEmpresa = require('../../middlewares/setEmpresa');
 const rbac = require('../../middlewares/rbac');
 const validate = require('../../middlewares/validate');
 const schemas = require('./usuario_empresas.schema');
 
 router.use(auth);
+router.use(setEmpresa);
 
 router.get('/usuario/:usuarioId', rbac('usuario_empresas:ver'), controller.listarPorUsuario);
 router.get('/empresa/:empresaId', rbac('usuario_empresas:ver'), controller.listarPorEmpresa);

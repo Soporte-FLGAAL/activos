@@ -108,11 +108,7 @@ class TarjetasService {
       }
 
       // Auditoría
-      await connection.query(
-        `INSERT INTO Movimientos (Mov_tabla_afectada, Mov_registro_afectado, Mov_accion, Mov_detalles, Mov_usu_id)
-         VALUES ('Tarjeta_circulacion', ?, (SELECT AcM_id FROM Acciones_movimiento WHERE AcM_nombre = 'INSERT'), ?, ?)`,
-        [tarjetaId.toString(), JSON.stringify({ ...dataTarjeta, cotejos }), usuarioId]
-      );
+      await registrarMovimiento('Tarjeta_circulacion', tarjetaId, 'INSERT', { ...dataTarjeta, cotejos }, usuarioId, connection);
 
       return tarjetaId;
     });

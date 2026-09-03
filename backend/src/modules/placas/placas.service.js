@@ -83,11 +83,7 @@ class PlacasService {
       );
 
       // Auditoría
-      await connection.query(
-        `INSERT INTO Movimientos (Mov_tabla_afectada, Mov_registro_afectado, Mov_accion, Mov_detalles, Mov_usu_id)
-         VALUES ('Placas', ?, (SELECT AcM_id FROM Acciones_movimiento WHERE AcM_nombre = 'UPDATE'), ?, ?)`,
-        [idPlaca.toString(), JSON.stringify({ dataPlaca, dataMovimiento }), usuarioId]
-      );
+      await registrarMovimiento('Placas', idPlaca, 'UPDATE', { dataPlaca, dataMovimiento }, usuarioId, connection);
 
       return true;
     });

@@ -2,11 +2,13 @@ const express = require('express');
 const router = express.Router();
 const controller = require('./cotejos.controller');
 const auth = require('../../middlewares/auth');
+const setEmpresa = require('../../middlewares/setEmpresa');
 const rbac = require('../../middlewares/rbac');
 const validate = require('../../middlewares/validate');
 const schemas = require('./cotejos.schema');
 
 router.use(auth);
+router.use(setEmpresa);
 
 router.get('/', rbac('cotejos:ver'), controller.listar);
 router.get('/:id', rbac('cotejos:ver'), validate({ params: schemas.paramsIdSchema }), controller.obtener);

@@ -2,11 +2,13 @@ const express = require('express');
 const router = express.Router();
 const controller = require('./placas.controller');
 const auth = require('../../middlewares/auth');
+const setEmpresa = require('../../middlewares/setEmpresa');
 const rbac = require('../../middlewares/rbac');
 const validate = require('../../middlewares/validate');
 const schemas = require('./placas.schema');
 
 router.use(auth);
+router.use(setEmpresa);
 
 router.get('/', rbac('placas:ver'), controller.listar);
 router.get('/:id', rbac('placas:ver'), validate({ params: schemas.paramsIdSchema }), controller.obtener);

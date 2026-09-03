@@ -2,11 +2,13 @@ const express = require('express');
 const router = express.Router();
 const controller = require('./sict.controller');
 const auth = require('../../middlewares/auth');
+const setEmpresa = require('../../middlewares/setEmpresa');
 const rbac = require('../../middlewares/rbac');
 const validate = require('../../middlewares/validate');
 const schemas = require('./sict.schema');
 
 router.use(auth);
+router.use(setEmpresa);
 
 router.get('/', rbac('sict:ver'), controller.listar);
 router.get('/:id', rbac('sict:ver'), validate({ params: schemas.paramsIdSchema }), controller.obtener);

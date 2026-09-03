@@ -2,11 +2,13 @@ const express = require('express');
 const router = express.Router();
 const controller = require('./unidades.controller');
 const auth = require('../../middlewares/auth');
+const setEmpresa = require('../../middlewares/setEmpresa');
 const rbac = require('../../middlewares/rbac');
 const validate = require('../../middlewares/validate');
 const schemas = require('./unidades.schema');
 
 router.use(auth);
+router.use(setEmpresa);
 
 router.get('/', rbac('unidades:ver'), validate({ query: schemas.filtrosUnidadesSchema }), controller.listar);
 router.get('/empresa/:empresaId/total', rbac('unidades:ver'), controller.totalPorEmpresa);

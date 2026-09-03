@@ -2,11 +2,13 @@ const express = require('express');
 const router = express.Router();
 const controller = require('./responsables_aseguradoras.controller');
 const auth = require('../../middlewares/auth');
+const setEmpresa = require('../../middlewares/setEmpresa');
 const rbac = require('../../middlewares/rbac');
 const validate = require('../../middlewares/validate');
 const schemas = require('./responsables_aseguradoras.schema');
 
 router.use(auth);
+router.use(setEmpresa);
 
 router.get('/', rbac('responsables_aseguradoras:ver'), controller.listar);
 router.get('/:id', rbac('responsables_aseguradoras:ver'), validate({ params: schemas.paramsIdSchema }), controller.obtener);

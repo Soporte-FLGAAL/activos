@@ -2,12 +2,13 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
+const path = require('path');
+
+const env = require('./config/env');
 const routes = require('./routes');
 const errorHandler = require('./middlewares/errorHandler');
-const path = require('path');
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
-
 const { apiLimiter } = require('./middlewares/ratelimiter');
+
 const app = express();
 
 const corsOptions = {
@@ -15,6 +16,7 @@ const corsOptions = {
   optionsSuccessStatus: 200,
 };
 
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 app.use('/api', apiLimiter);
 app.use(helmet());
 app.use(cors(corsOptions));

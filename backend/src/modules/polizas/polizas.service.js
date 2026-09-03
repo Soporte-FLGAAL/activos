@@ -104,11 +104,7 @@ class PolizasService {
       }
 
       // Auditoría
-      await connection.query(
-        `INSERT INTO Movimientos (Mov_tabla_afectada, Mov_registro_afectado, Mov_accion, Mov_detalles, Mov_usu_id)
-         VALUES ('Polizas', ?, (SELECT AcM_id FROM Acciones_movimiento WHERE AcM_nombre = 'INSERT'), ?, ?)`,
-        [polizaId.toString(), JSON.stringify({ ...dataPoliza, endosos }), usuarioId]
-      );
+      await registrarMovimiento('Polizas', polizaId, 'INSERT', { ...dataPoliza, endosos }, usuarioId, connection);
 
       return polizaId;
     });
