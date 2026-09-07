@@ -1,5 +1,6 @@
 const sictRepository = require('./sict.repository');
 const { registrarMovimiento } = require('../../utils/audit');
+const { existeRegistro } = require('../../utils/validators');
 
 class SictService {
   async listar(filters) {

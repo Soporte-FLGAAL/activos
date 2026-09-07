@@ -1,5 +1,6 @@
 const incisosRepository = require('./incisos.repository');
 const { registrarMovimiento } = require('../../utils/audit');
+const { existeRegistro } = require('../../utils/validators');
 
 class IncisosService {
   async listar(filters) {

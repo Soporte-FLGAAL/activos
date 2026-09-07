@@ -3,11 +3,11 @@ const { registrarMovimiento } = require('../../utils/audit');
 
 class EmpresasService {
   async listar(filters) {
-    return rolesRepository.findAll(filters);
+    return empresasRepository.findAll(filters);
   }
 
   async contar(filters) {
-    return rolesRepository.count(filters);
+    return empresasRepository.count(filters);
   }
 
   async obtener(id) {

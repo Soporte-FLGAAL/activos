@@ -1,5 +1,6 @@
 const dobleArticuladoRepository = require('./doble_articulado.repository');
 const { registrarMovimiento } = require('../../utils/audit');
+const { existeRegistro } = require('../../utils/validators');
 
 class DobleArticuladoService {
   async listar(filters) {

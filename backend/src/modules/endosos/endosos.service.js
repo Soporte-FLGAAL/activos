@@ -1,5 +1,6 @@
 const endososRepository = require('./endosos.repository');
 const { registrarMovimiento } = require('../../utils/audit');
+const { existeRegistro } = require('../../utils/validators');
 
 class EndososService {
   async listar(filters) {

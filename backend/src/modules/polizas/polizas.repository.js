@@ -2,9 +2,9 @@ const db = require('../../config/database');
 
 class PolizasRepository {
   async findAll(filters = {}) {
-    const { unidadId, aseguradoraId, vigente } = filters;
+    const { unidadId, aseguradoraId, vigente, empresaId, limit, offset } = filters;
     let sql = `
-      SELECT p.*, a.Ase_nombre AS aseguradora_nombre, u.Uni_no_economico, tp.TpP_nombre AS tipo_poliza_nombre
+      SELECT p.*, a.Ase_nombre AS aseguradora_nombre, u.Uni_no_economico, u.Uni_empresa_actual, tp.TpP_nombre AS tipo_poliza_nombre
       FROM Polizas p
       JOIN Aseguradoras a ON p.Pol_aseguradora = a.Ase_id
       JOIN Unidades u ON p.Pol_unidad_id = u.Uni_id
@@ -12,6 +12,10 @@ class PolizasRepository {
       WHERE 1=1
     `;
     const params = [];
+    if (empresaId) {
+      sql += ' AND u.Uni_empresa_actual = ?';
+      params.push(empresaId);
+    }
     if (unidadId) {
       sql += ' AND p.Pol_unidad_id = ?';
       params.push(unidadId);
@@ -25,21 +29,29 @@ class PolizasRepository {
     } else if (vigente === 'false') {
       sql += ' AND p.Pol_fecha_fin < CURDATE()';
     }
-    sql += ' ORDER BY p.Pol_id DESC';
+    if (limit !== undefined && offset !== undefined) {
+      sql += ' LIMIT ? OFFSET ?';
+      params.push(limit, offset);
+    }
     const [rows] = await db.query(sql, params);
     return rows;
   }
 
-  async findById(id) {
-    const [rows] = await db.query(
+  async findById(id, empresaId = null) {
+    let sql = 
       `SELECT p.*, a.Ase_nombre AS aseguradora_nombre, u.Uni_no_economico, tp.TpP_nombre AS tipo_poliza_nombre
        FROM Polizas p
        JOIN Aseguradoras a ON p.Pol_aseguradora = a.Ase_id
        JOIN Unidades u ON p.Pol_unidad_id = u.Uni_id
        JOIN Tipo_poliza tp ON p.Pol_tipo_poliza = tp.TpP_id
-       WHERE p.Pol_id = ?`,
-      [id]
-    );
+       WHERE p.Pol_id = ?`;
+
+    const params = [id];
+    if (empresaId) {
+      sql += ' AND u.Uni_empresa_actual = ?';
+      params.push(empresaId);
+    }
+    const [rows] = await db.query(sql, params);
     return rows[0] || null;
   }
 
@@ -48,18 +60,33 @@ class PolizasRepository {
     return this.findById(result.insertId);
   }
 
-  async update(id, data) {
-    await db.query('UPDATE Polizas SET ? WHERE Pol_id = ?', [data, id]);
-    return this.findById(id);
+  async update(id, data, empresaId = null) {
+    const params = [data, id];
+    if (empresaId) {
+      sql += ' AND Pol_unidad_id IN (SELECT Uni_id FROM Unidades WHERE Uni_empresa_actual = ?)';
+      params.push(empresaId);
+    }
+    await db.query('UPDATE Polizas SET ? WHERE Pol_id = ?', params);
+    return this.findById(id, empresaId);
   }
 
-  async updateUrl(id, url) {
-    await db.query('UPDATE Polizas SET Pol_url = ? WHERE Pol_id = ?', [url, id]);
-    return this.findById(id);
+  async updateUrl(id, url , empresaId = null) {
+    const params = [url, id];
+    if (empresaId) {
+      sql += ' AND Pol_unidad_id IN (SELECT Uni_id FROM Unidades WHERE Uni_empresa_actual = ?)';
+      params.push(empresaId);
+    }
+    await db.query('UPDATE Polizas SET Pol_url = ? WHERE Pol_id = ?', params);
+    return this.findById(id, empresaId);
   }
 
-  async delete(id) {
-    const [result] = await db.query('DELETE FROM Polizas WHERE Pol_id = ?', [id]);
+  async delete(id, empresaId = null) {
+    const params = [id];
+    if (empresaId) {
+      sql += ' AND Pol_unidad_id IN (SELECT Uni_id FROM Unidades WHERE Uni_empresa_actual = ?)';
+      params.push(empresaId);
+    }
+    const [result] = await db.query('DELETE FROM Polizas WHERE Pol_id = ?', params);
     return result.affectedRows > 0;
   }
 }

@@ -1,5 +1,6 @@
 const cotejosRepository = require('./cotejos.repository');
 const { registrarMovimiento } = require('../../utils/audit');
+const { existeRegistro } = require('../../utils/validators');
 
 class CotejosService {
   async listar(filters) {

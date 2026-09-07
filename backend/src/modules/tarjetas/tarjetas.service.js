@@ -1,5 +1,7 @@
 const tarjetasRepository = require('./tarjetas.repository');
 const { registrarMovimiento } = require('../../utils/audit');
+const { existeRegistro } = require('../../utils/validators');
+const { withTransaction } = require('../../utils/transaction');
 
 class TarjetasService {
   async listar(filters) {
@@ -10,8 +12,8 @@ class TarjetasService {
     return tarjetasRepository.count(filters);
   }
 
-  async obtener(id) {
-    const tarjeta = await tarjetasRepository.findById(id);
+  async obtener(id, empresaId = null) {
+    const tarjeta = await tarjetasRepository.findById(id, empresaId);
     if (!tarjeta) {
       const error = new Error('Tarjeta de circulación no encontrada');
       error.status = 404;
@@ -57,12 +59,20 @@ class TarjetasService {
     return nueva;
   }
 
-  async crearTarjetaConCotejos(dataTarjeta, cotejos, usuarioId) {
+  async crearTarjetaConCotejos(dataTarjeta, cotejos, usuarioId, empresaId) {
     // Validaciones de FK previas
+    // Validar que la unidad pertenezca a la empresa
     if (!(await existeRegistro('Unidades', 'Uni_id', dataTarjeta.unidadId))) {
-      const error = new Error('La unidad no existe');
-      error.status = 422;
-      throw error;
+      throw new Error('La unidad no existe');
+    }
+    // Opcional: verificar empresa de la unidad
+    if (empresaId) {
+      const [unidad] = await db.query('SELECT Uni_empresa_actual FROM Unidades WHERE Uni_id = ?', [dataTarjeta.unidadId]);
+      if (!unidad || unidad.Uni_empresa_actual !== empresaId) {
+        const error = new Error('La unidad no pertenece a la empresa');
+        error.status = 403;
+        throw error;
+      }
     }
     if (!(await existeRegistro('Tipo_tarjeta', 'TpT_id', dataTarjeta.tipoId))) {
       const error = new Error('El tipo de tarjeta no existe');
@@ -114,8 +124,8 @@ class TarjetasService {
     });
   }
 
-  async actualizar(id, data, usuarioId) {
-    await this.obtener(id);
+  async actualizar(id, data, usuarioId, empresaId = null) {
+    await this.obtener(id, empresaId);
     if (!(await existeRegistro('Unidades', 'Uni_id', data.unidadId))) {
       const error = new Error('La unidad no existe');
       error.status = 422;
@@ -151,21 +161,21 @@ class TarjetasService {
     for (const key in data) {
       if (map[key]) dbData[map[key]] = data[key];
     }
-    const actualizada = await tarjetasRepository.update(id, dbData);
+    const actualizada = await tarjetasRepository.update(id, dbData, empresaId);
     await registrarMovimiento('Tarjeta_circulacion', id, 'UPDATE', dbData, usuarioId);
     return actualizada;
   }
 
-  async actualizarUrl(id, url) {
-    await this.obtener(id);
-    await tarjetasRepository.updateUrl(id, url);
+  async actualizarUrl(id, url, usuarioId, empresaId = null) {
+    await this.obtener(id, empresaId);
+    await tarjetasRepository.updateUrl(id, url, empresaId);
     await registrarMovimiento('Tarjeta_circulacion', id, 'UPDATE', { campo: 'TC_url', valor: url }, usuarioId);
-    return this.obtener(id);
+    return this.obtener(id, empresaId);
   }
 
-  async eliminar(id) {
-    await this.obtener(id);
-    const eliminado = await tarjetasRepository.delete(id);
+  async eliminar(id, usuarioId, empresaId = null) {
+    await this.obtener(id, empresaId);
+    const eliminado = await tarjetasRepository.delete(id, empresaId);
     if (eliminado) {
       await registrarMovimiento('Tarjeta_circulacion', id, 'DELETE', {}, usuarioId);
     }

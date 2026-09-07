@@ -8,8 +8,8 @@ class PolizasService {
     return polizasRepository.findAll(filters);
   }
 
-  async obtener(id) {
-    const poliza = await polizasRepository.findById(id);
+  async obtener(id, empresaId = null) {
+    const poliza = await polizasRepository.findById(id, empresaId);
     if (!poliza) {
       const error = new Error('Póliza no encontrada');
       error.status = 404;
@@ -18,7 +18,7 @@ class PolizasService {
     return poliza;
   }
 
-  async crear(data) {
+  async crear(data, usuarioId) {
     const fks = [
       ['Aseguradoras', 'Ase_id', data.aseguradoraId, 'Aseguradora'],
       ['Unidades', 'Uni_id', data.unidadId, 'Unidad'],
@@ -47,7 +47,7 @@ class PolizasService {
     return nuevaPoliza;
   }
 
-  async crearPolizaConEndosos(dataPoliza, endosos, usuarioId) {
+  async crearPolizaConEndosos(dataPoliza, endosos, usuarioId, empresaId = null) {
     // Validaciones de FK
     if (!(await existeRegistro('Aseguradoras', 'Ase_id', dataPoliza.aseguradoraId))) {
       const error = new Error('La aseguradora no existe');
@@ -63,6 +63,15 @@ class PolizasService {
       const error = new Error('El tipo de póliza no existe');
       error.status = 422;
       throw error;
+    }
+
+    if (empresaId) {
+      const [unidad] = await db.query('SELECT Uni_empresa_actual FROM Unidades WHERE Uni_id = ?', [dataPoliza.unidadId]);
+      if (!unidad || unidad.Uni_empresa_actual !== empresaId) {
+        const error = new Error('La unidad no pertenece a la empresa');
+        error.status = 403;
+        throw error;
+      }
     }
 
     return withTransaction(async (connection) => {
@@ -110,35 +119,8 @@ class PolizasService {
     });
   }
 
-  async crearPolizaConEndosos(dataPoliza, endosos, usuarioId) {
-    return withTransaction(async (connection) => {
-      // Insertar póliza usando la conexión
-      // Necesitaríamos modificar el repositorio para aceptar conexión, pero lo hacemos directamente aquí
-      const [result] = await connection.query(
-        `INSERT INTO Polizas 
-         (Pol_poliza, Pol_aseguradora, Pol_unidad_id, Pol_tipo_poliza, Pol_fecha_inicio, Pol_fecha_fin, Pol_costo, Pol_url)
-         VALUES (?,?,?,?,?,?,?,?)`,
-        [dataPoliza.poliza, dataPoliza.aseguradoraId, dataPoliza.unidadId, dataPoliza.tipoPolizaId, dataPoliza.fechaInicio, dataPoliza.fechaFin, dataPoliza.costo, dataPoliza.url]
-      );
-      const polizaId = result.insertId;
-      for (const endoso of endosos) {
-        await connection.query(
-          `INSERT INTO Endoso (End_endoso, End_poliza, End_url) VALUES (?,?,?)`,
-          [endoso.endoso, polizaId, endoso.url]
-        );
-      }
-      // Auditoría dentro de la transacción
-      await connection.query(
-        `INSERT INTO Movimientos (Mov_tabla_afectada, Mov_registro_afectado, Mov_accion, Mov_detalles, Mov_usu_id)
-         VALUES ('Polizas', ?, (SELECT AcM_id FROM Acciones_movimiento WHERE AcM_nombre = 'INSERT'), ?, ?)`,
-        [polizaId.toString(), JSON.stringify({ ...dataPoliza, endosos }), usuarioId]
-      );
-      return polizaId;
-    });
-  }
-
-  async actualizar(id, data) {
-    await this.obtener(id);
+  async actualizar(id, data, usuarioId, empresaId = null) {
+    await this.obtener(id, empresaId);
     const map = {
       poliza: 'Pol_poliza',
       aseguradoraId: 'Pol_aseguradora',
@@ -153,21 +135,26 @@ class PolizasService {
     for (const key in data) {
       if (map[key]) dbData[map[key]] = data[key];
     }
-    const actualizada = await polizasRepository.update(id, dbData);
+    const actualizada = await polizasRepository.update(id, dbData, empresaId);
     await registrarMovimiento('Polizas', id, 'UPDATE', dbData, usuarioId);
     return actualizada;
   }
 
-  async actualizarUrl(id, url) {
-    await this.obtener(id);
-    await polizasRepository.updateUrl(id, url);
+  async actualizarUrl(id, url, usuarioId, empresaId = null) {
+    await this.obtener(id, empresaId);
+    const ok = await polizasRepository.updateUrl(id, url, empresaId);
+    if (!ok) {
+      const error = new Error('No se pudo actualizar la URL');
+      error.status = 500;
+      throw error;
+    }
     await registrarMovimiento('Polizas', id, 'UPDATE', { campo: 'Pol_url', valor: url }, usuarioId);
-    return this.obtener(id);
+    return this.obtener(id, empresaId);
   }
 
-  async eliminar(id) {
-    await this.obtener(id);
-    const eliminado = await polizasRepository.delete(id);
+  async eliminar(id, usuarioId, empresaId = null) {
+    await this.obtener(idempresaId);
+    const eliminado = await polizasRepository.delete(id, empresaId);
     if (eliminado) {
       await registrarMovimiento('Polizas', id, 'DELETE', {}, usuarioId);
     }

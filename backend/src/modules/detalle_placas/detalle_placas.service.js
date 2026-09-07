@@ -1,5 +1,6 @@
 const detallePlacasRepository = require('./detalle_placas.repository');
 const { registrarMovimiento } = require('../../utils/audit');
+const { existeRegistro } = require('../../utils/validators');
 
 class DetallePlacasService {
   async listar(filters) {
@@ -7,7 +8,7 @@ class DetallePlacasService {
   }
 
   async contar(filters) {
-    return detallesPlacasRepository.count(filters);
+    return detallePlacasRepository.count(filters);
   }
 
   async obtener(id) {

@@ -26,7 +26,7 @@ class TipoUnidadService {
       TpU_nombre_corto: data.nombreCorto || null,
     };
     const nuevo = await tipoUnidadRepository.create(dbData);
-    await registrarMovimiento('Tipo_unidad', nuevo.CampoId, 'INSERT', dbData, usuarioId);
+    await registrarMovimiento('Tipo_unidad', nuevo.TpU_Id, 'INSERT', dbData, usuarioId);
     return nuevo;
   }
 

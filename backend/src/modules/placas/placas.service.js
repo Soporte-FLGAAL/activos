@@ -1,5 +1,7 @@
 const placasRepository = require('./placas.repository');
 const { registrarMovimiento } = require('../../utils/audit');
+const { existeRegistro } = require('../../utils/validators');
+const { withTransaction } = require('../../utils/transaction');
 
 class PlacasService {
   async listar(filters) {
@@ -10,8 +12,8 @@ class PlacasService {
     return placasRepository.count(filters);
   }
   
-  async obtener(id) {
-    const placa = await placasRepository.findById(id);
+  async obtener(id, empresaId = null) {
+    const placa = await placasRepository.findById(id, empresaId);
     if (!placa) {
       const error = new Error('Placa no encontrada');
       error.status = 404;
@@ -43,8 +45,8 @@ class PlacasService {
     return nueva;
   }
 
-  async actualizarPlacaConMovimiento(idPlaca, dataPlaca, dataMovimiento, usuarioId) {
-    await this.obtener(idPlaca); // verifica existencia
+  async actualizarPlacaConMovimiento(idPlaca, dataPlaca, dataMovimiento, usuarioId, empresaId = null) {
+    await this.obtener(idPlaca, empresaId); // verifica existencia
     // Validar FK del movimiento
     if (!(await existeRegistro('Tipo_movimiento_placa', 'TpMP_id', dataMovimiento.tipoMovimientoId))) {
       const error = new Error('El tipo de movimiento no existe');
@@ -89,8 +91,8 @@ class PlacasService {
     });
   }
 
-  async actualizar(id, data, usuarioId) {
-    await this.obtener(id);
+  async actualizar(id, data, usuarioId, empresaId = null) {
+    await this.obtener(id, empresaId);
     if (data.propietarioId && !(await existeRegistro('Empresas', 'Emp_id', data.propietarioId))) {
       const error = new Error('El propietario no existe');
       error.status = 422;
@@ -112,14 +114,14 @@ class PlacasService {
     for (const key in data) {
       if (map[key]) dbData[map[key]] = data[key];
     }
-    const actualizada = await placasRepository.update(id, dbData);
+    const actualizada = await placasRepository.update(id, dbData, empresaId);
     await registrarMovimiento('Placas', id, 'UPDATE', dbData, usuarioId);
     return actualizada;
   }
 
-  async eliminar(id, usuarioId) {
-    await this.obtener(id);
-    const eliminado = await placasRepository.delete(id);
+  async eliminar(id, usuarioId, empresaId = null) {
+    await this.obtener(id, empresaId);
+    const eliminado = await placasRepository.delete(id, empresaId);
     if (eliminado) {
       await registrarMovimiento('Placas', id, 'DELETE', {}, usuarioId);
     }

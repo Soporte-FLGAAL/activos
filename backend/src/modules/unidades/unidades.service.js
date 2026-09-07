@@ -51,7 +51,6 @@ class UnidadesService {
       error.status = 500;
       throw error;
     }
-    await unidadesRepository.updateCampo(id, campo, valor);
     await registrarMovimiento('Unidades', id, 'UPDATE', { campo, valor }, usuarioId);
     return this.obtener(id);
   }
