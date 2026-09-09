@@ -2,7 +2,7 @@ const db = require('../../config/database');
 
 class PolizasRepository {
   async findAll(filters = {}) {
-    const { unidadId, aseguradoraId, vigente, empresaId, limit, offset } = filters;
+    const { empresaId, unidadId, aseguradoraId, vigente, limit, offset } = filters;
     let sql = `
       SELECT p.*, a.Ase_nombre AS aseguradora_nombre, u.Uni_no_economico, u.Uni_empresa_actual, tp.TpP_nombre AS tipo_poliza_nombre
       FROM Polizas p
@@ -10,9 +10,9 @@ class PolizasRepository {
       JOIN Unidades u ON p.Pol_unidad_id = u.Uni_id
       JOIN Tipo_poliza tp ON p.Pol_tipo_poliza = tp.TpP_id
       WHERE 1=1
-      ORDER BY p.Pol_id DESC
     `;
     const params = [];
+
     if (empresaId) {
       sql += ' AND u.Uni_empresa_actual = ?';
       params.push(empresaId);
@@ -30,10 +30,15 @@ class PolizasRepository {
     } else if (vigente === 'false') {
       sql += ' AND p.Pol_fecha_fin < CURDATE()';
     }
+
+    // Ordenamiento consistente para paginación
+    sql += ' ORDER BY p.Pol_id DESC';
+
     if (limit !== undefined && offset !== undefined) {
       sql += ' LIMIT ? OFFSET ?';
       params.push(limit, offset);
     }
+
     const [rows] = await db.query(sql, params);
     return rows;
   }
