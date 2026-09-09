@@ -153,7 +153,7 @@ class PolizasService {
   }
 
   async eliminar(id, usuarioId, empresaId = null) {
-    await this.obtener(idempresaId);
+    await this.obtener(id, empresaId);
     const eliminado = await polizasRepository.delete(id, empresaId);
     if (eliminado) {
       await registrarMovimiento('Polizas', id, 'DELETE', {}, usuarioId);

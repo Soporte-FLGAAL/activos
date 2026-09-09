@@ -1,51 +1,104 @@
 const usuarioEmpresasRepository = require('./usuario_empresas.repository');
-const usuariosRepository = require('../usuarios/usuarios.repository');
-const empresasRepository = require('../empresas/empresas.repository');
-const rolesRepository = require('../roles/roles.repository');
+const { withTransaction } = require('../../utils/transaction');
 const { registrarMovimiento } = require('../../utils/audit');
+const { existeRegistro } = require('../../utils/validators');
 
 class UsuarioEmpresasService {
-  async listarPorUsuario(usuarioId) {
-    return usuarioEmpresasRepository.findAllByUsuario(usuarioId);
+  async listar(filters) {
+    return usuarioEmpresasRepository.findAll(filters);
   }
 
-  async listarPorEmpresa(empresaId) {
-    return usuarioEmpresasRepository.findAllByEmpresa(empresaId);
+  async contar(filters) {
+    return usuarioEmpresasRepository.count(filters);
   }
 
-  async asignar(data) {
+  async asignar(data, usuarioId) {
     // Validar existencia de usuario, empresa y rol
-    const usuario = await usuariosRepository.findById(data.usuarioId);
-    if (!usuario) throw { status: 404, message: 'Usuario no encontrado' };
-    const empresa = await empresasRepository.findById(data.empresaId);
-    if (!empresa) throw { status: 404, message: 'Empresa no encontrada' };
-    const rol = await rolesRepository.findById(data.rolId);
-    if (!rol) throw { status: 404, message: 'Rol no encontrado' };
+    if (!(await existeRegistro('Usuario', 'Usu_id', data.usuarioId))) {
+      const error = new Error('El usuario no existe');
+      error.status = 422;
+      throw error;
+    }
+    if (!(await existeRegistro('Empresas', 'Emp_id', data.empresaId))) {
+      const error = new Error('La empresa no existe');
+      error.status = 422;
+      throw error;
+    }
+    if (!(await existeRegistro('Roles', 'Rol_id', data.rolId))) {
+      const error = new Error('El rol no existe');
+      error.status = 422;
+      throw error;
+    }
 
-    const yaExiste = await usuarioEmpresasRepository.findByUsuarioAndEmpresa(data.usuarioId, data.empresaId);
-    if (yaExiste) throw { status: 409, message: 'El usuario ya tiene asignada esta empresa' };
+    // Verificar que no exista ya la asignación
+    const existente = await usuarioEmpresasRepository.findOne(data.usuarioId, data.empresaId);
+    if (existente) {
+      const error = new Error('El usuario ya está asignado a esta empresa');
+      error.status = 409;
+      throw error;
+    }
 
-    const dbData = {
-      UE_usuario: data.usuarioId,
-      UE_empresa: data.empresaId,
-      UE_rol: data.rolId,
-    };
-    return usuarioEmpresasRepository.asignar(dbData);
+    return withTransaction(async (connection) => {
+      await usuarioEmpresasRepository.create(data, connection);
+      await registrarMovimiento(
+        'Usuario_Empresas',
+        `${data.usuarioId}-${data.empresaId}`,
+        'INSERT',
+        { usuarioId: data.usuarioId, empresaId: data.empresaId, rolId: data.rolId },
+        usuarioId,
+        connection
+      );
+      return true;
+    });
   }
 
-  async actualizarRol(usuarioId, empresaId, rolId) {
-    const asignacion = await usuarioEmpresasRepository.findByUsuarioAndEmpresa(usuarioId, empresaId);
-    if (!asignacion) throw { status: 404, message: 'Asignación no encontrada' };
-    const rol = await rolesRepository.findById(rolId);
-    if (!rol) throw { status: 404, message: 'Rol no encontrado' };
-    return usuarioEmpresasRepository.actualizarRol(usuarioId, empresaId, rolId);
+  async actualizarRol(data, usuarioId) {
+    const existente = await usuarioEmpresasRepository.findOne(data.usuarioId, data.empresaId);
+    if (!existente) {
+      const error = new Error('La asignación no existe');
+      error.status = 404;
+      throw error;
+    }
+    if (!(await existeRegistro('Roles', 'Rol_id', data.rolId))) {
+      const error = new Error('El rol no existe');
+      error.status = 422;
+      throw error;
+    }
+
+    return withTransaction(async (connection) => {
+      await usuarioEmpresasRepository.updateRol(data.usuarioId, data.empresaId, data.rolId, connection);
+      await registrarMovimiento(
+        'Usuario_Empresas',
+        `${data.usuarioId}-${data.empresaId}`,
+        'UPDATE',
+        { rolId: data.rolId },
+        usuarioId,
+        connection
+      );
+      return true;
+    });
   }
 
-  async eliminar(usuarioId, empresaId) {
-    const asignacion = await usuarioEmpresasRepository.findByUsuarioAndEmpresa(usuarioId, empresaId);
-    if (!asignacion) throw { status: 404, message: 'Asignación no encontrada' };
-    await usuarioEmpresasRepository.eliminar(usuarioId, empresaId);
-    return true;
+  async eliminar(usuarioId, empresaId, usuarioAuditorId) {
+    const existente = await usuarioEmpresasRepository.findOne(usuarioId, empresaId);
+    if (!existente) {
+      const error = new Error('La asignación no existe');
+      error.status = 404;
+      throw error;
+    }
+
+    return withTransaction(async (connection) => {
+      await usuarioEmpresasRepository.delete(usuarioId, empresaId, connection);
+      await registrarMovimiento(
+        'Usuario_Empresas',
+        `${usuarioId}-${empresaId}`,
+        'DELETE',
+        {},
+        usuarioAuditorId,
+        connection
+      );
+      return true;
+    });
   }
 }
 
