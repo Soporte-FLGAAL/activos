@@ -11,7 +11,7 @@ module.exports = (permisoRequerido) => {
       const [adminRows] = await db.query(
         `SELECT 1 FROM Usuario_Empresas ue
          JOIN Roles r ON ue.UE_rol = r.Rol_id
-         WHERE ue.UE_usuario = ? AND r.Rol_nombre = 'ADMIN'
+         WHERE ue.UE_usuario = ? AND r.Rol_nombre = 'ADMIN_GLOBAL'
          LIMIT 1`,
         [userId]
       );
