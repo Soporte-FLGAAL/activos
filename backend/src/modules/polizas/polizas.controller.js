@@ -36,7 +36,7 @@ exports.crear = async (req, res, next) => {
   try {
     // En creación simple, la empresa se asigna según la unidad, no se fuerza por ahora
     // Pero se podría validar que la unidad pertenezca a req.empresaId
-    const nueva = await polizasService.crear(req.body, req.user.userId);
+    const nueva = await polizasService.crear(req.body, req.user.userId, req.empresaId);
     return success(res, nueva, 'Póliza creada', 201);
   } catch (err) {
     next(err);

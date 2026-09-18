@@ -3,11 +3,24 @@ const authRepository = require('./auth.repository');
 const { comparePassword } = require('../../utils/password');
 
 class AuthService {
+  _credencialesInvalidas = () => {
+      const error = new Error('Credenciales inválidas');
+      error.status = 401;
+      return error;
+  };
+
   async login(email, password) {
     const user = await authRepository.findByEmail(email);
-    if (!user) throw new Error('Credenciales inválidas');
+    
+    if (!user) throw this._credencialesInvalidas();
+
+    if (user.Usu_status !== 'ACTIVO') {
+    // Mismo mensaje para no filtrar información
+      throw this._credencialesInvalidas();
+    }
+
     const valid = await comparePassword(password, user.Usu_password);
-    if (!valid) throw new Error('Credenciales inválidas');
+    if (!valid) throw this._credencialesInvalidas();
 
     await authRepository.updateLastAccess(user.Usu_id);
 
@@ -40,7 +53,11 @@ class AuthService {
     }
 
     const user = await authRepository.findById(decoded.userId);
-    if (!user) throw new Error('Usuario no encontrado');
+    if (!user || user.Usu_status !== 'ACTIVO') {
+      const error = new Error('Refresh token inválido');
+      error.status = 401;
+      throw error;
+    }
 
     // Revocar token anterior
     await authRepository.revocarRefreshToken(token);

@@ -2,12 +2,12 @@ const db = require('../../config/database');
 
 class AuthRepository {
   async findByEmail(email) {
-    const [rows] = await db.query('SELECT * FROM Usuario WHERE Usu_correo = ? AND Usu_status = "ACTIVO"', [email]);
+    const [rows] = await db.query('SELECT * FROM Usuario WHERE Usu_correo = ?', [email]);
     return rows[0] || null;
   }
 
   async findById(id) {
-    const [rows] = await db.query('SELECT * FROM Usuario WHERE Usu_id = ? AND Usu_status = "ACTIVO"', [id]);
+    const [rows] = await db.query('SELECT * FROM Usuario WHERE Usu_id = ?', [id]);
     return rows[0] || null;
   }
 

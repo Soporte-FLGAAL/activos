@@ -61,19 +61,10 @@ class TarjetasService {
 
   async crearTarjetaConCotejos(dataTarjeta, cotejos, usuarioId, empresaId) {
     // Validaciones de FK previas
-    // Validar que la unidad pertenezca a la empresa
     if (!(await existeRegistro('Unidades', 'Uni_id', dataTarjeta.unidadId))) {
       throw new Error('La unidad no existe');
     }
-    // Opcional: verificar empresa de la unidad
-    if (empresaId) {
-      const [unidad] = await db.query('SELECT Uni_empresa_actual FROM Unidades WHERE Uni_id = ?', [dataTarjeta.unidadId]);
-      if (!unidad || unidad.Uni_empresa_actual !== empresaId) {
-        const error = new Error('La unidad no pertenece a la empresa');
-        error.status = 403;
-        throw error;
-      }
-    }
+    
     if (!(await existeRegistro('Tipo_tarjeta', 'TpT_id', dataTarjeta.tipoId))) {
       const error = new Error('El tipo de tarjeta no existe');
       error.status = 422;
@@ -86,6 +77,18 @@ class TarjetasService {
     }
 
     return withTransaction(async (connection) => {
+      if (empresaId) {
+        const [unidadRows] = await connection.query(
+          'SELECT Uni_empresa_actual FROM Unidades WHERE Uni_id = ?',
+          [dataPoliza.unidadId]
+        );
+        if (unidadRows.length === 0 || unidadRows[0].Uni_empresa_actual !== empresaId) {
+          const error = new Error('La unidad no pertenece a la empresa');
+          error.status = 403;
+          throw error;
+        }
+      }
+
       // Insertar tarjeta
       const [result] = await connection.query(
         `INSERT INTO Tarjeta_circulacion 

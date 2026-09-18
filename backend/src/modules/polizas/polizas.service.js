@@ -19,17 +19,21 @@ class PolizasService {
   }
 
   async crear(data, usuarioId) {
-    const fks = [
-      ['Aseguradoras', 'Ase_id', data.aseguradoraId, 'Aseguradora'],
-      ['Unidades', 'Uni_id', data.unidadId, 'Unidad'],
-      ['Tipo_poliza', 'TpP_id', data.tipoPolizaId, 'Tipo de póliza'],
-    ];
-    for (const [tabla, campo, valor, nombre] of fks) {
-      if (valor && !(await existeRegistro(tabla, campo, valor))) {
-        const error = new Error(`${nombre} no existe`);
-        error.status = 422;
-        throw error;
-      }
+    // Validaciones de FK
+    if (!(await existeRegistro('Aseguradoras', 'Ase_id', data.aseguradoraId))) {
+      const error = new Error('La aseguradora no existe');
+      error.status = 422;
+      throw error;
+    }
+    if (!(await existeRegistro('Unidades', 'Uni_id', data.unidadId))) {
+      const error = new Error('La unidad no existe');
+      error.status = 422;
+      throw error;
+    }
+    if (!(await existeRegistro('Tipo_poliza', 'TpP_id', data.tipoPolizaId))) {
+      const error = new Error('El tipo de póliza no existe');
+      error.status = 422;
+      throw error;
     }
 
     const dbData = {
@@ -42,9 +46,33 @@ class PolizasService {
       Pol_costo: data.costo,
       Pol_url: data.url,
     };
-    const nuevaPoliza = await polizasRepository.create(dbData);
-    await registrarMovimiento('Polizas', nuevaPoliza.Pol_id, 'INSERT', dbData, usuarioId);
-    return nuevaPoliza;
+   
+    return withTransaction(async (connection) => {
+      // Validar pertenencia a la empresa dentro de la transacción
+      if (empresaId) {
+        const [unidadRows] = await connection.query(
+          'SELECT Uni_empresa_actual FROM Unidades WHERE Uni_id = ?',
+          [data.unidadId]
+        );
+        if (
+          unidadRows.length === 0 ||
+          unidadRows[0].Uni_empresa_actual !== empresaId
+        ) {
+          const error = new Error('La unidad no pertenece a la empresa');
+          error.status = 403;
+          throw error;
+        }
+      }
+
+      // Insertar póliza
+      const [result] = await connection.query('INSERT INTO Polizas SET ?', dbData);
+      const polizaId = result.insertId;
+
+      // Auditoría dentro de la transacción
+      await registrarMovimiento('Polizas', polizaId, 'INSERT', dbData, usuarioId, connection);
+
+        return polizaId;
+    }).then((polizaId) => this.obtener(polizaId, empresaId));
   }
 
   async crearPolizaConEndosos(dataPoliza, endosos, usuarioId, empresaId = null) {
@@ -65,16 +93,19 @@ class PolizasService {
       throw error;
     }
 
-    if (empresaId) {
-      const [unidad] = await db.query('SELECT Uni_empresa_actual FROM Unidades WHERE Uni_id = ?', [dataPoliza.unidadId]);
-      if (!unidad || unidad.Uni_empresa_actual !== empresaId) {
-        const error = new Error('La unidad no pertenece a la empresa');
-        error.status = 403;
-        throw error;
-      }
-    }
-
     return withTransaction(async (connection) => {
+      if (empresaId) {
+        const [unidadRows] = await connection.query(
+          'SELECT Uni_empresa_actual FROM Unidades WHERE Uni_id = ?',
+          [dataPoliza.unidadId]
+        );
+        if (unidadRows.length === 0 || unidadRows[0].Uni_empresa_actual !== empresaId) {
+          const error = new Error('La unidad no pertenece a la empresa');
+          error.status = 403;
+          throw error;
+        }
+      }
+      
       // Insertar póliza
       const [polizaResult] = await connection.query(
         `INSERT INTO Polizas (Pol_poliza, Pol_aseguradora, Pol_unidad_id, Pol_tipo_poliza, Pol_fecha_inicio, Pol_fecha_fin, Pol_costo, Pol_url)
@@ -121,6 +152,7 @@ class PolizasService {
 
   async actualizar(id, data, usuarioId, empresaId = null) {
     await this.obtener(id, empresaId);
+
     const map = {
       poliza: 'Pol_poliza',
       aseguradoraId: 'Pol_aseguradora',
@@ -135,9 +167,38 @@ class PolizasService {
     for (const key in data) {
       if (map[key]) dbData[map[key]] = data[key];
     }
-    const actualizada = await polizasRepository.update(id, dbData, empresaId);
-    await registrarMovimiento('Polizas', id, 'UPDATE', dbData, usuarioId);
-    return actualizada;
+    
+    return withTransaction(async (connection) => {
+      // Si se está cambiando la unidad, validar que pertenezca a la empresa
+      if (data.unidadId && empresaId) {
+        const [unidadRows] = await connection.query(
+          'SELECT Uni_empresa_actual FROM Unidades WHERE Uni_id = ?',
+          [data.unidadId]
+        );
+        if (
+          unidadRows.length === 0 ||
+          unidadRows[0].Uni_empresa_actual !== empresaId
+        ) {
+          const error = new Error('La unidad no pertenece a la empresa');
+          error.status = 403;
+          throw error;
+        }
+      }
+
+      const [result] = await connection.query(
+        'UPDATE Polizas SET ? WHERE Pol_id = ?',
+        [dbData, id]
+      );
+      if (result.affectedRows === 0) {
+        const error = new Error('No se pudo actualizar la póliza');
+        error.status = 500;
+        throw error;
+      }
+
+      await registrarMovimiento('Polizas', id, 'UPDATE', dbData, usuarioId, connection);
+
+      return true;
+    }).then(() => this.obtener(id, empresaId));
   }
 
   async actualizarUrl(id, url, usuarioId, empresaId = null) {
