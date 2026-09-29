@@ -1,5 +1,6 @@
 const { z } = require('zod');
 
+// Esquema principal para crear una tarjeta
 const crearTarjetaSchema = z.object({
   tarjeta: z.string().max(50),
   unidadId: z.number().int().positive(),
@@ -8,9 +9,9 @@ const crearTarjetaSchema = z.object({
   status: z.string().max(20),
   noOriginal: z.string().max(50).optional().nullable(),
   placasId: z.number().int().positive(),
-  fechaObtencion: z.coerce.date().refine((date) => date instanceof Date && !isNaN(date.getTime()), 'Fecha inválida'),
-  fechaVencimiento: z.coerce.date().refine((date) => date instanceof Date && !isNaN(date.getTime()), 'Fecha inválida'),
-  fechaReposicion: z.coerce.date().refine((date) => date instanceof Date && !isNaN(date.getTime()), 'Fecha inválida'),
+  fechaObtencion: z.string().date(),
+  fechaVencimiento: z.string().date().optional().nullable(),
+  fechaReposicion: z.string().date().optional().nullable(),
   costoReposicion: z.number().nonnegative().optional().nullable(),
   url: z.string().url(),
   urlReposicion: z.string().url().optional().nullable(),
@@ -20,6 +21,17 @@ const actualizarTarjetaSchema = crearTarjetaSchema.partial();
 
 const actualizarUrlSchema = z.object({
   url: z.string().url(),
+});
+
+// Esquema para crear tarjeta + cotejos (transaccional)
+const cotejoItemSchema = z.object({
+  tarjetaCotejo: z.string().max(50),
+  fecha: z.string().date(),
+});
+
+const crearTarjetaConCotejosSchema = z.object({
+  tarjeta: crearTarjetaSchema,
+  cotejos: z.array(cotejoItemSchema).optional().default([]),
 });
 
 const paramsIdSchema = z.object({

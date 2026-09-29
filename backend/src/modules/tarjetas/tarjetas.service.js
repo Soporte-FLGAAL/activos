@@ -80,7 +80,7 @@ class TarjetasService {
       if (empresaId) {
         const [unidadRows] = await connection.query(
           'SELECT Uni_empresa_actual FROM Unidades WHERE Uni_id = ?',
-          [dataPoliza.unidadId]
+          [dataTarjeta.unidadId]
         );
         if (unidadRows.length === 0 || unidadRows[0].Uni_empresa_actual !== empresaId) {
           const error = new Error('La unidad no pertenece a la empresa');

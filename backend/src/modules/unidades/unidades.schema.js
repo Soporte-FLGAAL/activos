@@ -41,8 +41,21 @@ const filtrosUnidadesSchema = z.object({
 });
 
 const actualizarCampoSchema = z.object({
-  campo: z.enum(['Uni_factura_url', 'Uni_url_verificacion_contaminantes', 'Uni_url_verificacion_mecanica', 'Uni_no_economico', 'Uni_status', 'Uni_empresa_actual']),
+  campo: z.enum([
+    'Uni_factura_url',
+    'Uni_url_verificacion_contaminantes',
+    'Uni_url_verificacion_mecanica',
+    'Uni_no_economico',
+    'Uni_status',
+    // NOTA: Uni_empresa_actual se elimina de aquí a propósito
+  ]),
   valor: z.union([z.string(), z.number()]),
+});
+
+// Operación explícita de cambio de empresa (solo ADMIN_GLOBAL)
+const cambiarEmpresaSchema = z.object({
+  empresaDestinoId: z.number().int().positive(),
+  estadoId: z.number().int().positive().optional(), // ej. RENTADA, PRESTADA
 });
 
 const paramsIdSchema = z.object({

@@ -42,8 +42,15 @@ class TarjetasRepository {
 
   async count(filters = {}) {
     const { unidadId, status, vencida, empresaId } = filters;
-    let sql = 'SELECT COUNT(*) AS total FROM Tarjeta_circulacion tc WHERE 1=1';
+    // Aquí estaba el bug: faltaba el JOIN a Unidades
+    let sql = `
+      SELECT COUNT(*) AS total
+      FROM Tarjeta_circulacion tc
+      JOIN Unidades u ON tc.TC_unidad_id = u.Uni_id
+      WHERE 1=1
+    `;
     const params = [];
+
     if (empresaId) {
       sql += ' AND u.Uni_empresa_actual = ?';
       params.push(empresaId);

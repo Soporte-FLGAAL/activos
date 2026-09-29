@@ -69,23 +69,28 @@ class UnidadesRepository {
     return rows[0].total;
   }
 
-  async findById(id) {
-    const [rows] = await db.query(
-      `SELECT u.*, tu.TpU_nombre AS tipo_nombre, eu.EsU_estado AS estado_nombre,
-              c.Com_nombre AS combustible_nombre, p1.Emp_nombre AS propietario_nombre,
-              p2.Emp_nombre AS empresa_nombre, per1.Per_nombre AS periodo_mecanica,
-              per2.Per_nombre AS periodo_contaminantes
-       FROM Unidades u
-       JOIN Tipo_unidad tu ON u.Uni_tipo = tu.TpU_id
-       JOIN Estado_unidad eu ON u.Uni_estado = eu.EsU_id
-       JOIN Combustible c ON u.Uni_combustible = c.Com_id
-       JOIN Empresas p1 ON u.Uni_propietario = p1.Emp_id
-       JOIN Empresas p2 ON u.Uni_empresa_actual = p2.Emp_id
-       JOIN Periodos per1 ON u.Uni_periodo_verificacion_mecanica = per1.Per_id
-       JOIN Periodos per2 ON u.Uni_periodo_verificacion_contaminantes = per2.Per_id
-       WHERE u.Uni_id = ?`,
-      [id]
-    );
+  async findById(id, empresaId = null) {
+    let sql = `
+      SELECT u.*, tu.TpU_nombre AS tipo_nombre, eu.EsU_estado AS estado_nombre,
+            c.Com_nombre AS combustible_nombre, p1.Emp_nombre AS propietario_nombre,
+            p2.Emp_nombre AS empresa_nombre, per1.Per_nombre AS periodo_mecanica,
+            per2.Per_nombre AS periodo_contaminantes
+      FROM Unidades u
+      JOIN Tipo_unidad tu ON u.Uni_tipo = tu.TpU_id
+      JOIN Estado_unidad eu ON u.Uni_estado = eu.EsU_id
+      JOIN Combustible c ON u.Uni_combustible = c.Com_id
+      JOIN Empresas p1 ON u.Uni_propietario = p1.Emp_id
+      JOIN Empresas p2 ON u.Uni_empresa_actual = p2.Emp_id
+      JOIN Periodos per1 ON u.Uni_periodo_verificacion_mecanica = per1.Per_id
+      JOIN Periodos per2 ON u.Uni_periodo_verificacion_contaminantes = per2.Per_id
+      WHERE u.Uni_id = ?
+    `;
+    const params = [id];
+    if (empresaId) {
+      sql += ' AND u.Uni_empresa_actual = ?';
+      params.push(empresaId);
+    }
+    const [rows] = await db.query(sql, params);
     return rows[0] || null;
   }
 
@@ -94,9 +99,16 @@ class UnidadesRepository {
     return this.findById(result.insertId);
   }
 
-  async update(id, data) {
-    await db.query('UPDATE Unidades SET ? WHERE Uni_id = ?', [data, id]);
-    return this.findById(id);
+  async update(id, data, empresaId = null, connection = null) {
+    const dbConn = connection || db;
+    let sql = 'UPDATE Unidades SET ? WHERE Uni_id = ?';
+    const params = [data, id];
+    if (empresaId) {
+      sql += ' AND Uni_empresa_actual = ?';
+      params.push(empresaId);
+    }
+    const [result] = await dbConn.query(sql, params);
+    return result.affectedRows > 0;
   }
 
   async updateCampo(id, campo, valor) {
@@ -104,8 +116,15 @@ class UnidadesRepository {
     return result.affectedRows > 0;
   }
 
-  async delete(id) {
-    const [result] = await db.query('DELETE FROM Unidades WHERE Uni_id = ?', [id]);
+  async delete(id, empresaId = null, connection = null) {
+    const dbConn = connection || db;
+    let sql = 'DELETE FROM Unidades WHERE Uni_id = ?';
+    const params = [id];
+    if (empresaId) {
+      sql += ' AND Uni_empresa_actual = ?';
+      params.push(empresaId);
+    }
+    const [result] = await dbConn.query(sql, params);
     return result.affectedRows > 0;
   }
 

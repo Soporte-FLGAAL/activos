@@ -18,7 +18,7 @@ class PolizasService {
     return poliza;
   }
 
-  async crear(data, usuarioId) {
+  async crear(data, usuarioId, empresaId) {
     // Validaciones de FK
     if (!(await existeRegistro('Aseguradoras', 'Ase_id', data.aseguradoraId))) {
       const error = new Error('La aseguradora no existe');

@@ -22,21 +22,50 @@ class UnidadesService {
 
   async crear(data, usuarioId) {
     const dbData = this._toDbData(data);
-    const nuevo = await unidadesRepository.create(dbData);
-    await registrarMovimiento('Unidades', nuevo.Uni_id, 'INSERT', dbData, usuarioId);
-    return nuevo;
+    return withTransaction(async (connection) => {
+      const [result] = await connection.query('INSERT INTO Unidades SET ?', dbData);
+      const nuevoId = result.insertId;
+      await registrarMovimiento('Unidades', nuevoId, 'INSERT', dbData, usuarioId, connection);
+      return nuevoId;
+    }).then((id) => this.obtener(id));
   }
 
-  async actualizar(id, data, usuarioId) {
-    await this.obtener(id);
+  async actualizar(id, data, usuarioId, empresaId = null) {
+    await this.obtener(id, empresaId);
+
     const dbData = this._toDbData(data, true);
-    const actualizada = await unidadesRepository.update(id, dbData);
-    await registrarMovimiento('Unidades', id, 'UPDATE', dbData, usuarioId);
-    return actualizada;
+    // El cambio de empresa NO puede venir por este endpoint
+    delete dbData.Uni_empresa_actual;
+
+    if (Object.keys(dbData).length === 0) {
+      const error = new Error('No hay campos para actualizar');
+      error.status = 400;
+      throw error;
+    }
+
+    return withTransaction(async (connection) => {
+      const ok = await unidadesRepository.update(id, dbData, empresaId, connection);
+      if (!ok) {
+        const error = new Error('No se pudo actualizar la unidad');
+        error.status = 500;
+        throw error;
+      }
+      await registrarMovimiento('Unidades', id, 'UPDATE', dbData, usuarioId, connection);
+      return true;
+    }).then(() => this.obtener(id, empresaId));
   }
 
   async actualizarCampo(id, { campo, valor }, usuarioId) {
-    await this.obtener(id);
+        // Bloqueo explícito del campo empresa en este endpoint
+    if (campo === 'Uni_empresa_actual') {
+      const error = new Error(
+        'El cambio de empresa debe realizarse mediante el endpoint /cambiar-empresa'
+      );
+      error.status = 400;
+      throw error;
+    }
+
+    await this.obtener(id, empresaId);
     // Validar que el campo sea permitido y el valor adecuado según el campo
     if (campo === 'Uni_status') {
       if (!['ALTA', 'BAJA'].includes(valor)) {
@@ -45,23 +74,92 @@ class UnidadesService {
         throw error;
       }
     }
-    const ok = await unidadesRepository.updateCampo(id, campo, valor);
-    if (!ok) {
-      const error = new Error('No se pudo actualizar el campo');
-      error.status = 500;
-      throw error;
-    }
-    await registrarMovimiento('Unidades', id, 'UPDATE', { campo, valor }, usuarioId);
-    return this.obtener(id);
+
+    return withTransaction(async (connection) => {
+      const [result] = await connection.query(
+        `UPDATE Unidades SET ${campo} = ? WHERE Uni_id = ?${empresaId ? ' AND Uni_empresa_actual = ?' : ''}`,
+        empresaId ? [valor, id, empresaId] : [valor, id]
+      );
+      if (result.affectedRows === 0) {
+        const error = new Error('No se pudo actualizar el campo');
+        error.status = 500;
+        throw error;
+      }
+      await registrarMovimiento('Unidades', id, 'UPDATE', { campo, valor }, usuarioId, connection);
+      return true;
+    }).then(() => this.obtener(id, empresaId));
   }
 
-  async eliminar(id, usuarioId) {
-    await this.obtener(id);
-    const eliminado = await unidadesRepository.delete(id);
-    if (eliminado) {
-      await registrarMovimiento('Unidades', id, 'DELETE', {}, usuarioId);
+    async cambiarEmpresa(id, { empresaDestinoId, estadoId }, usuarioId) {
+    // Validar que la empresa destino exista
+    if (!(await existeRegistro('Empresas', 'Emp_id', empresaDestinoId))) {
+      const error = new Error('La empresa destino no existe');
+      error.status = 422;
+      throw error;
     }
-    return eliminado;
+    if (estadoId && !(await existeRegistro('Estado_unidad', 'EsU_id', estadoId))) {
+      const error = new Error('El estado indicado no existe');
+      error.status = 422;
+      throw error;
+    }
+
+    // Obtener la unidad actual (sin filtro de empresa: solo ADMIN_GLOBAL llega aquí)
+    const unidad = await this.obtener(id);
+    const empresaAnterior = unidad.Uni_empresa_actual;
+
+    if (empresaAnterior === empresaDestinoId) {
+      const error = new Error('La unidad ya pertenece a esa empresa');
+      error.status = 409;
+      throw error;
+    }
+
+    return withTransaction(async (connection) => {
+      // Actualizar empresa actual y opcionalmente el estado
+      const campos = ['Uni_empresa_actual = ?'];
+      const valores = [empresaDestinoId];
+      if (estadoId) {
+        campos.push('Uni_estado = ?');
+        valores.push(estadoId);
+      }
+      valores.push(id);
+
+      await connection.query(
+        `UPDATE Unidades SET ${campos.join(', ')} WHERE Uni_id = ?`,
+        valores
+      );
+
+      // Auditoría con detalle del cambio
+      await registrarMovimiento(
+        'Unidades',
+        id,
+        'UPDATE',
+        {
+          campo: 'Uni_empresa_actual',
+          empresaAnterior,
+          empresaNueva: empresaDestinoId,
+          estadoNuevo: estadoId || undefined,
+        },
+        usuarioId,
+        connection
+      );
+
+      return true;
+    }).then(() => this.obtener(id));
+  }
+
+  async eliminar(id, usuarioId, empresaId = null) {
+    await this.obtener(id, empresaId);
+
+    return withTransaction(async (connection) => {
+      const ok = await unidadesRepository.delete(id, empresaId, connection);
+      if (!ok) {
+        const error = new Error('No se pudo eliminar la unidad');
+        error.status = 500;
+        throw error;
+      }
+      await registrarMovimiento('Unidades', id, 'DELETE', {}, usuarioId, connection);
+      return true;
+    });
   }
 
   async totalPorEmpresa(empresaId) {

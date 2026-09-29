@@ -4,6 +4,10 @@ const { success } = require('../../utils/response');
 
 exports.listar = async (req, res, next) => {
   try {
+    const empresaFiltro = req.esAdminGlobal
+      ? (req.query.empresaId || null)
+      : req.empresaId;
+
     const filtros = {
       empresaId: req.query.empresaId || null,
       tipoId: req.query.tipoId || null,
@@ -12,6 +16,7 @@ exports.listar = async (req, res, next) => {
       status: req.query.status || null,
       search: req.query.search || null,
     };
+
     const resultado = await paginate(
       (f) => unidadesService.listar(f),
       (f) => unidadesService.contar(f),
@@ -24,41 +29,60 @@ exports.listar = async (req, res, next) => {
 
 exports.obtener = async (req, res, next) => {
   try {
-    const unidad = await unidadesService.obtener(req.params.id);
+    const empresaId = req.esAdminGlobal ? null : req.empresaId;
+    const unidad = await unidadesService.obtener(req.params.id, empresaId);
     return success(res, unidad, 'Unidad encontrada');
   } catch (err) { next(err); }
 };
 
 exports.crear = async (req, res, next) => {
   try {
-    const nueva = await unidadesService.crear(req.body);
+    const nueva = await unidadesService.crear(req.body, req.user.userId);
     return success(res, nueva, 'Unidad creada', 201);
   } catch (err) { next(err); }
 };
 
 exports.actualizar = async (req, res, next) => {
   try {
-    const actualizada = await unidadesService.actualizar(req.params.id, req.body);
+    const empresaId = req.esAdminGlobal ? null : req.empresaId;
+    const actualizada = await unidadesService.actualizar(req.params.id, req.body, req.user.userId, empresaId);
     return success(res, actualizada, 'Unidad actualizada');
   } catch (err) { next(err); }
 };
 
 exports.actualizarCampo = async (req, res, next) => {
   try {
-    const actualizada = await unidadesService.actualizarCampo(req.params.id, req.body);
+    const empresaId = req.esAdminGlobal ? null : req.empresaId;
+    const actualizada = await unidadesService.actualizarCampo(req.params.id, req.body, req.user.userId, empresaId);
     return success(res, actualizada, 'Campo actualizado');
+  } catch (err) { next(err); }
+};
+
+exports.cambiarEmpresa = async (req, res, next) => {
+  try {
+    if (!req.esAdminGlobal) {
+      return error(res, 'Solo un administrador global puede cambiar la empresa de una unidad', 403);
+    }
+    const actualizada = await unidadesService.cambiarEmpresa(
+      req.params.id, req.body, req.user.userId
+    );
+    return success(res, actualizada, 'Empresa de la unidad actualizada');
   } catch (err) { next(err); }
 };
 
 exports.eliminar = async (req, res, next) => {
   try {
-    await unidadesService.eliminar(req.params.id);
+    const empresaId = req.esAdminGlobal ? null : req.empresaId;
+    await unidadesService.eliminar(req.params.id, req.user.userId, empresaId);
     return success(res, null, 'Unidad eliminada');
   } catch (err) { next(err); }
 };
 
 exports.totalPorEmpresa = async (req, res, next) => {
   try {
+    if (!req.esAdminGlobal && Number(req.params.empresaId) !== Number(req.empresaId)) {
+      return error(res, 'No tiene acceso a la empresa especificada', 403);
+    }
     const { empresaId } = req.params;
     const total = await unidadesService.totalPorEmpresa(empresaId);
     return success(res, { total }, 'Total de unidades');
@@ -67,6 +91,9 @@ exports.totalPorEmpresa = async (req, res, next) => {
 
 exports.resumenPorEmpresa = async (req, res, next) => {
   try {
+    if (!req.esAdminGlobal && Number(req.params.empresaId) !== Number(req.empresaId)) {
+      return error(res, 'No tiene acceso a la empresa especificada', 403);
+    }
     const { empresaId } = req.params;
     const resumen = await unidadesService.resumenPorEmpresa(empresaId);
     return success(res, resumen, 'Resumen de unidades');

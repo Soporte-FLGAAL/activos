@@ -1,18 +1,14 @@
 const sictRepository = require('./sict.repository');
+const { withTransaction } = require('../../utils/transaction');
 const { registrarMovimiento } = require('../../utils/audit');
 const { existeRegistro } = require('../../utils/validators');
 
 class SictService {
-  async listar(filters) {
-    return sictRepository.findAll(filters);
-  }
+  async listar(filters) { return sictRepository.findAll(filters); }
+  async contar(filters) { return sictRepository.count(filters); }
 
-  async contar(filters) {
-    return sictRepository.count(filters);
-  }
-
-  async obtener(id) {
-    const permiso = await sictRepository.findById(id);
+  async obtener(id, empresaId = null) {
+    const permiso = await sictRepository.findById(id, empresaId);
     if (!permiso) {
       const error = new Error('Permiso SICT no encontrado');
       error.status = 404;
@@ -21,13 +17,12 @@ class SictService {
     return permiso;
   }
 
-  async crear(data, usuarioId) {
+  async crear(data, usuarioId, empresaId = null) {
     if (!(await existeRegistro('Unidades', 'Uni_id', data.unidadId))) {
       const error = new Error('La unidad no existe');
       error.status = 422;
       throw error;
     }
-
     const dbData = {
       SICT_permiso: data.permiso,
       SICT_unidad_id: data.unidadId,
@@ -35,19 +30,27 @@ class SictService {
       SICT_fecha_vencimiento: data.fechaVencimiento,
       SICT_url: data.url,
     };
-    const nuevo = await sictRepository.create(dbData);
-    await registrarMovimiento('SICT', nuevo.SICT_id, 'INSERT', dbData, usuarioId);
-    return nuevo;
+
+    return withTransaction(async (connection) => {
+      if (empresaId) {
+        const [row] = await connection.query(
+          'SELECT Uni_empresa_actual FROM Unidades WHERE Uni_id = ?',
+          [data.unidadId]
+        );
+        if (row.length === 0 || row[0].Uni_empresa_actual !== empresaId) {
+          const error = new Error('La unidad no pertenece a la empresa');
+          error.status = 403;
+          throw error;
+        }
+      }
+      const nuevoId = await sictRepository.create(dbData, connection);
+      await registrarMovimiento('SICT', nuevoId, 'INSERT', dbData, usuarioId, connection);
+      return nuevoId;
+    }).then((id) => this.obtener(id, empresaId));
   }
 
-  async actualizar(id, data, usuarioId) {
-    await this.obtener(id);
-    if (!(await existeRegistro('Unidades', 'Uni_id', data.unidadId))) {
-      const error = new Error('La unidad no existe');
-      error.status = 422;
-      throw error;
-    }
-
+  async actualizar(id, data, usuarioId, empresaId = null) {
+    await this.obtener(id, empresaId);
     const map = {
       permiso: 'SICT_permiso',
       unidadId: 'SICT_unidad_id',
@@ -56,21 +59,32 @@ class SictService {
       url: 'SICT_url',
     };
     const dbData = {};
-    for (const key in data) {
-      if (map[key]) dbData[map[key]] = data[key];
-    }
-    const actualizado = await sictRepository.update(id, dbData);
-    await registrarMovimiento('SICT', id, 'UPDATE', dbData, usuarioId);
-    return actualizado;
+    for (const key in data) if (map[key]) dbData[map[key]] = data[key];
+
+    return withTransaction(async (connection) => {
+      const ok = await sictRepository.update(id, dbData, empresaId, connection);
+      if (!ok) {
+        const error = new Error('No se pudo actualizar el permiso SICT');
+        error.status = 500;
+        throw error;
+      }
+      await registrarMovimiento('SICT', id, 'UPDATE', dbData, usuarioId, connection);
+      return true;
+    }).then(() => this.obtener(id, empresaId));
   }
 
-  async eliminar(id, usuarioId) {
-    await this.obtener(id);
-    const eliminado = await sictRepository.delete(id);
-    if (eliminado) {
-      await registrarMovimiento('SICT', id, 'DELETE', {}, usuarioId);
-    }
-    return eliminado;
+  async eliminar(id, usuarioId, empresaId = null) {
+    await this.obtener(id, empresaId);
+    return withTransaction(async (connection) => {
+      const ok = await sictRepository.delete(id, empresaId, connection);
+      if (!ok) {
+        const error = new Error('No se pudo eliminar el permiso SICT');
+        error.status = 500;
+        throw error;
+      }
+      await registrarMovimiento('SICT', id, 'DELETE', {}, usuarioId, connection);
+      return true;
+    });
   }
 }
 
