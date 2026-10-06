@@ -408,6 +408,26 @@ CREATE TABLE IF NOT EXISTS Cotejos(
         ON UPDATE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS Archivos (
+  Arc_id INT NOT NULL AUTO_INCREMENT,
+  Arc_uuid CHAR(36) NOT NULL UNIQUE,
+  Arc_nombre_original VARCHAR(255) NOT NULL,
+  Arc_ruta VARCHAR(500) NOT NULL,          -- ruta relativa: uploads/{tipo}/{uuid}.ext
+  Arc_mime VARCHAR(100) NOT NULL,
+  Arc_tamano INT NOT NULL,                 -- bytes
+  Arc_tipo VARCHAR(30) NOT NULL,           -- factura | poliza | tarjeta | sict | ...
+  Arc_empresa INT NOT NULL,
+  Arc_subido_por INT NOT NULL,
+  Arc_fecha DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (Arc_id),
+  FOREIGN KEY (Arc_empresa) REFERENCES Empresas(Emp_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE,
+  FOREIGN KEY (Arc_subido_por) REFERENCES Usuario(Usu_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE,
+  INDEX idx_arc_empresa (Arc_empresa),
+  INDEX idx_arc_uuid (Arc_uuid)
+);
+
 -- =========================================================
 -- INDICES
 -- =========================================================
