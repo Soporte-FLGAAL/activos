@@ -16,7 +16,6 @@ const corsOptions = {
   optionsSuccessStatus: 200,
 };
 
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 app.use('/api', apiLimiter);
 app.use(helmet());
 app.use(cors(corsOptions));

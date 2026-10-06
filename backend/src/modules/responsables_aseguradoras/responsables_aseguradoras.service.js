@@ -21,7 +21,7 @@ class ResponsablesAseguradorasService {
     return responsable;
   }
 
-  async crear(data) {
+  async crear(data, usuarioId) {
     if (!(await existeRegistro('Aseguradoras', 'Ase_id', data.aseguradoraId))) {
       const error = new Error('La aseguradora no existe');
       error.status = 422;
@@ -45,7 +45,7 @@ class ResponsablesAseguradorasService {
     return nuevo;
   }
 
-  async actualizar(id, data) {
+  async actualizar(id, data, usuarioId) {
     await this.obtener(id);
     const map = {
       aseguradoraId: 'RA_aseguradora',
@@ -63,7 +63,7 @@ class ResponsablesAseguradorasService {
     return actualizado;
   }
 
-  async eliminar(id) {
+  async eliminar(id, usuarioId) {
     await this.obtener(id);
     const eliminado = await responsablesAseguradorasRepository.delete(id);
     if (eliminado) {

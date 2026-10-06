@@ -15,6 +15,7 @@ module.exports = async (req, res, next) => {
       [userId]
     );
     const esAdminGlobal = adminRows.length > 0;
+    req.esAdminGlobal = esAdminGlobal;
 
     // Obtener todas las empresas del usuario
     const [empresas] = await db.query(

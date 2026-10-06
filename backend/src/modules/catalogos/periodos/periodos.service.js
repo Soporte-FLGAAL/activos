@@ -23,7 +23,7 @@ class PeriodosService {
   async crear(data, usuarioId) {
     const dbData = { Per_nombre: data.nombre };
     const nuevo = await periodosRepository.create(dbData);
-    await registrarMovimiento('Periodos', nuevo.CampoId, 'INSERT', dbData, usuarioId);
+    await registrarMovimiento('Periodos', nuevo.Per_id, 'INSERT', dbData, usuarioId);
     return nuevo;
   }
 

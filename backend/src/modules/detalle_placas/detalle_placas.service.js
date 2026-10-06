@@ -70,9 +70,30 @@ class DetallePlacasService {
     for (const key in data) {
       if (map[key]) dbData[map[key]] = data[key];
     }
-    const actualizado = await detallePlacasRepository.update(id, dbData);
-    await registrarMovimiento('Detalle_placas', id, 'UPDATE', dbData, usuarioId);
-    return actualizado;
+    
+    return withTransaction(async (connection) => {
+      // Si se cambia la placa, validar que pertenezca a la empresa
+      if (data.placasId && empresaId) {
+        const [row] = await connection.query(
+          'SELECT Pla_empresa_actual FROM Placas WHERE Pla_id = ?',
+          [data.placasId]
+        );
+        if (row.length === 0 || row[0].Pla_empresa_actual !== empresaId) {
+          const error = new Error('La nueva placa no pertenece a la empresa');
+          error.status = 403;
+          throw error;
+        }
+      }
+
+      const ok = await detallePlacasRepository.update(id, dbData, empresaId, connection);
+      if (!ok) {
+        const error = new Error('No se pudo actualizar el detalle de placa');
+        error.status = 500;
+        throw error;
+      }
+      await registrarMovimiento('Detalle_placas', id, 'UPDATE', dbData, usuarioId, connection);
+      return true;
+    }).then(() => this.obtener(id, empresaId));
   }
 
   async eliminar(id, usuarioId) {

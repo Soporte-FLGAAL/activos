@@ -4,11 +4,18 @@ const { paginate } = require('../../utils/pagination');
 
 exports.listar = async (req, res, next) => {
   try {
+    // ADMIN_GLOBAL ve todos; usuario normal solo los de su empresa
+    const empresaFiltro = req.esAdminGlobal
+      ? (req.query.empresaId || null)
+      : req.empresaId;
+
+    const filtros = { empresaId: empresaFiltro };
+
     const resultado = await paginate(
       (f) => usuariosService.listar(f),
       (f) => usuariosService.contar(f),
       req.query,
-      {} // Filtros adicionales (puedes añadir más si es necesario)
+      filtros 
     );
     return success(res, resultado, 'Usuarios obtenidos');
   } catch (err) { next(err); }
@@ -16,7 +23,8 @@ exports.listar = async (req, res, next) => {
 
 exports.obtener = async (req, res, next) => {
   try {
-    const usuario = await usuariosService.obtener(req.params.id);
+    const empresaId = req.esAdminGlobal ? null : req.empresaId;
+    const usuario = await usuariosService.obtener(req.params.id, empresaId);
     return success(res, usuario, 'Usuario encontrado');
   } catch (err) { next(err); }
 };
@@ -30,7 +38,8 @@ exports.crear = async (req, res, next) => {
 
 exports.actualizar = async (req, res, next) => {
   try {
-    const actualizado = await usuariosService.actualizar(req.params.id, req.body, req.user.userId);
+    const empresaId = req.esAdminGlobal ? null : req.empresaId;
+    const actualizado = await usuariosService.actualizar(req.params.id, req.body, req.user.userId, empresaId);
     return success(res, actualizado, 'Usuario actualizado');
   } catch (err) { next(err); }
 };
@@ -45,14 +54,16 @@ exports.cambiarPasswordPropio = async (req, res, next) => {
 
 exports.adminCambiarPassword = async (req, res, next) => {
   try {
-    await usuariosService.adminCambiarPassword(req.params.id, req.body, req.user.userId);
+    const empresaId = req.esAdminGlobal ? null : req.empresaId;
+    await usuariosService.adminCambiarPassword(req.params.id, req.body, req.user.userId, empresaId);
     return success(res, null, 'Contraseña actualizada por administrador');
   } catch (err) { next(err); }
 };
 
 exports.eliminar = async (req, res, next) => {
   try {
-    await usuariosService.eliminar(req.params.id, req.user.userId);
+    const empresaId = req.esAdminGlobal ? null : req.empresaId;
+    await usuariosService.eliminar(req.params.id, req.user.userId), empresaId;
     return success(res, null, 'Usuario eliminado');
   } catch (err) { next(err); }
 };

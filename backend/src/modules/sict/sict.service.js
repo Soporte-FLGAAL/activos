@@ -62,6 +62,18 @@ class SictService {
     for (const key in data) if (map[key]) dbData[map[key]] = data[key];
 
     return withTransaction(async (connection) => {
+      if (data.unidadId && empresaId) {
+        const [row] = await connection.query(
+          'SELECT Uni_empresa_actual FROM Unidades WHERE Uni_id = ?',
+          [data.unidadId]
+        );
+        if (row.length === 0 || row[0].Uni_empresa_actual !== empresaId) {
+          const error = new Error('La nueva unidad no pertenece a la empresa');
+          error.status = 403;
+          throw error;
+        }
+      }
+
       const ok = await sictRepository.update(id, dbData, empresaId, connection);
       if (!ok) {
         const error = new Error('No se pudo actualizar el permiso SICT');

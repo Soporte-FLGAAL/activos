@@ -128,23 +128,10 @@ class TarjetasService {
   }
 
   async actualizar(id, data, usuarioId, empresaId = null) {
+    // 1. Verificar existencia y pertenencia del registro actual
     await this.obtener(id, empresaId);
-    if (!(await existeRegistro('Unidades', 'Uni_id', data.unidadId))) {
-      const error = new Error('La unidad no existe');
-      error.status = 422;
-      throw error;
-    }
-    if (!(await existeRegistro('Tipo_tarjeta', 'TpT_id', data.tipoId))) {
-      const error = new Error('El tipo de tarjeta no existe');
-      error.status = 422;
-      throw error;
-    }
-    if (!(await existeRegistro('Placas', 'Pla_id', data.placasId))) {
-      const error = new Error('La placa no existe');
-      error.status = 422;
-      throw error;
-    }
 
+    // 2. Construir dbData solo con los campos enviados
     const map = {
       tarjeta: 'TC_tarjeta',
       unidadId: 'TC_unidad_id',
@@ -161,12 +148,76 @@ class TarjetasService {
       urlReposicion: 'TC_url_reposicion',
     };
     const dbData = {};
-    for (const key in data) {
-      if (map[key]) dbData[map[key]] = data[key];
+    for (const key in data) if (map[key]) dbData[map[key]] = data[key];
+
+    if (Object.keys(dbData).length === 0) {
+      const error = new Error('No hay campos para actualizar');
+      error.status = 400;
+      throw error;
     }
-    const actualizada = await tarjetasRepository.update(id, dbData, empresaId);
-    await registrarMovimiento('Tarjeta_circulacion', id, 'UPDATE', dbData, usuarioId);
-    return actualizada;
+
+    return withTransaction(async (connection) => {
+      // 3. Validar FK solo si el campo fue enviado
+      if (data.unidadId !== undefined) {
+        const ok = await existeRegistro('Unidades', 'Uni_id', data.unidadId);
+        if (!ok) {
+          const error = new Error('La unidad no existe');
+          error.status = 422;
+          throw error;
+        }
+        if (empresaId) {
+          const [row] = await connection.query(
+            'SELECT Uni_empresa_actual FROM Unidades WHERE Uni_id = ?',
+            [data.unidadId]
+          );
+          if (row.length === 0 || row[0].Uni_empresa_actual !== empresaId) {
+            const error = new Error('La unidad no pertenece a la empresa');
+            error.status = 403;
+            throw error;
+          }
+        }
+      }
+
+      if (data.tipoId !== undefined) {
+        const ok = await existeRegistro('Tipo_tarjeta', 'TpT_id', data.tipoId);
+        if (!ok) {
+          const error = new Error('El tipo de tarjeta no existe');
+          error.status = 422;
+          throw error;
+        }
+      }
+
+      if (data.placasId !== undefined) {
+        const ok = await existeRegistro('Placas', 'Pla_id', data.placasId);
+        if (!ok) {
+          const error = new Error('La placa no existe');
+          error.status = 422;
+          throw error;
+        }
+        if (empresaId) {
+          const [row] = await connection.query(
+            'SELECT Pla_empresa_actual FROM Placas WHERE Pla_id = ?',
+            [data.placasId]
+          );
+          if (row.length === 0 || row[0].Pla_empresa_actual !== empresaId) {
+            const error = new Error('La placa no pertenece a la empresa');
+            error.status = 403;
+            throw error;
+          }
+        }
+      }
+
+      // 4. Actualizar
+      const ok = await tarjetasRepository.update(id, dbData, empresaId, connection);
+      if (!ok) {
+        const error = new Error('No se pudo actualizar la tarjeta');
+        error.status = 500;
+        throw error;
+      }
+
+      await registrarMovimiento('Tarjeta_circulacion', id, 'UPDATE', dbData, usuarioId, connection);
+      return true;
+    }).then(() => this.obtener(id, empresaId));
   }
 
   async actualizarUrl(id, url, usuarioId, empresaId = null) {

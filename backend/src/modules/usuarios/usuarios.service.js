@@ -1,6 +1,7 @@
 const usuariosRepository = require('./usuarios.repository');
 const { comparePassword } = require('../../utils/password');
 const { registrarMovimiento } = require('../../utils/audit');
+const { withTransaction } = require('../../utils/transaction');
 
 class UsuariosService {
   async listar(filters) {
@@ -11,8 +12,8 @@ class UsuariosService {
     return usuariosRepository.count(filters);
   }
 
-  async obtener(id) {
-    const usuario = await usuariosRepository.findById(id);
+  async obtener(id, empresaId = null) {
+    const usuario = await usuariosRepository.findById(id, empresaId = null);
     if (!usuario) {
       const error = new Error('Usuario no encontrado');
       error.status = 404;
@@ -36,13 +37,16 @@ class UsuariosService {
       Usu_correo: data.correo,
       Usu_password: data.password,
     };
-    const nuevoUsuario = await usuariosRepository.create(usuarioData);
-    await registrarMovimiento('Usuario', nuevoUsuario.Usu_id, 'INSERT', { correo: nuevoUsuario.Usu_correo }, usuarioId);
-    return nuevoUsuario;
+
+    return withTransaction(async (connection) => {
+      const nuevoId = await usuariosRepository.create(usuarioData, connection);
+      await registrarMovimiento('Usuario', nuevoId, 'INSERT', { correo: data.correo }, usuarioId, connection);
+      return nuevoId;
+    }).then((id) => this.obtener(id));
   }
 
-  async actualizar(id, data, usuarioId) {
-    await this.obtener(id);
+  async actualizar(id, data, usuarioId, empresaId = null) {
+    await this.obtener(id, empresaId);
     const map = {
       nombres: 'Usu_nombres',
       apPaterno: 'Usu_ap_paterno',
@@ -55,9 +59,23 @@ class UsuariosService {
     for (const key in data) {
       if (map[key]) dbData[map[key]] = data[key];
     }
-    const usuarioActualizado = await usuariosRepository.update(id, dbData);
-    await registrarMovimiento('Usuario', id, 'UPDATE', dbData, usuarioId);
-    return usuarioActualizado;
+
+    if (Object.keys(dbData).length === 0) {
+      const error = new Error('No hay campos para actualizar');
+      error.status = 400;
+      throw error;
+    }
+
+    return withTransaction(async (connection) => {
+      const ok = await usuariosRepository.update(id, dbData, empresaId, connection);
+      if (!ok) {
+        const error = new Error('No se pudo actualizar el usuario');
+        error.status = 500;
+        throw error;
+      }
+      await registrarMovimiento('Usuario', id, 'UPDATE', dbData, usuarioId, connection);
+      return true;
+    }).then(() => this.obtener(id, empresaId));
   }
 
   async cambiarPasswordPropio(id, { passwordActual, nuevaPassword }, usuarioId) {
@@ -68,23 +86,43 @@ class UsuariosService {
       error.status = 401;
       throw error;
     }
-    await usuariosRepository.updatePassword(id, nuevaPassword);
-    await registrarMovimiento('Usuario', id, 'UPDATE', { cambio: 'password' }, usuarioId);
+
+    return withTransaction(async (connection) => {
+      await usuariosRepository.updatePassword(id, nuevaPassword, null, connection);
+      await registrarMovimiento('Usuario', id, 'UPDATE', { cambio: 'password' }, usuarioId, connection);
+      return true;
+    });
   }
 
-  async adminCambiarPassword(id, { nuevaPassword }, usuarioId) {
-    await this.obtener(id);
-    await usuariosRepository.updatePassword(id, nuevaPassword);
-    await registrarMovimiento('Usuario', id, 'UPDATE', { cambio: 'password_admin' }, usuarioId);
+  async adminCambiarPassword(id, { nuevaPassword }, usuarioId, empresaId = null) {
+    // Solo puede cambiar la contraseña de un usuario de su empresa
+    await this.obtener(id, empresaId);
+
+    return withTransaction(async (connection) => {
+      const ok = await usuariosRepository.updatePassword(id, nuevaPassword, empresaId, connection);
+      if (!ok) {
+        const error = new Error('No se pudo actualizar la contraseña');
+        error.status = 500;
+        throw error;
+      }
+      await registrarMovimiento('Usuario', id, 'UPDATE', { cambio: 'password_admin' }, usuarioId, connection);
+      return true;
+    });
   }
 
-  async eliminar(id, usuarioId) {
-    await this.obtener(id);
-    const eliminado = await usuariosRepository.delete(id);
-    if (eliminado) {
-      await registrarMovimiento('Usuario', id, 'DELETE', {}, usuarioId);
-    }
-    return eliminado;
+  async eliminar(id, usuarioId, empresaId = null) {
+    await this.obtener(id, empresaId);
+
+    return withTransaction(async (connection) => {
+      const ok = await usuariosRepository.delete(id, empresaId, connection);
+      if (!ok) {
+        const error = new Error('No se pudo eliminar el usuario');
+        error.status = 500;
+        throw error;
+      }
+      await registrarMovimiento('Usuario', id, 'DELETE', {}, usuarioId, connection);
+      return true;
+    });
   }
 }
 

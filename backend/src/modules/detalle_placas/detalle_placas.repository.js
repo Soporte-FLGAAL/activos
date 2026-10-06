@@ -1,7 +1,7 @@
 const db = require('../../config/database');
 
 class DetallePlacasRepository {
-  async findAll(placasId = null) {
+  async findAll(filters = {}) {
     const { placasId, limit, offset } = filters;
     let sql = `
       SELECT dp.*, p.Pla_placas, tm.TpMP_nombre AS tipo_movimiento_nombre

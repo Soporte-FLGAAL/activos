@@ -23,7 +23,7 @@ class CombustibleService {
   async crear(data, usuarioId) {
     const dbData = { Com_nombre: data.nombre };
     const nuevo = await combustibleRepository.create(dbData);
-    await registrarMovimiento('Combustible', nuevo.CampoId, 'INSERT', dbData, usuarioId);
+    await registrarMovimiento('Combustible', nuevo.Com_id, 'INSERT', dbData, usuarioId);
     return nuevo;
   }
 

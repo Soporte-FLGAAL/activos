@@ -1,15 +1,16 @@
 const { paginate } = require('../../utils/pagination');
 const unidadesService = require('./unidades.service');
-const { success } = require('../../utils/response');
+const { success, error } = require('../../utils/response');
 
 exports.listar = async (req, res, next) => {
   try {
+    // Admin global puede filtrar por cualquier empresa; usuario normal queda atado a la suya
     const empresaFiltro = req.esAdminGlobal
       ? (req.query.empresaId || null)
       : req.empresaId;
 
     const filtros = {
-      empresaId: req.query.empresaId || null,
+      empresaId: empresaFiltro, // <-- antes estaba req.query.empresaId || null (BUG)
       tipoId: req.query.tipoId || null,
       combustibleId: req.query.combustibleId || null,
       ejes: req.query.ejes || null,
@@ -67,6 +68,20 @@ exports.cambiarEmpresa = async (req, res, next) => {
       req.params.id, req.body, req.user.userId
     );
     return success(res, actualizada, 'Empresa de la unidad actualizada');
+  } catch (err) { next(err); }
+};
+
+exports.cambiarPropietario = async (req, res, next) => {
+  try {
+    if (!req.esAdminGlobal) {
+      return error(res, 'Solo un administrador global puede cambiar el propietario de una unidad', 403);
+    }
+    const actualizada = await unidadesService.cambiarPropietario(
+      req.params.id,
+      req.body,
+      req.user.userId
+    );
+    return success(res, actualizada, 'Propietario de la unidad actualizado');
   } catch (err) { next(err); }
 };
 

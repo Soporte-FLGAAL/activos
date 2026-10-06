@@ -10,7 +10,7 @@ class RolPermisosService {
     return rolPermisosRepository.countByRol(rolId);
   }
 
-  async asignarPermiso(rolId, permisoId) {
+  async asignarPermiso(rolId, permisoId, usuarioId) {
     const yaExiste = await rolPermisosRepository.existe(rolId, permisoId);
     if (yaExiste) {
       const error = new Error('El permiso ya está asignado a este rol');
@@ -22,7 +22,7 @@ class RolPermisosService {
     return true;
   }
 
-  async quitarPermiso(rolId, permisoId) {
+  async quitarPermiso(rolId, permisoId, usuarioId) {
     await rolPermisosRepository.quitar(rolId, permisoId);
     await registrarMovimiento('Rol_Permisos', `${rolId}-${permisoId}`, 'DELETE', { rolId, permisoId }, usuarioId);
     return true;

@@ -15,7 +15,7 @@ const crearUnidadSchema = z.object({
   llantas: z.number().int().positive(),
   viapass: z.string().max(15),
   propietarioId: z.number().int().positive(),
-  empresaActualId: z.number().int().positive(),
+  empresaActualId: z.number().int().positive().optional(),
   fechaAltaSCT: z.coerce.date().refine((date) => date instanceof Date && !isNaN(date.getTime()), 'Fecha inválida'), // Formato YYYY-MM-DD
   valorFactura: z.number().nonnegative(),
   facturaUrl: z.string().url().optional().nullable(),
@@ -29,7 +29,34 @@ const crearUnidadSchema = z.object({
   urlVerificacionMecanica: z.string().url().optional().nullable(),
 });
 
-const actualizarUnidadSchema = crearUnidadSchema.partial(); // Todos opcionales
+const actualizarUnidadSchema = z.object({
+  noEconomico: z.string().max(15).optional(),
+  status: z.enum(['ALTA', 'BAJA']).optional(),
+  tipoId: z.number().int().positive().optional(),
+  estadoId: z.number().int().positive().optional(),
+  combustibleId: z.number().int().positive().optional(),
+  noSerie: z.string().max(25).optional(),
+  noMotor: z.string().max(20).optional(),
+  anioModelo: z.number().int().min(1980).max(new Date().getFullYear() + 1).optional(),
+  modelo: z.string().max(25).optional(),
+  marca: z.string().max(25).optional(),
+  ejes: z.number().int().optional().nullable(),
+  llantas: z.number().int().positive().optional(),
+  viapass: z.string().max(15).optional(),
+  // propietarioId: NO
+  // empresaActualId: NO
+  fechaAltaSCT: z.string().date().optional(),
+  valorFactura: z.number().nonnegative().optional(),
+  facturaUrl: z.string().url().optional().nullable(),
+  fechaVerificacionMecanica: z.string().date().optional(),
+  costoVerificacionMecanica: z.number().nonnegative().optional(),
+  periodoVerificacionMecanicaId: z.number().int().positive().optional(),
+  fechaVerificacionContaminantes: z.string().date().optional(),
+  costoVerificacionContaminantes: z.number().nonnegative().optional(),
+  periodoVerificacionContaminantesId: z.number().int().positive().optional(),
+  urlVerificacionContaminantes: z.string().url().optional().nullable(),
+  urlVerificacionMecanica: z.string().url().optional().nullable(),
+});
 
 const filtrosUnidadesSchema = z.object({
   empresaId: z.string().regex(/^\d+$/).transform(Number).optional(),
@@ -58,6 +85,12 @@ const cambiarEmpresaSchema = z.object({
   estadoId: z.number().int().positive().optional(), // ej. RENTADA, PRESTADA
 });
 
+const cambiarPropietarioSchema = z.object({
+  propietarioId: z.number().int().positive(),
+  motivo: z.string().max(200).optional(), // opcional, para auditoría
+});
+
+
 const paramsIdSchema = z.object({
   id: z.string().regex(/^\d+$/).transform(Number),
 });
@@ -67,5 +100,7 @@ module.exports = {
   actualizarUnidadSchema,
   filtrosUnidadesSchema,
   actualizarCampoSchema,
+  cambiarEmpresaSchema,
+  cambiarPropietarioSchema,   
   paramsIdSchema,
 };

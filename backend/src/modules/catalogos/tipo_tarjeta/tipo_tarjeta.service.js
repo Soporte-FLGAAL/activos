@@ -23,7 +23,7 @@ class TipoTarjetaService {
   async crear(data, usuarioId) {
     const dbData = { TpT_nombre: data.nombre };
     const nuevo = await tipoTarjetaRepository.create(dbData);
-    await registrarMovimiento('Tipo_tarjeta', nuevo.CampoId, 'INSERT', dbData, usuarioId);
+    await registrarMovimiento('Tipo_tarjeta', nuevo.TpP_id, 'INSERT', dbData, usuarioId);
     return nuevo;
   }
 

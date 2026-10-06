@@ -57,6 +57,22 @@ class CotejosService {
     for (const key in data) if (map[key]) dbData[map[key]] = data[key];
 
     return withTransaction(async (connection) => {
+      // Si se cambia la tarjeta, validar que pertenezca a la empresa
+      if (data.tarjetaId && empresaId) {
+        const [row] = await connection.query(
+          `SELECT u.Uni_empresa_actual
+          FROM Tarjeta_circulacion tc
+          JOIN Unidades u ON tc.TC_unidad_id = u.Uni_id
+          WHERE tc.TC_id = ?`,
+          [data.tarjetaId]
+        );
+        if (row.length === 0 || row[0].Uni_empresa_actual !== empresaId) {
+          const error = new Error('La nueva tarjeta no pertenece a la empresa');
+          error.status = 403;
+          throw error;
+        }
+      }
+
       const ok = await cotejosRepository.update(id, dbData, empresaId, connection);
       if (!ok) {
         const error = new Error('No se pudo actualizar el cotejo');

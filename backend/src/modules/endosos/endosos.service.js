@@ -58,6 +58,22 @@ class EndososService {
     for (const key in data) if (map[key]) dbData[map[key]] = data[key];
 
     return withTransaction(async (connection) => {
+      // Si se cambia la póliza, validar que la nueva póliza pertenezca a la empresa
+      if (data.polizaId && empresaId) {
+        const [row] = await connection.query(
+          `SELECT u.Uni_empresa_actual
+          FROM Polizas p
+          JOIN Unidades u ON p.Pol_unidad_id = u.Uni_id
+          WHERE p.Pol_id = ?`,
+          [data.polizaId]
+        );
+        if (row.length === 0 || row[0].Uni_empresa_actual !== empresaId) {
+          const error = new Error('La nueva póliza no pertenece a la empresa');
+          error.status = 403;
+          throw error;
+        }
+      }
+
       const ok = await endososRepository.update(id, dbData, empresaId, connection);
       if (!ok) {
         const error = new Error('No se pudo actualizar el endoso');

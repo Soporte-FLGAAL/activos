@@ -23,7 +23,7 @@ class TipoMovimientoPlacaService {
   async crear(data, usuarioId) {
     const dbData = { TpMP_nombre: data.nombre };
     const nuevo = await tipoMovimientoPlacaRepository.create(dbData);
-    await registrarMovimiento('Tipo_movimiento_placa', nuevo.CampoId, 'INSERT', dbData, usuarioId);
+    await registrarMovimiento('Tipo_movimiento_placa', nuevo.TpMP_id, 'INSERT', dbData, usuarioId);
     return nuevo;
   }
 

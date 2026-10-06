@@ -23,7 +23,7 @@ class EstadoUnidadService {
   async crear(data, usuarioId) {
     const dbData = { EsU_estado: data.estado };
     const nuevo = await estadoUnidadRepository.create(dbData);
-    await registrarMovimiento('Estado_Unidad', nuevo.EsU_Id, 'INSERT', dbData, usuarioId);
+    await registrarMovimiento('Estado_Unidad', nuevo.EsU_id, 'INSERT', dbData, usuarioId);
     return nuevo;
   }
 

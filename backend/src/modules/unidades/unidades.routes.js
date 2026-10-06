@@ -18,6 +18,7 @@ router.post('/', rbac('unidades:crear'), validate({ body: schemas.crearUnidadSch
 router.put('/:id', rbac('unidades:editar'), validate({ params: schemas.paramsIdSchema, body: schemas.actualizarUnidadSchema }), controller.actualizar);
 router.patch('/:id/campo', rbac('unidades:editar'), validate({ params: schemas.paramsIdSchema, body: schemas.actualizarCampoSchema }), controller.actualizarCampo);
 router.patch('/:id/cambiar-empresa', rbac('unidades:editar'), validate({ params: schemas.paramsIdSchema, body: schemas.cambiarEmpresaSchema }), controller.cambiarEmpresa);
+router.patch('/:id/cambiar-propietario', rbac('unidades:editar'), validate({ params: schemas.paramsIdSchema, body: schemas.cambiarPropietarioSchema }), controller.cambiarPropietario);
 router.delete('/:id', rbac('unidades:eliminar'), validate({ params: schemas.paramsIdSchema }), controller.eliminar);
 
 module.exports = router;

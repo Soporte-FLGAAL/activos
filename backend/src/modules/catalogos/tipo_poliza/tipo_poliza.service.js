@@ -23,7 +23,7 @@ class TipoPolizaService {
   async crear(data, usuarioId) {
     const dbData = { TpP_nombre: data.nombre };
     const nuevo = await tipoPolizaRepository.create(dbData);
-    await registrarMovimiento('Tipo_poliza', nuevo.CampoId, 'INSERT', dbData, usuarioId);
+    await registrarMovimiento('Tipo_poliza', nuevo.TpP_id, 'INSERT', dbData, usuarioId);
     return nuevo;
   }
 

@@ -1,5 +1,7 @@
 const unidadesRepository = require('./unidades.repository');
+const { withTransaction } = require('../../utils/transaction');
 const { registrarMovimiento } = require('../../utils/audit');
+const { existeRegistro } = require('../../utils/validators');
 
 class UnidadesService {
   async listar(filters) {
@@ -10,8 +12,8 @@ class UnidadesService {
     return unidadesRepository.count(filters);
   }
 
-  async obtener(id) {
-    const unidad = await unidadesRepository.findById(id);
+  async obtener(id, empresaId = null) {
+    const unidad = await unidadesRepository.findById(id, empresaId);
     if (!unidad) {
       const error = new Error('Unidad no encontrada');
       error.status = 404;
@@ -20,8 +22,58 @@ class UnidadesService {
     return unidad;
   }
 
-  async crear(data, usuarioId) {
+  async crear(data, usuarioId, empresaId = null, esAdminGlobal = false) {
+    // Validaciones de FK
+    const fkMap = [
+      ['Tipo_unidad', 'TpU_id', data.tipoId, 'Tipo de unidad'],
+      ['Estado_unidad', 'EsU_id', data.estadoId, 'Estado de unidad'],
+      ['Combustible', 'Com_id', data.combustibleId, 'Combustible'],
+      ['Empresas', 'Emp_id', data.propietarioId, 'Propietario'],
+      ['Periodos', 'Per_id', data.periodoVerificacionMecanicaId, 'Periodo verificación mecánica'],
+      ['Periodos', 'Per_id', data.periodoVerificacionContaminantesId, 'Periodo verificación contaminantes'],
+    ];
+    for (const [tabla, campo, valor, nombre] of fkMap) {
+      if (valor !== undefined && !(await existeRegistro(tabla, campo, valor))) {
+        const error = new Error(`${nombre} no existe`);
+        error.status = 422;
+        throw error;
+      }
+    }
+
+    // Determinar empresa final según el tipo de usuario
+    let empresaActualFinal;
+    if (esAdminGlobal) {
+      // Admin global: puede elegir cualquier empresa
+      if (!data.empresaActualId) {
+        const error = new Error('Debe especificar empresaActualId');
+        error.status = 400;
+        throw error;
+      }
+      if (!(await existeRegistro('Empresas', 'Emp_id', data.empresaActualId))) {
+        const error = new Error('La empresa actual no existe');
+        error.status = 422;
+        throw error;
+      }
+      empresaActualFinal = data.empresaActualId;
+    } else {
+      // Usuario normal: la empresa del body debe coincidir con la del usuario
+      if (!empresaId) {
+        const error = new Error('No se pudo determinar la empresa del usuario');
+        error.status = 400;
+        throw error;
+      }
+      if (data.empresaActualId && Number(data.empresaActualId) !== Number(empresaId)) {
+        const error = new Error('No tiene permisos para crear unidades en otra empresa');
+        error.status = 403;
+        throw error;
+      }
+      empresaActualFinal = empresaId;
+    }
+
+    // Construir dbData
     const dbData = this._toDbData(data);
+    dbData.Uni_empresa_actual = empresaActualFinal;
+
     return withTransaction(async (connection) => {
       const [result] = await connection.query('INSERT INTO Unidades SET ?', dbData);
       const nuevoId = result.insertId;
@@ -34,8 +86,10 @@ class UnidadesService {
     await this.obtener(id, empresaId);
 
     const dbData = this._toDbData(data, true);
-    // El cambio de empresa NO puede venir por este endpoint
+
+    // Defensa adicional por si alguien manipula el JSON
     delete dbData.Uni_empresa_actual;
+    delete dbData.Uni_propietario;
 
     if (Object.keys(dbData).length === 0) {
       const error = new Error('No hay campos para actualizar');
@@ -55,7 +109,7 @@ class UnidadesService {
     }).then(() => this.obtener(id, empresaId));
   }
 
-  async actualizarCampo(id, { campo, valor }, usuarioId) {
+  async actualizarCampo(id, { campo, valor }, usuarioId, empresaId = null) {
         // Bloqueo explícito del campo empresa en este endpoint
     if (campo === 'Uni_empresa_actual') {
       const error = new Error(
@@ -90,7 +144,49 @@ class UnidadesService {
     }).then(() => this.obtener(id, empresaId));
   }
 
-    async cambiarEmpresa(id, { empresaDestinoId, estadoId }, usuarioId) {
+  async cambiarPropietario(id, { propietarioId, motivo }, usuarioId) {
+    // Validar que el nuevo propietario exista
+    if (!(await existeRegistro('Empresas', 'Emp_id', propietarioId))) {
+      const error = new Error('La empresa propietaria no existe');
+      error.status = 422;
+      throw error;
+    }
+
+    // Se obtiene sin filtro de empresa (solo ADMIN_GLOBAL llega aquí)
+    const unidad = await this.obtener(id);
+    const propietarioAnterior = unidad.Uni_propietario;
+
+    if (propietarioAnterior === propietarioId) {
+      const error = new Error('La unidad ya tiene ese propietario');
+      error.status = 409;
+      throw error;
+    }
+
+    return withTransaction(async (connection) => {
+      await connection.query(
+        'UPDATE Unidades SET Uni_propietario = ? WHERE Uni_id = ?',
+        [propietarioId, id]
+      );
+
+      await registrarMovimiento(
+        'Unidades',
+        id,
+        'UPDATE',
+        {
+          campo: 'Uni_propietario',
+          propietarioAnterior,
+          propietarioNuevo: propietarioId,
+          motivo: motivo || null,
+        },
+        usuarioId,
+        connection
+      );
+
+      return true;
+    }).then(() => this.obtener(id));
+  }
+
+  async cambiarEmpresa(id, { empresaDestinoId, estadoId }, usuarioId) {
     // Validar que la empresa destino exista
     if (!(await existeRegistro('Empresas', 'Emp_id', empresaDestinoId))) {
       const error = new Error('La empresa destino no existe');
@@ -185,8 +281,6 @@ class UnidadesService {
       ejes: 'Uni_ejes',
       llantas: 'Uni_llantas',
       viapass: 'Uni_viapass',
-      propietarioId: 'Uni_propietario',
-      empresaActualId: 'Uni_empresa_actual',
       fechaAltaSCT: 'Uni_fecha_alta_SCT',
       valorFactura: 'Uni_valor_factura',
       facturaUrl: 'Uni_factura_url',
@@ -199,6 +293,11 @@ class UnidadesService {
       urlVerificacionContaminantes: 'Uni_url_verificacion_contaminantes',
       urlVerificacionMecanica: 'Uni_url_verificacion_mecanica',
     };
+
+    if (!isUpdate) {
+      map.propietarioId = 'Uni_propietario';
+    }
+
     const dbData = {};
     for (const key in data) {
       if (map[key]) {
