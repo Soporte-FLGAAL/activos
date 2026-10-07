@@ -17,16 +17,16 @@ exports.listarPermisosDeRol = async (req, res, next) => {
 
 exports.asignarPermiso = async (req, res, next) => {
   try {
-    const { rolId, permisoId, usuarioId } = req.body;
-    await rolPermisosService.asignarPermiso(rolId, permisoId, usuarioId);
+    const { rolId, permisoId } = req.body;
+    await rolPermisosService.asignarPermiso(rolId, permisoId, req.user.userId);
     return success(res, null, 'Permiso asignado', 201);
   } catch (err) { next(err); }
 };
 
 exports.quitarPermiso = async (req, res, next) => {
   try {
-    const { rolId, permisoId, usuarioId } = req.params;
-    await rolPermisosService.quitarPermiso(rolId, permisoId, usuarioId);
+    const { rolId, permisoId } = req.params;
+    await rolPermisosService.quitarPermiso(rolId, permisoId, req.user.userId);
     return success(res, null, 'Permiso quitado');
   } catch (err) { next(err); }
 };

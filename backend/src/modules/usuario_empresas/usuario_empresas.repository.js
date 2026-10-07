@@ -1,7 +1,6 @@
 const db = require('../../config/database');
 
 class UsuarioEmpresasRepository {
-  // Obtener todas las asignaciones con información de usuario, empresa y rol
   async findAll(filters = {}) {
     const { usuarioId, empresaId, limit, offset } = filters;
     let sql = `
@@ -24,6 +23,8 @@ class UsuarioEmpresasRepository {
       sql += ' AND ue.UE_empresa = ?';
       params.push(empresaId);
     }
+
+    sql += ' ORDER BY ue.UE_usuario, ue.UE_empresa';
 
     if (limit !== undefined && offset !== undefined) {
       sql += ' LIMIT ? OFFSET ?';
@@ -81,6 +82,22 @@ class UsuarioEmpresasRepository {
       'DELETE FROM Usuario_Empresas WHERE UE_usuario = ? AND UE_empresa = ?',
       [usuarioId, empresaId]
     );
+  }
+
+  /**
+   * Cuenta cuántas asignaciones tiene un usuario con un rol específico (por nombre).
+   * Útil para validar lock-out de ADMIN_GLOBAL.
+   */
+  async countByUsuarioAndRolNombre(usuarioId, rolNombre, connection = null) {
+    const dbConn = connection || db;
+    const [rows] = await dbConn.query(
+      `SELECT COUNT(*) AS total
+       FROM Usuario_Empresas ue
+       JOIN Roles r ON ue.UE_rol = r.Rol_id
+       WHERE ue.UE_usuario = ? AND r.Rol_nombre = ?`,
+      [usuarioId, rolNombre]
+    );
+    return rows[0].total;
   }
 }
 

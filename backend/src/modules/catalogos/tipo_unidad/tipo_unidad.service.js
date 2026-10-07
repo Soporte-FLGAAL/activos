@@ -29,7 +29,7 @@ class TipoUnidadService {
 
     return withTransaction(async (connection) => {
       const nuevoId = await tipoUnidadRepository.create(dbData, connection);
-      await registrarMovimiento('Tipo_unidad', nuevoId.TpU_id, 'INSERT', dbData, usuarioId, connection);
+      await registrarMovimiento('Tipo_unidad', nuevoId, 'INSERT', dbData, usuarioId, connection);
       return nuevoId;
     });
   }
