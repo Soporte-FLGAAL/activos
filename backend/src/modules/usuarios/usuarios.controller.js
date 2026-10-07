@@ -63,7 +63,7 @@ exports.adminCambiarPassword = async (req, res, next) => {
 exports.eliminar = async (req, res, next) => {
   try {
     const empresaId = req.esAdminGlobal ? null : req.empresaId;
-    await usuariosService.eliminar(req.params.id, req.user.userId), empresaId;
+    await usuariosService.eliminar(req.params.id, req.user.userId, empresaId);
     return success(res, null, 'Usuario eliminado');
   } catch (err) { next(err); }
 };

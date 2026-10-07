@@ -7,6 +7,8 @@ const asignarUsuarioEmpresaSchema = z.object({
 });
 
 const actualizarRolSchema = z.object({
+  usuarioId: z.number().int().positive(),
+  empresaId: z.number().int().positive(),
   rolId: z.number().int().positive(),
 });
 

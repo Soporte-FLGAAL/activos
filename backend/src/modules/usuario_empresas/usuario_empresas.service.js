@@ -52,27 +52,56 @@ class UsuarioEmpresasService {
     });
   }
 
-  async actualizarRol(data, usuarioId) {
-    const existente = await usuarioEmpresasRepository.findOne(data.usuarioId, data.empresaId);
+  async actualizarRol(data, auditorId) {
+    const { usuarioId, empresaId, rolId } = data;
+
+    // Verificar que la asignación exista
+    const existente = await usuarioEmpresasRepository.findOne(usuarioId, empresaId);
     if (!existente) {
       const error = new Error('La asignación no existe');
       error.status = 404;
       throw error;
     }
-    if (!(await existeRegistro('Roles', 'Rol_id', data.rolId))) {
+
+    // Verificar que el nuevo rol exista
+    if (!(await existeRegistro('Roles', 'Rol_id', rolId))) {
       const error = new Error('El rol no existe');
       error.status = 422;
       throw error;
     }
 
+    const rolActualNombre = await getNombreRol(existente.UE_rol);
+    const rolNuevoNombre = await getNombreRol(rolId);
+
+    // *** Protección contra escalada de privilegios ***
+    const afectaAdminGlobal =
+      rolActualNombre === ROLES.ADMIN_GLOBAL ||
+      rolNuevoNombre === ROLES.ADMIN_GLOBAL;
+
+    if (afectaAdminGlobal) {
+      const solicitanteEsGlobal = await esAdminGlobal(auditorId);
+      if (!solicitanteEsGlobal) {
+        const error = new Error(
+          'Solo un administrador global puede modificar asignaciones con rol ADMIN_GLOBAL'
+        );
+        error.status = 403;
+        throw error;
+      }
+    }
+
     return withTransaction(async (connection) => {
-      await usuarioEmpresasRepository.updateRol(data.usuarioId, data.empresaId, data.rolId, connection);
+      await usuarioEmpresasRepository.updateRol(usuarioId, empresaId, rolId, connection);
       await registrarMovimiento(
         'Usuario_Empresas',
-        `${data.usuarioId}-${data.empresaId}`,
+        `${usuarioId}-${empresaId}`,
         'UPDATE',
-        { rolId: data.rolId },
-        usuarioId,
+        {
+          rolAnteriorId: existente.UE_rol,
+          rolAnteriorNombre: rolActualNombre,
+          rolNuevoId: rolId,
+          rolNuevoNombre: rolNuevoNombre,
+        },
+        auditorId,
         connection
       );
       return true;

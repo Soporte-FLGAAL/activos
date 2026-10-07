@@ -35,7 +35,8 @@ exports.obtener = async (req, res, next) => {
 
 exports.crear = async (req, res, next) => {
   try {
-    const nueva = await tarjetasService.crear(req.body, req.user.userId);
+    const empresaId = req.esAdminGlobal ? null : req.empresaId;
+    const nueva = await tarjetasService.crear(req.body, req.user.userId, empresaId);
     return success(res, nueva, 'Tarjeta creada', 201);
   } catch (err) { next(err); }
 };

@@ -38,7 +38,7 @@ exports.obtener = async (req, res, next) => {
 
 exports.crear = async (req, res, next) => {
   try {
-    const nueva = await unidadesService.crear(req.body, req.user.userId);
+    const nueva = await unidadesService.crear(req.body, req.user.userId, req.empresaId, req.esAdminGlobal);
     return success(res, nueva, 'Unidad creada', 201);
   } catch (err) { next(err); }
 };

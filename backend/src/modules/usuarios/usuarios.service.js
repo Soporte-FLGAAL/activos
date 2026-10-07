@@ -13,7 +13,7 @@ class UsuariosService {
   }
 
   async obtener(id, empresaId = null) {
-    const usuario = await usuariosRepository.findById(id, empresaId = null);
+    const usuario = await usuariosRepository.findById(id, empresaId);
     if (!usuario) {
       const error = new Error('Usuario no encontrado');
       error.status = 404;

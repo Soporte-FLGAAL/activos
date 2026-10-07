@@ -22,7 +22,8 @@ class TarjetasService {
     return tarjeta;
   }
 
-  async crear(data, usuarioId) {
+  async crear(data, usuarioId, empresaId = null) {
+    // Validaciones de FK básicas
     if (!(await existeRegistro('Unidades', 'Uni_id', data.unidadId))) {
       const error = new Error('La unidad no existe');
       error.status = 422;
@@ -54,17 +55,44 @@ class TarjetasService {
       TC_url: data.url,
       TC_url_reposicion: data.urlReposicion || null,
     };
-    const nueva = await tarjetasRepository.create(dbData);
-    await registrarMovimiento('Tarjeta_circulacion', nueva.TC_id, 'INSERT', dbData, usuarioId);
-    return nueva;
+
+    return withTransaction(async (connection) => {
+      // Validar pertenencia de la unidad a la empresa
+      if (empresaId) {
+        const [unidadRow] = await connection.query('SELECT Uni_empresa_actual FROM Unidades WHERE Uni_id = ?',
+          [data.unidadId]
+        );
+        if (unidadRow.length === 0 || unidadRow[0].Uni_empresa_actual !== empresaId) {
+          const error = new Error('La unidad no pertenece a la empresa');
+          error.status = 403;
+          throw error;
+        }
+
+        // Validar pertenencia de la placa a la empresa
+        const [placaRow] = await connection.query('SELECT Pla_empresa_actual FROM Placas WHERE Pla_id = ?', [data.placasId]);
+        if (placaRow.length === 0 || placaRow[0].Pla_empresa_actual !== empresaId) {
+          const error = new Error('La placa no pertenece a la empresa');
+          error.status = 403;
+          throw error;
+        }
+      }
+
+    const [result] = await connection.query('INSERT INTO Tarjeta_circulacion SET ?', dbData);
+    const nuevoId = result.insertId;
+
+    await registrarMovimiento('Tarjeta_circulacion', nuevoId,'INSERT',dbData,usuarioId,connection);
+
+    return nuevoId;
+    }).then((id) => this.obtener(id, empresaId));
   }
 
-  async crearTarjetaConCotejos(dataTarjeta, cotejos, usuarioId, empresaId) {
-    // Validaciones de FK previas
+  async crearTarjetaConCotejos(dataTarjeta, cotejos, usuarioId, empresaId = null) {
+    // Validaciones de FK
     if (!(await existeRegistro('Unidades', 'Uni_id', dataTarjeta.unidadId))) {
-      throw new Error('La unidad no existe');
+      const error = new Error('La unidad no existe');
+      error.status = 422;
+      throw error;
     }
-    
     if (!(await existeRegistro('Tipo_tarjeta', 'TpT_id', dataTarjeta.tipoId))) {
       const error = new Error('El tipo de tarjeta no existe');
       error.status = 422;
@@ -77,23 +105,37 @@ class TarjetasService {
     }
 
     return withTransaction(async (connection) => {
+      // Validar pertenencia a la empresa
       if (empresaId) {
-        const [unidadRows] = await connection.query(
+        const [unidadRow] = await connection.query(
           'SELECT Uni_empresa_actual FROM Unidades WHERE Uni_id = ?',
           [dataTarjeta.unidadId]
         );
-        if (unidadRows.length === 0 || unidadRows[0].Uni_empresa_actual !== empresaId) {
+        if (unidadRow.length === 0 || unidadRow[0].Uni_empresa_actual !== empresaId) {
           const error = new Error('La unidad no pertenece a la empresa');
+          error.status = 403;
+          throw error;
+        }
+
+        const [placaRow] = await connection.query(
+          'SELECT Pla_empresa_actual FROM Placas WHERE Pla_id = ?',
+          [dataTarjeta.placasId]
+        );
+        if (placaRow.length === 0 || placaRow[0].Pla_empresa_actual !== empresaId) {
+          const error = new Error('La placa no pertenece a la empresa');
           error.status = 403;
           throw error;
         }
       }
 
-      // Insertar tarjeta
+      // INSERT completo con todos los campos de reposición
       const [result] = await connection.query(
-        `INSERT INTO Tarjeta_circulacion 
-         (TC_tarjeta, TC_unidad_id, TC_costo, TC_tipo, TC_status, TC_no_original, TC_placas_id, TC_fecha_obtencion, TC_fecha_vencimiento, TC_url)
-         VALUES (?,?,?,?,?,?,?,?,?,?)`,
+        `INSERT INTO Tarjeta_circulacion
+        (TC_tarjeta, TC_unidad_id, TC_costo, TC_tipo, TC_status, TC_no_original,
+          TC_placas_id, TC_fecha_obtencion, TC_fecha_vencimiento,
+          TC_fecha_reposicion, TC_costo_reposicion,
+          TC_url, TC_url_reposicion)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
         [
           dataTarjeta.tarjeta,
           dataTarjeta.unidadId,
@@ -104,7 +146,10 @@ class TarjetasService {
           dataTarjeta.placasId,
           dataTarjeta.fechaObtencion,
           dataTarjeta.fechaVencimiento || null,
+          dataTarjeta.fechaReposicion || null,
+          dataTarjeta.costoReposicion ?? null,
           dataTarjeta.url,
+          dataTarjeta.urlReposicion || null,
         ]
       );
       const tarjetaId = result.insertId;
@@ -114,17 +159,17 @@ class TarjetasService {
         for (const cotejo of cotejos) {
           await connection.query(
             `INSERT INTO Cotejos (Cot_tarjeta_id, Cot_tarjeta_cotejo, Cot_fecha)
-             VALUES (?,?,?)`,
+            VALUES (?,?,?)`,
             [tarjetaId, cotejo.tarjetaCotejo, cotejo.fecha]
           );
         }
       }
 
-      // Auditoría
+      // Auditoría dentro de la transacción
       await registrarMovimiento('Tarjeta_circulacion', tarjetaId, 'INSERT', { ...dataTarjeta, cotejos }, usuarioId, connection);
 
       return tarjetaId;
-    });
+    }).then((id) => this.obtener(id, empresaId));
   }
 
   async actualizar(id, data, usuarioId, empresaId = null) {

@@ -9,8 +9,8 @@ const schemas = require('./usuario_empresas.schema');
 router.use(auth);
 
 router.get('/', rbac('usuario_empresas:ver'), controller.listar);
-router.post('/', rbac('usuario_empresas:crear'), validate({ body: schemas.asignarSchema }), controller.asignar);
+router.post('/', rbac('usuario_empresas:crear'), validate({ body: schemas.asignarUsuarioEmpresaSchema }), controller.asignar);
 router.put('/', rbac('usuario_empresas:editar'), validate({ body: schemas.actualizarRolSchema }), controller.actualizarRol);
-router.delete('/:usuarioId/:empresaId', rbac('usuario_empresas:eliminar'), controller.eliminar);
+router.delete('/:usuarioId/:empresaId', rbac('usuario_empresas:eliminar'), validate({ params: schemas.paramsSchema }), controller.eliminar);
 
 module.exports = router;
