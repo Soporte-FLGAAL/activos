@@ -3,10 +3,12 @@ const router = express.Router();
 const controller = require('./usuario_empresas.controller');
 const auth = require('../../middlewares/auth');
 const rbac = require('../../middlewares/rbac');
+const setEmpresa = require('../../middlewares/setEmpresa');
 const validate = require('../../middlewares/validate');
 const schemas = require('./usuario_empresas.schema');
 
 router.use(auth);
+router.use(setEmpresa);
 
 router.get('/', rbac('usuario_empresas:ver'), controller.listar);
 router.post('/', rbac('usuario_empresas:crear'), validate({ body: schemas.asignarUsuarioEmpresaSchema }), controller.asignar);

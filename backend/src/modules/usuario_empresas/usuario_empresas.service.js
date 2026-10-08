@@ -3,16 +3,13 @@ const { withTransaction } = require('../../utils/transaction');
 const { registrarMovimiento } = require('../../utils/audit');
 const { existeRegistro } = require('../../utils/validators');
 
+const ROL_ADMIN_GLOBAL = 'ADMIN_GLOBAL';
+
 class UsuarioEmpresasService {
   async _getNombreRol(rolId, connection = null) {
-    const dbConn = connection || require('../../config/database');
-    const [rows] = await dbConn.query(
-      'SELECT Rol_nombre FROM Roles WHERE Rol_id = ?',
-      [rolId]
-    );
-    return rows[0]?.Rol_nombre || null;
+    return usuarioEmpresasRepository.getNombreRol(rolId, connection);
   }
-
+  
   async listar(filters) {
     return usuarioEmpresasRepository.findAll(filters);
   }

@@ -14,36 +14,41 @@ exports.listar = async (req, res, next) => {
       req.query,
       filtros
     );
-    return success(res, resultado, 'Asignaciones de usuario-empresa obtenidas');
-  } catch (err) {
-    next(err);
-  }
+    return success(res, resultado, 'Asignaciones usuario-empresa obtenidas');
+  } catch (err) { next(err); }
 };
 
 exports.asignar = async (req, res, next) => {
   try {
-    await usuarioEmpresasService.asignar(req.body, req.user.userId);
+    await usuarioEmpresasService.asignar(
+      req.body,
+      req.user.userId,
+      req.esAdminGlobal   
+    );
     return success(res, null, 'Usuario asignado a empresa', 201);
-  } catch (err) {
-    next(err);
-  }
+  } catch (err) { next(err); }
 };
 
 exports.actualizarRol = async (req, res, next) => {
   try {
-    await usuarioEmpresasService.actualizarRol(req.body, req.user.userId);
+    await usuarioEmpresasService.actualizarRol(
+      req.body,
+      req.user.userId,
+      req.esAdminGlobal   
+    );
     return success(res, null, 'Rol actualizado');
-  } catch (err) {
-    next(err);
-  }
+  } catch (err) { next(err); }
 };
 
 exports.eliminar = async (req, res, next) => {
   try {
     const { usuarioId, empresaId } = req.params;
-    await usuarioEmpresasService.eliminar(usuarioId, empresaId, req.user.userId);
+    await usuarioEmpresasService.eliminar(
+      usuarioId,
+      empresaId,
+      req.user.userId,
+      req.esAdminGlobal   
+    );
     return success(res, null, 'Asignación eliminada');
-  } catch (err) {
-    next(err);
-  }
+  } catch (err) { next(err); }
 };

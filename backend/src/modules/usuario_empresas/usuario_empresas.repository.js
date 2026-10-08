@@ -60,6 +60,16 @@ class UsuarioEmpresasRepository {
     return rows[0] || null;
   }
 
+  // En usuario_empresas.repository.js
+  async getNombreRol(rolId, connection = null) {
+    const dbConn = connection || db;
+    const [rows] = await dbConn.query(
+      'SELECT Rol_nombre FROM Roles WHERE Rol_id = ?',
+      [rolId]
+    );
+    return rows[0]?.Rol_nombre || null;
+  }
+  
   async create(asignacion, connection = null) {
     const dbConn = connection || db;
     await dbConn.query(
