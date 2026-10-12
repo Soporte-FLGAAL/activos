@@ -7,13 +7,13 @@ USE Activos;
 -- =========================================================
 CREATE TABLE IF NOT EXISTS Roles(
     Rol_id INT NOT NULL AUTO_INCREMENT,
-    Rol_nombre VARCHAR(20) NOT NULL,
+    Rol_nombre VARCHAR(20) NOT NULL UNIQUE,
     PRIMARY KEY(Rol_id)
 );
 
 CREATE TABLE IF NOT EXISTS Permisos(
     PerM_id INT NOT NULL AUTO_INCREMENT,
-    PerM_nombre VARCHAR(50) NOT NULL,
+    PerM_nombre VARCHAR(50) NOT NULL UNIQUE,
     PRIMARY KEY(PerM_id)
 );
 
@@ -63,7 +63,7 @@ CREATE TABLE IF NOT EXISTS RefreshTokens (
 -- =========================================================
 CREATE TABLE IF NOT EXISTS Acciones_movimiento(
     AcM_id INT NOT NULL AUTO_INCREMENT,
-    AcM_nombre VARCHAR(20) NOT NULL,
+    AcM_nombre VARCHAR(20) NOT NULL UNIQUE,
     PRIMARY KEY (AcM_id)
 );
 
