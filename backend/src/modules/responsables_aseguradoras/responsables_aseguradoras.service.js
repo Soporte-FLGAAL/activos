@@ -40,13 +40,18 @@ class ResponsablesAseguradorasService {
       RA_telefono: data.telefono,
       RA_empresa_responsable: data.empresaResponsableId || null,
     };
-    const nuevo = await responsablesAseguradorasRepository.create(dbData);
-    await registrarMovimiento('Responsables_Aseguradoras', nuevo.RA_id, 'INSERT', dbData, usuarioId);
-    return nuevo;
+
+    return withTransaction(async (connection) => {
+      const [result] = await connection.query('INSERT INTO Responsables_Aseguradoras SET ?', dbData);
+      const nuevoId = result.insertId;
+      await registrarMovimiento('Responsables_Aseguradoras', nuevoId, 'INSERT', dbData, usuarioId, connection);
+      return nuevoId;
+    }).then((id) => this.obtener(id));
   }
 
   async actualizar(id, data, usuarioId) {
     await this.obtener(id);
+
     const map = {
       aseguradoraId: 'RA_aseguradora',
       responsable: 'RA_responsable',
@@ -55,21 +60,39 @@ class ResponsablesAseguradorasService {
       empresaResponsableId: 'RA_empresa_responsable',
     };
     const dbData = {};
-    for (const key in data) {
-      if (map[key]) dbData[map[key]] = data[key];
+    for (const key in data) if (map[key]) dbData[map[key]] = data[key];
+
+    if (Object.keys(dbData).length === 0) {
+      const error = new Error('No hay campos para actualizar');
+      error.status = 400;
+      throw error;
     }
-    const actualizado = await responsablesAseguradorasRepository.update(id, dbData);
-    await registrarMovimiento('Responsables_Aseguradoras', id, 'UPDATE', dbData, usuarioId);
-    return actualizado;
+
+    return withTransaction(async (connection) => {
+      const ok = await responsablesAseguradorasRepository.update(id, dbData, connection);
+      if (!ok) {
+        const error = new Error('No se pudo actualizar el responsable');
+        error.status = 500;
+        throw error;
+      }
+      await registrarMovimiento('Responsables_Aseguradoras', id, 'UPDATE', dbData, usuarioId, connection);
+      return true;
+    }).then(() => this.obtener(id));
   }
 
   async eliminar(id, usuarioId) {
     await this.obtener(id);
-    const eliminado = await responsablesAseguradorasRepository.delete(id);
-    if (eliminado) {
-      await registrarMovimiento('Responsables_Aseguradoras', id, 'DELETE', {}, usuarioId);
-    }
-    return eliminado;
+
+    return withTransaction(async (connection) => {
+      const ok = await responsablesAseguradorasRepository.delete(id, connection);
+      if (!ok) {
+        const error = new Error('No se pudo eliminar el responsable');
+        error.status = 500;
+        throw error;
+      }
+      await registrarMovimiento('Responsables_Aseguradoras', id, 'DELETE', {}, usuarioId, connection);
+      return true;
+    });
   }
 }
 

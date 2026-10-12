@@ -22,27 +22,47 @@ class CombustibleService {
 
   async crear(data, usuarioId) {
     const dbData = { Com_nombre: data.nombre };
-    const nuevo = await combustibleRepository.create(dbData);
-    await registrarMovimiento('Combustible', nuevo.Com_id, 'INSERT', dbData, usuarioId);
-    return nuevo;
+    return withTransaction(async (connection) => {
+      const nuevoId = await combustibleRepository.create(dbData, connection);
+      await registrarMovimiento('Combustible', nuevoId, 'INSERT', dbData, usuarioId, connection);
+      return nuevoId;
+    }).then((id) => this.obtener(id));
   }
 
   async actualizar(id, data, usuarioId) {
     await this.obtener(id);
     const dbData = {};
     if (data.nombre !== undefined) dbData.Com_nombre = data.nombre;
-    const actualizado = await combustibleRepository.update(id, dbData);
-    await registrarMovimiento('Combustible', id, 'UPDATE', dbData, usuarioId);
-    return actualizado;
+    if (Object.keys(dbData).length === 0) {
+          const error = new Error('No hay campos para actualizar');
+          error.status = 400;
+          throw error;
+        }
+    
+    return withTransaction(async (connection) => {
+      const ok = await combustibleRepository.update(id, dbData, connection);
+      if (!ok) {
+        const error = new Error('No se pudo actualizar');
+        error.status = 500;
+        throw error;
+      }
+      await registrarMovimiento('Combustible', id, 'UPDATE', dbData, usuarioId, connection);
+      return true;
+    }).then(() => this.obtener(id));
   }
 
   async eliminar(id, usuarioId) {
     await this.obtener(id);
-    const eliminado = await combustibleRepository.delete(id);
-    if (eliminado) {
-      await registrarMovimiento('Combustible', id, 'DELETE', {}, usuarioId);
-    }
-    return eliminado;
+    return withTransaction(async (connection) => {
+      const ok = await combustibleRepository.delete(id, connection);
+      if (!ok) {
+        const error = new Error('No se pudo eliminar');
+        error.status = 500;
+        throw error;
+      }
+      await registrarMovimiento('Combustible', id, 'DELETE', {}, usuarioId, connection);
+      return true;
+    });
   }
 }
 

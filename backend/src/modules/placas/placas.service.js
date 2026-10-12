@@ -22,7 +22,8 @@ class PlacasService {
     return placa;
   }
 
-  async crear(data, usuarioId) {
+  async crear(data, usuarioId, empresaId = null) {
+    // Validaciones de FK
     if (data.propietarioId && !(await existeRegistro('Empresas', 'Emp_id', data.propietarioId))) {
       const error = new Error('El propietario no existe');
       error.status = 422;
@@ -40,10 +41,14 @@ class PlacasService {
       Pla_propietario: data.propietarioId || null,
       Pla_empresa_actual: data.empresaActualId,
     };
-    const nueva = await placasRepository.create(dbData);
-    await registrarMovimiento('Placas', nueva.Pla_id, 'INSERT', dbData, usuarioId);
-    return nueva;
+
+    return withTransaction(async (connection) => {
+      const nuevaId = await placasRepository.create(dbData, connection);
+      await registrarMovimiento('Placas', nuevaId, 'INSERT', dbData, usuarioId, connection);
+      return nuevaId;
+    }).then((id) => this.obtener(id, empresaId));
   }
+
 
   async actualizarPlacaConMovimiento(idPlaca, dataPlaca, dataMovimiento, usuarioId, empresaId = null) {
     await this.obtener(idPlaca, empresaId); // verifica existencia
@@ -93,17 +98,7 @@ class PlacasService {
 
   async actualizar(id, data, usuarioId, empresaId = null) {
     await this.obtener(id, empresaId);
-    if (data.propietarioId && !(await existeRegistro('Empresas', 'Emp_id', data.propietarioId))) {
-      const error = new Error('El propietario no existe');
-      error.status = 422;
-      throw error;
-    }
-    if (!(await existeRegistro('Empresas', 'Emp_id', data.empresaActualId))) {
-      const error = new Error('La empresa actual no existe');
-      error.status = 422;
-      throw error;
-    }
-    
+
     const map = {
       placas: 'Pla_placas',
       status: 'Pla_status',
@@ -111,21 +106,39 @@ class PlacasService {
       empresaActualId: 'Pla_empresa_actual',
     };
     const dbData = {};
-    for (const key in data) {
-      if (map[key]) dbData[map[key]] = data[key];
+    for (const key in data) if (map[key]) dbData[map[key]] = data[key];
+
+    if (Object.keys(dbData).length === 0) {
+      const error = new Error('No hay campos para actualizar');
+      error.status = 400;
+      throw error;
     }
-    const actualizada = await placasRepository.update(id, dbData, empresaId);
-    await registrarMovimiento('Placas', id, 'UPDATE', dbData, usuarioId);
-    return actualizada;
+
+    return withTransaction(async (connection) => {
+      const ok = await placasRepository.update(id, dbData, empresaId, connection);
+      if (!ok) {
+        const error = new Error('No se pudo actualizar la placa');
+        error.status = 500;
+        throw error;
+      }
+      await registrarMovimiento('Placas', id, 'UPDATE', dbData, usuarioId, connection);
+      return true;
+    }).then(() => this.obtener(id, empresaId));
   }
 
   async eliminar(id, usuarioId, empresaId = null) {
     await this.obtener(id, empresaId);
-    const eliminado = await placasRepository.delete(id, empresaId);
-    if (eliminado) {
-      await registrarMovimiento('Placas', id, 'DELETE', {}, usuarioId);
-    }
-    return eliminado;
+
+    return withTransaction(async (connection) => {
+      const ok = await placasRepository.delete(id, empresaId, connection);
+      if (!ok) {
+        const error = new Error('No se pudo eliminar la placa');
+        error.status = 500;
+        throw error;
+      }
+      await registrarMovimiento('Placas', id, 'DELETE', {}, usuarioId, connection);
+      return true;
+    });
   }
 }
 

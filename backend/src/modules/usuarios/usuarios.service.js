@@ -110,17 +110,67 @@ class UsuariosService {
     });
   }
 
-  async eliminar(id, usuarioId, empresaId = null) {
+  async reactivar(id, usuarioId, empresaId = null) {
     await this.obtener(id, empresaId);
 
     return withTransaction(async (connection) => {
-      const ok = await usuariosRepository.delete(id, empresaId, connection);
+      let sql = 'UPDATE Usuario SET Usu_status = "ACTIVO" WHERE Usu_id = ?';
+      const params = [id];
+      if (empresaId) {
+        sql += ' AND Usu_id IN (SELECT UE_usuario FROM Usuario_Empresas WHERE UE_empresa = ?)';
+        params.push(empresaId);
+      }
+      const [result] = await connection.query(sql, params);
+      if (result.affectedRows === 0) {
+        const error = new Error('No se pudo reactivar el usuario');
+        error.status = 500;
+        throw error;
+      }
+      await registrarMovimiento('Usuario', id, 'UPDATE', { campo: 'Usu_status', valor: 'ACTIVO' }, usuarioId, connection);
+      return true;
+    }).then(() => this.obtener(id, empresaId));
+  }
+
+  /**
+   * Desactivar usuario (soft delete). Es el flujo normal.
+   */
+  async desactivar(id, usuarioId, empresaId = null) {
+    await this.obtener(id, empresaId); // valida existencia + pertenencia
+
+    return withTransaction(async (connection) => {
+      const ok = await usuariosRepository.softDelete(id, empresaId, connection);
+      if (!ok) {
+        const error = new Error('No se pudo desactivar el usuario');
+        error.status = 500;
+        throw error;
+      }
+      await registrarMovimiento('Usuario',id, 'UPDATE',{ campo: 'Usu_status', valor: 'INACTIVO' },usuarioId,connection);
+      return true;
+    }).then(() => this.obtener(id, empresaId));
+  }
+
+  /**
+   * Eliminar físicamente un usuario.
+   * Solo debe invocarse desde un flujo protegido (ADMIN_GLOBAL).
+   * Elimina primero las asignaciones para respetar la FK.
+   */
+  async eliminarDefinitivo(id, usuarioId) {
+    // Sin filtro de empresa: solo ADMIN_GLOBAL llega aquí
+    const usuario = await usuariosRepository.findById(id);
+    if (!usuario) {
+      const error = new Error('Usuario no encontrado');
+      error.status = 404;
+      throw error;
+    }
+
+    return withTransaction(async (connection) => {
+      const ok = await usuariosRepository.hardDelete(id, connection);
       if (!ok) {
         const error = new Error('No se pudo eliminar el usuario');
         error.status = 500;
         throw error;
       }
-      await registrarMovimiento('Usuario', id, 'DELETE', {}, usuarioId, connection);
+      await registrarMovimiento('Usuario', id, 'DELETE', { correo: usuario.Usu_correo }, usuarioId, connection);
       return true;
     });
   }

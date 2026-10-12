@@ -4,13 +4,18 @@ const { paginate } = require('../../utils/pagination');
 
 exports.listar = async (req, res, next) => {
   try {
+    const empresaFiltro = req.esAdminGlobal
+      ? (req.query.empresaId || null)
+      : req.empresaId;
+
     const filtros = {
+      empresaId: empresaFiltro,
       usuarioId: req.query.usuarioId || null,
-      empresaId: req.query.empresaId || null,
     };
+
     const resultado = await paginate(
-      (f) => usuarioEmpresasService.listar(f),
-      (f) => usuarioEmpresasService.contar(f),
+      (f) => usuarioEmpresasService.listar(f, req.esAdminGlobal),
+      (f) => usuarioEmpresasService.contar(f, req.esAdminGlobal),
       req.query,
       filtros
     );

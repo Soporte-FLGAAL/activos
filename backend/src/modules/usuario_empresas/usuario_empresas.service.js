@@ -10,12 +10,35 @@ class UsuarioEmpresasService {
     return usuarioEmpresasRepository.getNombreRol(rolId, connection);
   }
   
-  async listar(filters) {
-    return usuarioEmpresasRepository.findAll(filters);
+  async listar(filters, esAdminGlobal = false) {
+    const filtrosAplicados = { ...filters };
+
+    // Defensa en profundidad: si no es ADMIN_GLOBAL, forzar filtro por empresa
+    if (!esAdminGlobal) {
+      if (!filters.empresaId) {
+        const error = new Error('No se pudo determinar la empresa del usuario');
+        error.status = 400;
+        throw error;
+      }
+      filtrosAplicados.empresaId = filters.empresaId;
+    }
+
+    return usuarioEmpresasRepository.findAll(filtrosAplicados);
   }
 
-  async contar(filters) {
-    return usuarioEmpresasRepository.count(filters);
+  async contar(filters, esAdminGlobal = false) {
+    const filtrosAplicados = { ...filters };
+
+    if (!esAdminGlobal) {
+      if (!filters.empresaId) {
+        const error = new Error('No se pudo determinar la empresa del usuario');
+        error.status = 400;
+        throw error;
+      }
+      filtrosAplicados.empresaId = filters.empresaId;
+    }
+
+    return usuarioEmpresasRepository.count(filtrosAplicados);
   }
 
   async asignar(data, auditorId, auditorEsGlobal) {

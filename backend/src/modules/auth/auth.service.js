@@ -43,8 +43,10 @@ class AuthService {
     try {
       decoded = verifyRefreshToken(token);
     } catch (err) {
-      throw new Error('Refresh token inválido');
-    }
+    const error = new Error('Refresh token inválido');
+    error.status = 401;
+    throw error;
+  }
 
     // Verificar que exista en BD y no esté expirado
     const storedToken = await authRepository.findRefreshToken(token);
@@ -75,3 +77,5 @@ class AuthService {
     await authRepository.revocarRefreshToken(refreshToken);
   }
 }
+
+module.exports = new AuthService();

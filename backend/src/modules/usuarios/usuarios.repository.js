@@ -112,25 +112,45 @@ class UsuariosRepository {
     return result.affectedRows > 0;
   }
 
-  async delete(id, empresaId = null, connection = null) {
+  /**
+   * Soft delete: marca al usuario como INACTIVO.
+   */
+  async softDelete(id, empresaId = null, connection = null) {
     const dbConn = connection || db;
+    let sql = 'UPDATE Usuario SET Usu_status = "INACTIVO" WHERE Usu_id = ?';
+    const params = [id];
 
-    // Si se pasa empresaId, solo permite eliminar si el usuario NO está en otra empresa
     if (empresaId) {
-      const [otras] = await dbConn.query(
-        `SELECT COUNT(*) AS total FROM Usuario_Empresas
-         WHERE UE_usuario = ? AND UE_empresa <> ?`,
-        [id, empresaId]
-      );
-      if (otras[0].total > 0) {
-        const error = new Error('El usuario pertenece a otras empresas; solo un administrador global puede eliminarlo');
-        error.status = 409;
-        throw error;
-      }
+      sql += ' AND Usu_id IN (SELECT UE_usuario FROM Usuario_Empresas WHERE UE_empresa = ?)';
+      params.push(empresaId);
     }
 
+    const [result] = await dbConn.query(sql, params);
+    return result.affectedRows > 0;
+  }
+
+  /**
+   * Hard delete: elimina asignaciones y luego el usuario.
+   * Solo se debe invocar desde un flujo que garantice atomicidad y autorización.
+   */
+  async hardDelete(id, connection = null) {
+    const dbConn = connection || db;
+    // 1. Eliminar asignaciones primero
+    await dbConn.query('DELETE FROM Usuario_Empresas WHERE UE_usuario = ?', [id]);
+    // 2. Eliminar el usuario
     const [result] = await dbConn.query('DELETE FROM Usuario WHERE Usu_id = ?', [id]);
     return result.affectedRows > 0;
+  }
+
+  // Auxiliar para validar si un usuario pertenece a otras empresas
+  async perteneceAOtrasEmpresas(usuarioId, empresaId, connection = null) {
+    const dbConn = connection || db;
+    const [rows] = await dbConn.query(
+      `SELECT COUNT(*) AS total FROM Usuario_Empresas
+       WHERE UE_usuario = ? AND UE_empresa <> ?`,
+      [usuarioId, empresaId]
+    );
+    return rows[0].total > 0;
   }
 
   /**

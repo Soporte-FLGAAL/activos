@@ -203,23 +203,32 @@ class PolizasService {
 
   async actualizarUrl(id, url, usuarioId, empresaId = null) {
     await this.obtener(id, empresaId);
-    const ok = await polizasRepository.updateUrl(id, url, empresaId);
-    if (!ok) {
-      const error = new Error('No se pudo actualizar la URL');
-      error.status = 500;
-      throw error;
-    }
-    await registrarMovimiento('Polizas', id, 'UPDATE', { campo: 'Pol_url', valor: url }, usuarioId);
-    return this.obtener(id, empresaId);
+
+    return withTransaction(async (connection) => {
+      const ok = await polizasRepository.updateUrl(id, url, empresaId, connection);
+      if (!ok) {
+        const error = new Error('No se pudo actualizar la URL');
+        error.status = 500;
+        throw error;
+      }
+      await registrarMovimiento('Polizas',id,'UPDATE',{ campo: 'Pol_url', valor: url },usuarioId,connection);
+      return true;
+    }).then(() => this.obtener(id, empresaId));
   }
 
   async eliminar(id, usuarioId, empresaId = null) {
     await this.obtener(id, empresaId);
-    const eliminado = await polizasRepository.delete(id, empresaId);
-    if (eliminado) {
-      await registrarMovimiento('Polizas', id, 'DELETE', {}, usuarioId);
-    }
-    return eliminado;
+
+    return withTransaction(async (connection) => {
+      const ok = await polizasRepository.delete(id, empresaId, connection);
+      if (!ok) {
+        const error = new Error('No se pudo eliminar la póliza');
+        error.status = 500;
+        throw error;
+      }
+      await registrarMovimiento('Polizas', id, 'DELETE', {}, usuarioId, connection);
+      return true;
+    });
   }
 }
 

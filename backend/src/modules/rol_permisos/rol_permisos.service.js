@@ -17,15 +17,25 @@ class RolPermisosService {
       error.status = 409;
       throw error;
     }
-    await rolPermisosRepository.asignar(rolId, permisoId);
-    await registrarMovimiento('Rol_Permisos', `${rolId}-${permisoId}`, 'INSERT', { rolId, permisoId }, usuarioId);
-    return true;
+
+    return withTransaction(async (connection) => {
+      await rolPermisosRepository.asignar(rolId, permisoId, connection);
+      await registrarMovimiento('Rol_Permisos',`${rolId}-${permisoId}`,'INSERT',{ rolId, permisoId },usuarioId,);
+      return true;
+    });
   }
 
   async quitarPermiso(rolId, permisoId, usuarioId) {
-    await rolPermisosRepository.quitar(rolId, permisoId);
-    await registrarMovimiento('Rol_Permisos', `${rolId}-${permisoId}`, 'DELETE', { rolId, permisoId }, usuarioId);
-    return true;
+    return withTransaction(async (connection) => {
+      const ok = await rolPermisosRepository.quitar(rolId, permisoId, connection);
+      if (!ok) {
+        const error = new Error('El permiso no estaba asignado a este rol');
+        error.status = 404;
+        throw error;
+      }
+      await registrarMovimiento('Rol_Permisos',`${rolId}-${permisoId}`,'DELETE',{ rolId, permisoId },usuarioId,connection);
+      return true;
+    });
   }
 }
 

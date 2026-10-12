@@ -35,7 +35,7 @@ const incisoSchema = z.object({
 const endosoConIncisosSchema = z.object({
   endoso: z.string().max(6),
   url: z.string().url(),
-  incisos: z.array(incisoSchema).optional().default([]),
+  incisos: z.array(incisoSchema).min(1),
 });
 
 const crearPolizaConEndososSchema = z.object({

@@ -267,18 +267,30 @@ class TarjetasService {
 
   async actualizarUrl(id, url, usuarioId, empresaId = null) {
     await this.obtener(id, empresaId);
-    await tarjetasRepository.updateUrl(id, url, empresaId);
-    await registrarMovimiento('Tarjeta_circulacion', id, 'UPDATE', { campo: 'TC_url', valor: url }, usuarioId);
-    return this.obtener(id, empresaId);
+    return withTransaction(async (connection) => {
+      const ok = await tarjetasRepository.updateUrl(id, url, empresaId, connection);
+      if (!ok) {
+        const error = new Error('No se pudo actualizar la URL');
+        error.status = 500;
+        throw error;
+      }
+      await registrarMovimiento('Tarjeta_circulacion',id,'UPDATE',{ campo: 'TC_url', valor: url },usuarioId,connection);
+      return true;
+    }).then(() => this.obtener(id, empresaId));
   }
 
   async eliminar(id, usuarioId, empresaId = null) {
     await this.obtener(id, empresaId);
-    const eliminado = await tarjetasRepository.delete(id, empresaId);
-    if (eliminado) {
-      await registrarMovimiento('Tarjeta_circulacion', id, 'DELETE', {}, usuarioId);
-    }
-    return eliminado;
+    return withTransaction(async (connection) => {
+      const ok = await tarjetasRepository.delete(id, empresaId, connection);
+      if (!ok) {
+        const error = new Error('No se pudo eliminar la tarjeta');
+        error.status = 500;
+        throw error;
+      }
+      await registrarMovimiento('Tarjeta_circulacion', id, 'DELETE', {}, usuarioId, connection);
+      return true;
+    });
   }
 }
 

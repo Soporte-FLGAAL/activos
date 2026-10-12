@@ -27,13 +27,17 @@ class AseguradorasService {
       Ase_telefono: data.telefono,
       Ase_rfc: data.rfc,
     };
-    const nueva = await aseguradorasRepository.create(dbData);
-    await registrarMovimiento('Aseguradoras', nueva.Ase_id, 'INSERT', dbData, usuarioId);
-    return nueva;
+
+    return withTransaction(async (connection) => {
+      const nuevaId = await aseguradorasRepository.create(dbData, connection);
+      await registrarMovimiento('Aseguradoras', nuevaId, 'INSERT', dbData, usuarioId, connection);
+      return nuevaId;
+    }).then((id) => this.obtener(id));
   }
 
   async actualizar(id, data, usuarioId) {
     await this.obtener(id);
+
     const map = {
       nombre: 'Ase_nombre',
       direccion: 'Ase_direccion',
@@ -41,21 +45,39 @@ class AseguradorasService {
       rfc: 'Ase_rfc',
     };
     const dbData = {};
-    for (const key in data) {
-      if (map[key]) dbData[map[key]] = data[key];
+    for (const key in data) if (map[key]) dbData[map[key]] = data[key];
+
+    if (Object.keys(dbData).length === 0) {
+      const error = new Error('No hay campos para actualizar');
+      error.status = 400;
+      throw error;
     }
-    const actualizada = await aseguradorasRepository.update(id, dbData);
-    await registrarMovimiento('Aseguradoras', id, 'UPDATE', dbData, usuarioId);
-    return actualizada;
+
+    return withTransaction(async (connection) => {
+      const ok = await aseguradorasRepository.update(id, dbData, connection);
+      if (!ok) {
+        const error = new Error('No se pudo actualizar la aseguradora');
+        error.status = 500;
+        throw error;
+      }
+      await registrarMovimiento('Aseguradoras', id, 'UPDATE', dbData, usuarioId, connection);
+      return true;
+    }).then(() => this.obtener(id));
   }
 
   async eliminar(id, usuarioId) {
     await this.obtener(id);
-    const eliminado = await aseguradorasRepository.delete(id);
-    if (eliminado) {
-      await registrarMovimiento('Aseguradoras', id, 'DELETE', {}, usuarioId);
-    }
-    return eliminado;
+
+    return withTransaction(async (connection) => {
+      const ok = await aseguradorasRepository.delete(id, connection);
+      if (!ok) {
+        const error = new Error('No se pudo eliminar la aseguradora');
+        error.status = 500;
+        throw error;
+      }
+      await registrarMovimiento('Aseguradoras', id, 'DELETE', {}, usuarioId, connection);
+      return true;
+    });
   }
 }
 

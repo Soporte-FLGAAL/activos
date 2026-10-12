@@ -60,10 +60,28 @@ exports.adminCambiarPassword = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-exports.eliminar = async (req, res, next) => {
+/**
+ * PATCH /usuarios/:id/desactivar
+ * Desactiva (soft delete). Permitido para ADMIN de la empresa o ADMIN_GLOBAL.
+ */
+exports.desactivar = async (req, res, next) => {
   try {
     const empresaId = req.esAdminGlobal ? null : req.empresaId;
-    await usuariosService.eliminar(req.params.id, req.user.userId, empresaId);
-    return success(res, null, 'Usuario eliminado');
+    const desactivado = await usuariosService.desactivar(req.params.id, req.user.userId, empresaId);
+    return success(res, desactivado, 'Usuario desactivado');
+  } catch (err) { next(err); }
+};
+
+/**
+ * DELETE /usuarios/:id
+ * Eliminación física. Solo ADMIN_GLOBAL.
+ */
+exports.eliminarDefinitivo = async (req, res, next) => {
+  try {
+    if (!req.esAdminGlobal) {
+      return error(res, 'Solo un administrador global puede eliminar usuarios definitivamente', 403);
+    }
+    await usuariosService.eliminarDefinitivo(req.params.id, req.user.userId);
+    return success(res, null, 'Usuario eliminado definitivamente');
   } catch (err) { next(err); }
 };

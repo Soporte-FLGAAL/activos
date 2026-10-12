@@ -22,27 +22,47 @@ class PeriodosService {
 
   async crear(data, usuarioId) {
     const dbData = { Per_nombre: data.nombre };
-    const nuevo = await periodosRepository.create(dbData);
-    await registrarMovimiento('Periodos', nuevo.Per_id, 'INSERT', dbData, usuarioId);
-    return nuevo;
+    return withTransaction(async (connection) => {
+      const nuevoId = await periodosRepository.create(dbData, connection);
+      await registrarMovimiento('Periodos', nuevoId, 'INSERT', dbData, usuarioId, connection);
+      return nuevoId;
+    }).then((id) => this.obtener(id));
   }
 
   async actualizar(id, data, usuarioId) {
     await this.obtener(id);
     const dbData = {};
     if (data.nombre !== undefined) dbData.Per_nombre = data.nombre;
-    const actualizado = await periodosRepository.update(id, dbData);
-    await registrarMovimiento('Periodos', id, 'UPDATE', dbData, usuarioId);
-    return actualizado;
+    if (Object.keys(dbData).length === 0) {
+      const error = new Error('No hay campos para actualizar');
+      error.status = 400;
+      throw error;
+    }
+
+    return withTransaction(async (connection) => {
+      const ok = await periodosRepository.update(id, dbData, connection);
+      if (!ok) {
+        const error = new Error('No se pudo actualizar');
+        error.status = 500;
+        throw error;
+      }
+      await registrarMovimiento('Periodos', id, 'UPDATE', dbData, usuarioId, connection);
+      return true;
+    }).then(() => this.obtener(id));
   }
 
   async eliminar(id, usuarioId) {
     await this.obtener(id);
-    const eliminado = await periodosRepository.delete(id);
-    if (eliminado) {
-      await registrarMovimiento('Periodos', id, 'DELETE', {}, usuarioId);
-    }
-    return eliminado;
+    return withTransaction(async (connection) => {
+      const ok = await periodosRepository.delete(id, connection);
+      if (!ok) {
+        const error = new Error('No se pudo eliminar');
+        error.status = 500;
+        throw error;
+      }
+      await registrarMovimiento('Periodos', id, 'DELETE', {}, usuarioId, connection);
+      return true;
+    });
   }
 }
 

@@ -22,27 +22,47 @@ class TipoTarjetaService {
 
   async crear(data, usuarioId) {
     const dbData = { TpT_nombre: data.nombre };
-    const nuevo = await tipoTarjetaRepository.create(dbData);
-    await registrarMovimiento('Tipo_tarjeta', nuevo.TpT_id, 'INSERT', dbData, usuarioId);
-    return nuevo;
+    return withTransaction(async (connection) => {
+      const nuevoId = await tipoTarjetaRepository.create(dbData, connection);
+      await registrarMovimiento('Tipo_tarjeta', nuevoId, 'INSERT', dbData, usuarioId, connection);
+      return nuevoId;
+    }).then((id) => this.obtener(id));
   }
 
   async actualizar(id, data, usuarioId) {
     await this.obtener(id);
     const dbData = {};
     if (data.nombre !== undefined) dbData.TpT_nombre = data.nombre;
-    const actualizado = await tipoTarjetaRepository.update(id, dbData);
-    await registrarMovimiento('Tipo_tarjeta', id, 'UPDATE', dbData, usuarioId);
-    return actualizado;
+    if (Object.keys(dbData).length === 0) {
+      const error = new Error('No hay campos para actualizar');
+      error.status = 400;
+      throw error;
+    }
+
+    return withTransaction(async (connection) => {
+      const ok = await tipoTarjetaRepository.update(id, dbData, connection);
+      if (!ok) {
+        const error = new Error('No se pudo actualizar');
+        error.status = 500;
+        throw error;
+      }
+      await registrarMovimiento('Tipo_tarjeta', id, 'UPDATE', dbData, usuarioId, connection);
+      return true;
+    }).then(() => this.obtener(id));
   }
 
   async eliminar(id, usuarioId) {
     await this.obtener(id);
-    const eliminado = await tipoTarjetaRepository.delete(id);
-    if (eliminado) {
-      await registrarMovimiento('Tipo_tarjeta', id, 'DELETE', {}, usuarioId);
-    }
-    return eliminado;
+    return withTransaction(async (connection) => {
+      const ok = await tipoTarjetaRepository.delete(id, connection);
+      if (!ok) {
+        const error = new Error('No se pudo eliminar');
+        error.status = 500;
+        throw error;
+      }
+      await registrarMovimiento('Tipo_tarjeta', id, 'DELETE', {}, usuarioId, connection);
+      return true;
+    });
   }
 }
 

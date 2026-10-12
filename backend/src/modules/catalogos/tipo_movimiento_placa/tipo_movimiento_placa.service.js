@@ -22,27 +22,47 @@ class TipoMovimientoPlacaService {
 
   async crear(data, usuarioId) {
     const dbData = { TpMP_nombre: data.nombre };
-    const nuevo = await tipoMovimientoPlacaRepository.create(dbData);
-    await registrarMovimiento('Tipo_movimiento_placa', nuevo.TpMP_id, 'INSERT', dbData, usuarioId);
-    return nuevo;
+    return withTransaction(async (connection) => {
+      const nuevoId = await tipoMovimientoPlacaRepository.create(dbData, connection);
+      await registrarMovimiento('Tipo_movimiento_placa', nuevoId, 'INSERT', dbData, usuarioId, connection);
+      return nuevoId;
+    }).then((id) => this.obtener(id));
   }
 
   async actualizar(id, data, usuarioId) {
     await this.obtener(id);
     const dbData = {};
     if (data.nombre !== undefined) dbData.TpMP_nombre = data.nombre;
-    const actualizado = await tipoMovimientoPlacaRepository.update(id, dbData);
-    await registrarMovimiento('Tipo_movimiento_placa', id, 'UPDATE', dbData, usuarioId);
-    return actualizado;
+    if (Object.keys(dbData).length === 0) {
+      const error = new Error('No hay campos para actualizar');
+      error.status = 400;
+      throw error;
+    }
+
+    return withTransaction(async (connection) => {
+      const ok = await tipoMovimientoPlacaRepository.update(id, dbData, connection);
+      if (!ok) {
+        const error = new Error('No se pudo actualizar');
+        error.status = 500;
+        throw error;
+      }
+      await registrarMovimiento('Tipo_movimiento_placa', id, 'UPDATE', dbData, usuarioId, connection);
+      return true;
+    }).then(() => this.obtener(id));
   }
 
   async eliminar(id, usuarioId) {
     await this.obtener(id);
-    const eliminado = await tipoMovimientoPlacaRepository.delete(id);
-    if (eliminado) {
-      await registrarMovimiento('Tipo_movimiento_placa', id, 'DELETE', {}, usuarioId);
-    }
-    return eliminado;
+    return withTransaction(async (connection) => {
+      const ok = await tipoMovimientoPlacaRepository.delete(id, connection);
+      if (!ok) {
+        const error = new Error('No se pudo eliminar');
+        error.status = 500;
+        throw error;
+      }
+      await registrarMovimiento('Tipo_movimiento_placa', id, 'DELETE', {}, usuarioId, connection);
+      return true;
+    });
   }
 }
 

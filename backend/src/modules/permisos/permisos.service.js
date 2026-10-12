@@ -21,23 +21,52 @@ class PermisosService {
   }
 
   async crear(data, usuarioId) {
-    const nuevo = await permisosRepository.create({ PerM_nombre: data.nombre });
-    await registrarMovimiento('Permisos', nuevo.PerM_id, 'INSERT', { nombre: data.nombre }, usuarioId);
-    return nuevo;
+    return withTransaction(async (connection) => {
+      const nuevoId = await permisosRepository.create(
+        { PerM_nombre: data.nombre },
+        connection
+      );
+      await registrarMovimiento(
+        'Permisos', nuevoId, 'INSERT', { nombre: data.nombre }, usuarioId, connection
+      );
+      return nuevoId;
+    }).then((id) => this.obtener(id));
   }
 
   async actualizar(id, data, usuarioId) {
-    const actualizado = await permisosRepository.update(id, { PerM_nombre: data.nombre });
-    await registrarMovimiento('Permisos', id, 'UPDATE', { nombre: data.nombre }, usuarioId);
-    return actualizado;
+    await this.obtener(id);
+
+    return withTransaction(async (connection) => {
+      const ok = await permisosRepository.update(
+        id,
+        { PerM_nombre: data.nombre },
+        connection
+      );
+      if (!ok) {
+        const error = new Error('No se pudo actualizar el permiso');
+        error.status = 500;
+        throw error;
+      }
+      await registrarMovimiento(
+        'Permisos', id, 'UPDATE', { nombre: data.nombre }, usuarioId, connection
+      );
+      return true;
+    }).then(() => this.obtener(id));
   }
 
   async eliminar(id, usuarioId) {
-    const eliminado = await permisosRepository.delete(id);
-    if (eliminado) {
-      await registrarMovimiento('Permisos', id, 'DELETE', {}, usuarioId);
-    }
-    return eliminado;
+    await this.obtener(id);
+
+    return withTransaction(async (connection) => {
+      const ok = await permisosRepository.delete(id, connection);
+      if (!ok) {
+        const error = new Error('No se pudo eliminar el permiso');
+        error.status = 500;
+        throw error;
+      }
+      await registrarMovimiento('Permisos', id, 'DELETE', {}, usuarioId, connection);
+      return true;
+    });
   }
 }
 

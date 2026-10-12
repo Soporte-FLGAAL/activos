@@ -22,27 +22,47 @@ class EstadoUnidadService {
 
   async crear(data, usuarioId) {
     const dbData = { EsU_estado: data.estado };
-    const nuevo = await estadoUnidadRepository.create(dbData);
-    await registrarMovimiento('Estado_Unidad', nuevo.EsU_id, 'INSERT', dbData, usuarioId);
-    return nuevo;
+    return withTransaction(async (connection) => {
+      const nuevoId = await estadoUnidadRepository.create(dbData, connection);
+      await registrarMovimiento('Estado_unidad', nuevoId, 'INSERT', dbData, usuarioId, connection);
+      return nuevoId;
+    }).then((id) => this.obtener(id));
   }
 
   async actualizar(id, data, usuarioId) {
     await this.obtener(id);
     const dbData = {};
     if (data.estado !== undefined) dbData.EsU_estado = data.estado;
-    const actualizado = await estadoUnidadRepository.update(id, dbData);
-    await registrarMovimiento('Estado_Unidad', id, 'UPDATE', dbData, usuarioId);
-    return actualizado;
+    if (Object.keys(dbData).length === 0) {
+      const error = new Error('No hay campos para actualizar');
+      error.status = 400;
+      throw error;
+    }
+
+    return withTransaction(async (connection) => {
+      const ok = await estadoUnidadRepository.update(id, dbData, connection);
+      if (!ok) {
+        const error = new Error('No se pudo actualizar');
+        error.status = 500;
+        throw error;
+      }
+      await registrarMovimiento('Estado_unidad', id, 'UPDATE', dbData, usuarioId, connection);
+      return true;
+    }).then(() => this.obtener(id));
   }
 
   async eliminar(id, usuarioId) {
     await this.obtener(id);
-    const eliminado = await estadoUnidadRepository.delete(id);
-    if (eliminado) {
-      await registrarMovimiento('Estado_Unidad', id, 'DELETE', {}, usuarioId);
-    }
-    return eliminado;
+    return withTransaction(async (connection) => {
+      const ok = await estadoUnidadRepository.delete(id, connection);
+      if (!ok) {
+        const error = new Error('No se pudo eliminar');
+        error.status = 500;
+        throw error;
+      }
+      await registrarMovimiento('Estado_unidad', id, 'DELETE', {}, usuarioId, connection);
+      return true;
+    });
   }
 }
 

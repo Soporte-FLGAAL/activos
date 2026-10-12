@@ -20,25 +20,63 @@ class RolesService {
     return rol;
   }
 
-  async crear(data, usuarioId) {
-    const nuevo = await rolesRepository.create({ Rol_nombre: data.nombre });
-    await registrarMovimiento('Roles', nuevo.Rol_id, 'INSERT', { nombre: data.nombre }, usuarioId);
-    return nuevo;
-  }
-
-  async actualizar(id, data, usuarioId) {
-    await this.obtener(id);
-    const actualizado = await rolesRepository.update(id, { Rol_nombre: data.nombre });
-    await registrarMovimiento('Roles', id, 'UPDATE', { nombre: data.nombre }, usuarioId);
-    return actualizado;
-  }
-
-  async eliminar(id, usuarioId) {
-    const eliminado = await rolesRepository.delete(id);
-    if (eliminado) {
-      await registrarMovimiento('Roles', id, 'DELETE', {}, usuarioId);
+  async crear(data, usuarioId, esAdminGlobal = false) {
+    if (data.nombre === 'ADMIN_GLOBAL' && !esAdminGlobal) {
+      const error = new Error('Solo un administrador global puede crear el rol ADMIN_GLOBAL');
+      error.status = 403;
+      throw error;
     }
-    return eliminado;
+
+    return withTransaction(async (connection) => {
+      const nuevoId = await rolesRepository.create(
+        { Rol_nombre: data.nombre },
+        connection
+      );
+      await registrarMovimiento( 'Roles', nuevoId, 'INSERT', { nombre: data.nombre }, usuarioId, connection);
+      return nuevoId;
+    }).then((id) => this.obtener(id));
+  }
+
+  async actualizar(id, data, usuarioId, esAdminGlobal = false) {
+    const rolActual = await this.obtener(id);
+    const afectaAdminGlobal =
+      rolActual.Rol_nombre === 'ADMIN_GLOBAL' || data.nombre === 'ADMIN_GLOBAL';
+    if (afectaAdminGlobal && !esAdminGlobal) {
+      const error = new Error('Solo un administrador global puede modificar el rol ADMIN_GLOBAL');
+      error.status = 403;
+      throw error;
+    }
+
+    return withTransaction(async (connection) => {
+      const ok = await rolesRepository.update(id,{ Rol_nombre: data.nombre },connection);
+      if (!ok) {
+        const error = new Error('No se pudo actualizar el rol');
+        error.status = 500;
+        throw error;
+      }
+      await registrarMovimiento('Roles',id,'UPDATE',{ nombreAnterior: rolActual.Rol_nombre, nombreNuevo: data.nombre },usuarioId,connection);
+      return true;
+    }).then(() => this.obtener(id));
+  }
+
+  async eliminar(id, usuarioId, esAdminGlobal = false) {
+    const rol = await this.obtener(id);
+    if (rol.Rol_nombre === 'ADMIN_GLOBAL' && !esAdminGlobal) {
+      const error = new Error('Solo un administrador global puede eliminar el rol ADMIN_GLOBAL');
+      error.status = 403;
+      throw error;
+    }
+
+    return withTransaction(async (connection) => {
+      const ok = await rolesRepository.delete(id, connection);
+      if (!ok) {
+        const error = new Error('No se pudo eliminar el rol');
+        error.status = 500;
+        throw error;
+      }
+      await registrarMovimiento('Roles', id, 'DELETE', { nombre: rol.Rol_nombre }, usuarioId, connection);
+      return true;
+    });
   }
 }
 
