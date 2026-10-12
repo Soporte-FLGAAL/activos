@@ -69,13 +69,13 @@ CREATE TABLE IF NOT EXISTS Acciones_movimiento(
 
 CREATE TABLE IF NOT EXISTS Tipo_movimiento_placa(
     TpMP_id INT NOT NULL AUTO_INCREMENT,
-    TpMP_nombre VARCHAR(20) NOT NULL,
+    TpMP_nombre VARCHAR(20) NOT NULL UNIQUE,
     PRIMARY KEY (TpMP_id)
 );
 
 CREATE TABLE IF NOT EXISTS Tipo_tarjeta(
     TpT_id INT NOT NULL AUTO_INCREMENT,
-    TpT_nombre VARCHAR(20) NOT NULL,
+    TpT_nombre VARCHAR(20) NOT NULL UNIQUE,
     PRIMARY KEY (TpT_id)
 );
 
@@ -104,7 +104,7 @@ CREATE TABLE IF NOT EXISTS Movimientos(
 -- =========================================================
 CREATE TABLE IF NOT EXISTS Tipo_unidad(
     TpU_id INT NOT NULL AUTO_INCREMENT,
-    TpU_nombre VARCHAR(30) NOT NULL,
+    TpU_nombre VARCHAR(30) NOT NULL UNIQUE,
     TpU_nombre_corto VARCHAR(15),
     PRIMARY KEY (TpU_id)
 );
@@ -114,31 +114,31 @@ CREATE TABLE IF NOT EXISTS Empresas(
     Emp_nombre VARCHAR(100) NOT NULL,
     Emp_nombre_corto VARCHAR(20),
     Emp_direccion VARCHAR(150),
-    Emp_rfc VARCHAR(13) NOT NULL,
+    Emp_rfc VARCHAR(13) NOT NULL UNIQUE,
     PRIMARY KEY (Emp_id)
 );
 
 CREATE TABLE IF NOT EXISTS Estado_unidad(
     EsU_id INT NOT NULL AUTO_INCREMENT,
-    EsU_estado VARCHAR(20) NOT NULL,
+    EsU_estado VARCHAR(20) NOT NULL UNIQUE,
     PRIMARY KEY (EsU_id)
 );
 
 CREATE TABLE IF NOT EXISTS Combustible(
     Com_id INT NOT NULL AUTO_INCREMENT,
-    Com_nombre VARCHAR(30) NOT NULL,
+    Com_nombre VARCHAR(30) NOT NULL UNIQUE,
     PRIMARY KEY (Com_id)
 );
 
 CREATE TABLE IF NOT EXISTS Periodos(
     Per_id INT NOT NULL AUTO_INCREMENT,
-    Per_nombre VARCHAR(15) NOT NULL,
+    Per_nombre VARCHAR(15) NOT NULL UNIQUE,
     PRIMARY KEY (Per_id)
 );
 
 CREATE TABLE IF NOT EXISTS Tipo_poliza(
     TpP_id INT NOT NULL AUTO_INCREMENT,
-    TpP_nombre VARCHAR(30) NOT NULL,
+    TpP_nombre VARCHAR(30) NOT NULL UNIQUE,
     PRIMARY KEY (TpP_id)
 );
 
@@ -176,7 +176,7 @@ CREATE TABLE IF NOT EXISTS Unidades(
     Uni_tipo INT NOT NULL,
     Uni_estado INT NOT NULL,
     Uni_combustible INT NOT NULL,
-    Uni_no_serie VARCHAR(25) NOT NULL,
+    Uni_no_serie VARCHAR(25) NOT NULL UNIQUE,
     Uni_no_motor VARCHAR(20) NOT NULL,
     Uni_anio_modelo YEAR NOT NULL,
     Uni_modelo VARCHAR(25) NOT NULL,
@@ -231,7 +231,7 @@ CREATE TABLE IF NOT EXISTS Aseguradoras(
     Ase_nombre VARCHAR(100) NOT NULL,
     Ase_direccion VARCHAR(150) NOT NULL,
     Ase_telefono VARCHAR(13) NOT NULL,
-    Ase_rfc VARCHAR(13) NOT NULL,
+    Ase_rfc VARCHAR(13) NOT NULL UNIQUE,
     PRIMARY KEY(Ase_id)
 );
 
