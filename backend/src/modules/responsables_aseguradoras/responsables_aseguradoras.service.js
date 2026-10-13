@@ -1,6 +1,7 @@
 const responsablesAseguradorasRepository = require('./responsables_aseguradoras.repository');
 const { registrarMovimiento } = require('../../utils/audit');
 const { existeRegistro } = require('../../utils/validators');
+const { withTransaction } = require('../../utils/transaction');
 
 class ResponsablesAseguradorasService {
   async listar(filters) {

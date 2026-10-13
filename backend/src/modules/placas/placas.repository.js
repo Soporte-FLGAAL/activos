@@ -40,7 +40,7 @@ class PlacasRepository {
     return rows[0].total;
   }
 
-  async findById(id, empresaId = null) {
+  async findById(id, empresaId = null, connection = null) {
     let sql = `
       SELECT p.*, e1.Emp_nombre AS propietario_nombre, e2.Emp_nombre AS empresa_nombre
       FROM Placas p
@@ -53,16 +53,18 @@ class PlacasRepository {
       sql += ' AND p.Pla_empresa_actual = ?';
       params.push(empresaId);
     }
-    const [rows] = await db.query(sql, params);
+    const dbConn = connection || db;
+    const [rows] = await dbConn.query(sql, params);
     return rows[0] || null;
   }
 
-  async create(data) {
-    const [result] = await db.query('INSERT INTO Placas SET ?', data);
+  async create(data, connection = null) {
+    const dbConn = connection || db;
+    const [result] = await dbConn.query('INSERT INTO Placas SET ?', data);
     return this.findById(result.insertId);
   }
 
-  async update(id, data, empresaId = null) {
+  async update(id, data, empresaId = null, connection = null) {
     const params = [data, id];
     let sql =
     `
@@ -74,11 +76,12 @@ class PlacasRepository {
       sql += ' AND Pla_empresa_actual = ?';
       params.push(empresaId);
     }
-    await db.query(sql, params);
+    const dbConn = connection || db;
+    await dbConn.query(sql, params);
     return this.findById(id, empresaId);
   }
 
-  async delete(id, empresaId = null) {
+  async delete(id, empresaId = null, connection = null) {
     const params = [id];
     let sql =
     `
@@ -89,7 +92,8 @@ class PlacasRepository {
       sql += ' AND Pla_empresa_actual = ?';
       params.push(empresaId);
     }
-    const [result] = await db.query(sql, params);
+    const dbConn = connection || db;
+    const [result] = await dbConn.query(sql, params);
     return result.affectedRows > 0;
   }
 }

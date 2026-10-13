@@ -1,5 +1,6 @@
 const rolPermisosRepository = require('./rol_permisos.repository');
 const { registrarMovimiento } = require('../../utils/audit');
+const { withTransaction } = require('../../utils/transaction');
 
 class RolPermisosService {
   async listarPermisosDeRol(rolId, filters) {

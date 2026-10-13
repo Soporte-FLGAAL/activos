@@ -1,5 +1,6 @@
 const tipoPolizaRepository = require('./tipo_poliza.repository');
 const { registrarMovimiento } = require('../../../utils/audit');
+const { withTransaction } = require('../../../utils/transaction');
 
 class TipoPolizaService {
   async listar(filters) {

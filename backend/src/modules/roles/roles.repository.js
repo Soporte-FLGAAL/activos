@@ -18,23 +18,27 @@ class RolesRepository {
     return rows[0].total;
   }
 
-  async findById(id) {
-    const [rows] = await db.query('SELECT * FROM Roles WHERE Rol_id = ?', [id]);
+  async findById(id, connection = null) {
+    const dbConn = connection || db;
+    const [rows] = await dbConn.query('SELECT * FROM Roles WHERE Rol_id = ?', [id]);
     return rows[0] || null;
   }
 
-  async create(data) {
-    const [result] = await db.query('INSERT INTO Roles SET ?', data);
+  async create(data, connection = null) {
+    const dbConn = connection || db;
+    const [result] = await dbConn.query('INSERT INTO Roles SET ?', data);
     return this.findById(result.insertId);
   }
 
-  async update(id, data) {
-    await db.query('UPDATE Roles SET ? WHERE Rol_id = ?', [data, id]);
+  async update(id, data, connection = null) {
+    const dbConn = connection || db;
+    await dbConn.query('UPDATE Roles SET ? WHERE Rol_id = ?', [data, id]);
     return this.findById(id);
   }
 
-  async delete(id) {
-    const [result] = await db.query('DELETE FROM Roles WHERE Rol_id = ?', [id]);
+  async delete(id, connection = null) {
+    const dbConn = connection || db;
+    const [result] = await dbConn.query('DELETE FROM Roles WHERE Rol_id = ?', [id]);
     return result.affectedRows > 0;
   }
 }

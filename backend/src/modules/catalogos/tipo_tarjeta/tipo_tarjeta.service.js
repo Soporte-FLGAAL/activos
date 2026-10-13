@@ -1,5 +1,6 @@
 const tipoTarjetaRepository = require('./tipo_tarjeta.repository');
 const { registrarMovimiento } = require('../../../utils/audit');
+const { withTransaction } = require('../../../utils/transaction');
 
 class TipoTarjetaService {
   async listar(filters) {

@@ -1,5 +1,6 @@
 const estadoUnidadRepository = require('./estado_unidad.repository');
 const { registrarMovimiento } = require('../../../utils/audit');
+const { withTransaction } = require('../../../utils/transaction');
 
 class EstadoUnidadService {
   async listar(filters) {

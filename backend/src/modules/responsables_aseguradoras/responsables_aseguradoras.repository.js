@@ -35,8 +35,9 @@ class ResponsablesAseguradorasRepository {
     return rows[0].total;
   }
 
-  async findById(id) {
-    const [rows] = await db.query(
+  async findById(id, connection = null) {
+    const dbConn = connection || db;
+    const [rows] = await dbConn.query(
       `SELECT ra.*, a.Ase_nombre AS aseguradora_nombre, e.Emp_nombre AS empresa_nombre
        FROM Responsables_Aseguradoras ra
        JOIN Aseguradoras a ON ra.RA_aseguradora = a.Ase_id
@@ -47,18 +48,21 @@ class ResponsablesAseguradorasRepository {
     return rows[0] || null;
   }
 
-  async create(data) {
-    const [result] = await db.query('INSERT INTO Responsables_Aseguradoras SET ?', data);
+  async create(data, connection = null) {
+    const dbConn = connection || db;
+    const [result] = await dbConn.query('INSERT INTO Responsables_Aseguradoras SET ?', data);
     return this.findById(result.insertId);
   }
 
-  async update(id, data) {
-    await db.query('UPDATE Responsables_Aseguradoras SET ? WHERE RA_id = ?', [data, id]);
+  async update(id, data, connection = null) {
+    const dbConn = connection || db;
+    await dbConn.query('UPDATE Responsables_Aseguradoras SET ? WHERE RA_id = ?', [data, id]);
     return this.findById(id);
   }
 
-  async delete(id) {
-    const [result] = await db.query('DELETE FROM Responsables_Aseguradoras WHERE RA_id = ?', [id]);
+  async delete(id, connection = null) {
+    const dbConn = connection || db;
+    const [result] = await dbConn.query('DELETE FROM Responsables_Aseguradoras WHERE RA_id = ?', [id]);
     return result.affectedRows > 0;
   }
 }

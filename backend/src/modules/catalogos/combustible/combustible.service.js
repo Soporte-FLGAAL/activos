@@ -1,5 +1,6 @@
 const combustibleRepository = require('./combustible.repository');
 const { registrarMovimiento } = require('../../../utils/audit');
+const { withTransaction } = require('../../../utils/transaction');
 
 class CombustibleService {
   async listar(filters) {

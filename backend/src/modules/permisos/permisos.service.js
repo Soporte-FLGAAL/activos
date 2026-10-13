@@ -1,5 +1,6 @@
 const permisosRepository = require('./permisos.repository');
 const { registrarMovimiento } = require('../../utils/audit');
+const { withTransaction } = require('../../utils/transaction');
 
 class PermisosService {
   async listar(filters) {

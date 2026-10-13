@@ -1,5 +1,6 @@
 const periodosRepository = require('./periodos.repository');
 const { registrarMovimiento } = require('../../../utils/audit');
+const { withTransaction } = require('../../../utils/transaction');
 
 class PeriodosService {
   async listar(filters) {

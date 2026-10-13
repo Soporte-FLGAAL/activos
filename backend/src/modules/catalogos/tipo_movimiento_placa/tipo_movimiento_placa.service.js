@@ -1,5 +1,6 @@
 const tipoMovimientoPlacaRepository = require('./tipo_movimiento_placa.repository');
 const { registrarMovimiento } = require('../../../utils/audit');
+const { withTransaction } = require('../../../utils/transaction');
 
 class TipoMovimientoPlacaService {
   async listar(filters) {

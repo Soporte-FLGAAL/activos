@@ -23,12 +23,14 @@ class RolPermisosRepository {
     return rows[0].total;
   }
 
-  async asignar(rolId, permisoId) {
-    await db.query('INSERT INTO Rol_Permisos (RP_rol, RP_permiso) VALUES (?, ?)', [rolId, permisoId]);
+  async asignar(rolId, permisoId, connection = null) {
+    const dbConn = connection || db;
+    await dbConn.query('INSERT INTO Rol_Permisos (RP_rol, RP_permiso) VALUES (?, ?)', [rolId, permisoId]);
   }
 
-  async quitar(rolId, permisoId) {
-    await db.query('DELETE FROM Rol_Permisos WHERE RP_rol = ? AND RP_permiso = ?', [rolId, permisoId]);
+  async quitar(rolId, permisoId, connection = null) {
+    const dbConn = connection || db;
+    await dbConn.query('DELETE FROM Rol_Permisos WHERE RP_rol = ? AND RP_permiso = ?', [rolId, permisoId]);
   }
 
   async existe(rolId, permisoId) {

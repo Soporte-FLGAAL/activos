@@ -1,5 +1,6 @@
 const aseguradorasRepository = require('./aseguradoras.repository');
 const { registrarMovimiento } = require('../../utils/audit');
+const { withTransaction } = require('../../utils/transaction');
 
 class AseguradorasService {
   async listar(filters) {
