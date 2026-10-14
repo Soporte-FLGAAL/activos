@@ -7,6 +7,7 @@ const validate = require('../../middlewares/validate');
 const schemas = require('./roles.schema');
 
 router.use(auth);
+router.use(setEmpresa);
 
 router.get('/', rbac('roles:ver'), controller.listar);
 router.get('/:id', rbac('roles:ver'), validate({ params: schemas.paramsIdSchema }), controller.obtener);

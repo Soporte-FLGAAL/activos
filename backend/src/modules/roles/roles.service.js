@@ -1,5 +1,8 @@
 const rolesRepository = require('./roles.repository');
 const { registrarMovimiento } = require('../../utils/audit');
+const { withTransaction } = require('../../utils/transaction');
+
+const ROL_ADMIN_GLOBAL = 'ADMIN_GLOBAL';
 
 class RolesService {
   async listar(filters) {
@@ -21,7 +24,7 @@ class RolesService {
   }
 
   async crear(data, usuarioId, esAdminGlobal = false) {
-    if (data.nombre === 'ADMIN_GLOBAL' && !esAdminGlobal) {
+    if (data.nombre === ROL_ADMIN_GLOBAL && !esAdminGlobal) {
       const error = new Error('Solo un administrador global puede crear el rol ADMIN_GLOBAL');
       error.status = 403;
       throw error;
@@ -40,7 +43,7 @@ class RolesService {
   async actualizar(id, data, usuarioId, esAdminGlobal = false) {
     const rolActual = await this.obtener(id);
     const afectaAdminGlobal =
-      rolActual.Rol_nombre === 'ADMIN_GLOBAL' || data.nombre === 'ADMIN_GLOBAL';
+      rolActual.Rol_nombre === ROL_ADMIN_GLOBAL || data.nombre === ROL_ADMIN_GLOBAL;
     if (afectaAdminGlobal && !esAdminGlobal) {
       const error = new Error('Solo un administrador global puede modificar el rol ADMIN_GLOBAL');
       error.status = 403;
@@ -61,7 +64,7 @@ class RolesService {
 
   async eliminar(id, usuarioId, esAdminGlobal = false) {
     const rol = await this.obtener(id);
-    if (rol.Rol_nombre === 'ADMIN_GLOBAL' && !esAdminGlobal) {
+    if (rol.Rol_nombre === ROL_ADMIN_GLOBAL && !esAdminGlobal) {
       const error = new Error('Solo un administrador global puede eliminar el rol ADMIN_GLOBAL');
       error.status = 403;
       throw error;

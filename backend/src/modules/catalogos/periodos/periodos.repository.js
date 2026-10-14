@@ -27,7 +27,7 @@ class PeriodosRepository {
   async create(data, connection = null) {
     const dbConn = connection || db;
     const [result] = await dbConn.query('INSERT INTO Periodos SET ?', data);
-    return this.findById(result.insertId);
+    return result.insertId;
   }
 
   async update(id, data, connection = null) {

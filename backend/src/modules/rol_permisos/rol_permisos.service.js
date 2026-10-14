@@ -21,7 +21,7 @@ class RolPermisosService {
 
     return withTransaction(async (connection) => {
       await rolPermisosRepository.asignar(rolId, permisoId, connection);
-      await registrarMovimiento('Rol_Permisos',`${rolId}-${permisoId}`,'INSERT',{ rolId, permisoId },usuarioId,);
+      await registrarMovimiento('Rol_Permisos',`${rolId}-${permisoId}`,'INSERT',{ rolId, permisoId },usuarioId, connection);
       return true;
     });
   }
