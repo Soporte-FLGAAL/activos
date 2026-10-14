@@ -60,6 +60,18 @@ exports.adminCambiarPassword = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
+exports.reactivar = async (req, res, next) => {
+  try {
+    const empresaId = req.esAdminGlobal ? null : req.empresaId;
+    const reactivado = await usuariosService.reactivar(
+      req.params.id,
+      req.user.userId,
+      empresaId
+    );
+    return success(res, reactivado, 'Usuario reactivado');
+  } catch (err) { next(err); }
+};
+
 /**
  * PATCH /usuarios/:id/desactivar
  * Desactiva (soft delete). Permitido para ADMIN de la empresa o ADMIN_GLOBAL.

@@ -39,7 +39,11 @@ module.exports = (err, req, res, next) => {
   if (err.type === 'entity.parse.failed') {
     return error(res, 'JSON inválido en el cuerpo de la petición', 400);
   }
-
+  
+  //si algún día se propaga un error de jsonwebtoken sin envolver
+  if (err.name === 'TokenExpiredError' || err.name === 'JsonWebTokenError' || err.name === 'NotBeforeError') {
+    return error(res, 'Token inválido o expirado', 401);
+  }
   // Si el error tiene un status definido (errores lanzados por nosotros)
   if (err.status) {
     return error(res, err.message, err.status);

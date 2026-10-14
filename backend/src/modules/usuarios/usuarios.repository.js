@@ -112,6 +112,20 @@ class UsuariosRepository {
     return result.affectedRows > 0;
   }
 
+  async reactivar(id, empresaId = null, connection = null) {
+    const dbConn = connection || db;
+    let sql = 'UPDATE Usuario SET Usu_status = "ACTIVO" WHERE Usu_id = ?';
+    const params = [id];
+
+    if (empresaId) {
+      sql += ' AND Usu_id IN (SELECT UE_usuario FROM Usuario_Empresas WHERE UE_empresa = ?)';
+      params.push(empresaId);
+    }
+
+    const [result] = await dbConn.query(sql, params);
+    return result.affectedRows > 0;
+  }
+  
   /**
    * Soft delete: marca al usuario como INACTIVO.
    */

@@ -111,22 +111,18 @@ class UsuariosService {
   }
 
   async reactivar(id, usuarioId, empresaId = null) {
-    await this.obtener(id, empresaId);
+    await this.obtener(id, empresaId); // valida existencia + pertenencia
 
     return withTransaction(async (connection) => {
-      let sql = 'UPDATE Usuario SET Usu_status = "ACTIVO" WHERE Usu_id = ?';
-      const params = [id];
-      if (empresaId) {
-        sql += ' AND Usu_id IN (SELECT UE_usuario FROM Usuario_Empresas WHERE UE_empresa = ?)';
-        params.push(empresaId);
-      }
-      const [result] = await connection.query(sql, params);
-      if (result.affectedRows === 0) {
+      const ok = await usuariosRepository.reactivar(id, empresaId, connection);
+      if (!ok) {
         const error = new Error('No se pudo reactivar el usuario');
         error.status = 500;
         throw error;
       }
-      await registrarMovimiento('Usuario', id, 'UPDATE', { campo: 'Usu_status', valor: 'ACTIVO' }, usuarioId, connection);
+
+      await registrarMovimiento('Usuario', id, 'UPDATE', { campo: 'Usu_status', valor: 'ACTIVO' }, usuarioId,connection);
+
       return true;
     }).then(() => this.obtener(id, empresaId));
   }

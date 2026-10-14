@@ -28,7 +28,8 @@ exports.asignar = async (req, res, next) => {
     await usuarioEmpresasService.asignar(
       req.body,
       req.user.userId,
-      req.esAdminGlobal   
+      req.esAdminGlobal,
+      req.empresaId   
     );
     return success(res, null, 'Usuario asignado a empresa', 201);
   } catch (err) { next(err); }
@@ -39,7 +40,8 @@ exports.actualizarRol = async (req, res, next) => {
     await usuarioEmpresasService.actualizarRol(
       req.body,
       req.user.userId,
-      req.esAdminGlobal   
+      req.esAdminGlobal,
+      req.empresaId   
     );
     return success(res, null, 'Rol actualizado');
   } catch (err) { next(err); }
@@ -52,7 +54,8 @@ exports.eliminar = async (req, res, next) => {
       usuarioId,
       empresaId,
       req.user.userId,
-      req.esAdminGlobal   
+      req.esAdminGlobal,
+      req.empresaId   
     );
     return success(res, null, 'Asignación eliminada');
   } catch (err) { next(err); }

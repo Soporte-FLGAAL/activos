@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const controller = require('./roles.controller');
 const auth = require('../../middlewares/auth');
+const setEmpresa = require('../../middlewares/setEmpresa');
 const rbac = require('../../middlewares/rbac');
 const validate = require('../../middlewares/validate');
 const schemas = require('./roles.schema');

@@ -32,7 +32,7 @@ exports.crear = async (req, res, next) => {
   try {
     // En creación, se asume que empresaActualId viene en el body
     // Podríamos forzar que sea req.empresaId si queremos restringir
-    const nueva = await placasService.crear(req.body, req.user.userId);
+    const nueva = await placasService.crear(req.body, req.user.userId, req.empresaId, req.esAdminGlobal);
     return success(res, nueva, 'Placa creada', 201);
   } catch (err) {
     next(err);
@@ -48,7 +48,7 @@ exports.actualizarConMovimiento = async (req, res, next) => {
       placa,
       movimiento,
       req.user.userId,
-      req.empresaId // <-- se pasa empresaId
+      req.esAdminGlobal ? null : req.empresaId
     );
     return success(res, resultado, 'Placa actualizada con movimiento');
   } catch (err) {
@@ -58,11 +58,12 @@ exports.actualizarConMovimiento = async (req, res, next) => {
 
 exports.actualizar = async (req, res, next) => {
   try {
+    const empresaId = req.esAdminGlobal ? null : req.empresaId;
     const actualizada = await placasService.actualizar(
       req.params.id,
       req.body,
       req.user.userId,
-      req.empresaId // <-- se pasa empresaId
+      empresaId 
     );
     return success(res, actualizada, 'Placa actualizada');
   } catch (err) {
@@ -72,10 +73,11 @@ exports.actualizar = async (req, res, next) => {
 
 exports.eliminar = async (req, res, next) => {
   try {
+    const empresaId = req.esAdminGlobal ? null : req.empresaId;
     await placasService.eliminar(
       req.params.id,
       req.user.userId,
-      req.empresaId // <-- se pasa empresaId
+      empresaId
     );
     return success(res, null, 'Placa eliminada');
   } catch (err) {

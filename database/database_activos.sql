@@ -261,7 +261,7 @@ CREATE TABLE IF NOT EXISTS Polizas(
     Pol_fecha_fin DATE NOT NULL,
     Pol_costo DECIMAL(12,2) NOT NULL,
     Pol_url VARCHAR(255),
-    UNIQUE (Pol_poliza, Pol_aseguradora)
+    UNIQUE (Pol_poliza, Pol_aseguradora),
     PRIMARY KEY (Pol_id),
     FOREIGN KEY (Pol_aseguradora) REFERENCES Aseguradoras(Ase_id)
         ON DELETE RESTRICT

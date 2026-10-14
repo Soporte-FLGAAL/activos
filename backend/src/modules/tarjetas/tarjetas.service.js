@@ -67,14 +67,6 @@ class TarjetasService {
           error.status = 403;
           throw error;
         }
-
-        // Validar pertenencia de la placa a la empresa
-        const [placaRow] = await connection.query('SELECT Pla_empresa_actual FROM Placas WHERE Pla_id = ?', [data.placasId]);
-        if (placaRow.length === 0 || placaRow[0].Pla_empresa_actual !== empresaId) {
-          const error = new Error('La placa no pertenece a la empresa');
-          error.status = 403;
-          throw error;
-        }
       }
 
     const [result] = await connection.query('INSERT INTO Tarjeta_circulacion SET ?', dbData);
@@ -116,19 +108,8 @@ class TarjetasService {
           error.status = 403;
           throw error;
         }
-
-        const [placaRow] = await connection.query(
-          'SELECT Pla_empresa_actual FROM Placas WHERE Pla_id = ?',
-          [dataTarjeta.placasId]
-        );
-        if (placaRow.length === 0 || placaRow[0].Pla_empresa_actual !== empresaId) {
-          const error = new Error('La placa no pertenece a la empresa');
-          error.status = 403;
-          throw error;
-        }
       }
 
-      // INSERT completo con todos los campos de reposición
       const [result] = await connection.query(
         `INSERT INTO Tarjeta_circulacion
         (TC_tarjeta, TC_unidad_id, TC_costo, TC_tipo, TC_status, TC_no_original,
@@ -173,10 +154,8 @@ class TarjetasService {
   }
 
   async actualizar(id, data, usuarioId, empresaId = null) {
-    // 1. Verificar existencia y pertenencia del registro actual
     await this.obtener(id, empresaId);
 
-    // 2. Construir dbData solo con los campos enviados
     const map = {
       tarjeta: 'TC_tarjeta',
       unidadId: 'TC_unidad_id',
@@ -202,7 +181,6 @@ class TarjetasService {
     }
 
     return withTransaction(async (connection) => {
-      // 3. Validar FK solo si el campo fue enviado
       if (data.unidadId !== undefined) {
         const ok = await existeRegistro('Unidades', 'Uni_id', data.unidadId);
         if (!ok) {
@@ -239,20 +217,8 @@ class TarjetasService {
           error.status = 422;
           throw error;
         }
-        if (empresaId) {
-          const [row] = await connection.query(
-            'SELECT Pla_empresa_actual FROM Placas WHERE Pla_id = ?',
-            [data.placasId]
-          );
-          if (row.length === 0 || row[0].Pla_empresa_actual !== empresaId) {
-            const error = new Error('La placa no pertenece a la empresa');
-            error.status = 403;
-            throw error;
-          }
-        }
       }
 
-      // 4. Actualizar
       const ok = await tarjetasRepository.update(id, dbData, empresaId, connection);
       if (!ok) {
         const error = new Error('No se pudo actualizar la tarjeta');

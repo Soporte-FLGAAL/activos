@@ -73,8 +73,15 @@ class AuthService {
     return { accessToken, refreshToken };
   }
 
-  async logout(refreshToken) {
-    await authRepository.revocarRefreshToken(refreshToken);
+  async logout(token) {
+   try {
+      await authRepository.revocarRefreshToken(token);
+      return true;
+    } catch (err) {
+      const error = new Error('No se pudo cerrar sesión');
+      error.status = 500;
+      throw error;
+    }
   }
 }
 

@@ -22,7 +22,7 @@ class PlacasService {
     return placa;
   }
 
-  async crear(data, usuarioId, empresaId = null) {
+  async crear(data, usuarioId, empresaId = null, esAdminGlobal = false) {
     // Validaciones de FK
     if (data.propietarioId && !(await existeRegistro('Empresas', 'Emp_id', data.propietarioId))) {
       const error = new Error('El propietario no existe');
@@ -33,6 +33,19 @@ class PlacasService {
       const error = new Error('La empresa actual no existe');
       error.status = 422;
       throw error;
+    }
+
+    if (!esAdminGlobal) {
+      if (!empresaId) {
+        const error = new Error('No se pudo determinar la empresa del usuario');
+        error.status = 400;
+        throw error;
+      }
+      if (Number(data.empresaActualId) !== Number(empresaId)) {
+        const error = new Error('No tiene permisos para crear placas en otra empresa');
+        error.status = 403;
+        throw error;
+      }
     }
 
     const dbData = {
@@ -46,7 +59,7 @@ class PlacasService {
       const nuevaId = await placasRepository.create(dbData, connection);
       await registrarMovimiento('Placas', nuevaId, 'INSERT', dbData, usuarioId, connection);
       return nuevaId;
-    }).then((id) => this.obtener(id, empresaId));
+    }).then((id) => this.obtener(id, esAdminGlobal ? null : empresaId));
   }
 
 
@@ -57,6 +70,14 @@ class PlacasService {
       const error = new Error('El tipo de movimiento no existe');
       error.status = 422;
       throw error;
+    }
+
+    if (dataPlaca.empresaActualId !== undefined) {
+      if (!(await existeRegistro('Empresas', 'Emp_id', dataPlaca.empresaActualId))) {
+        const error = new Error('La empresa destino no existe');
+        error.status = 422;
+        throw error;
+      }
     }
 
     return withTransaction(async (connection) => {
@@ -103,11 +124,18 @@ class PlacasService {
       placas: 'Pla_placas',
       status: 'Pla_status',
       propietarioId: 'Pla_propietario',
-      empresaActualId: 'Pla_empresa_actual',
     };
     const dbData = {};
     for (const key in data) if (map[key]) dbData[map[key]] = data[key];
 
+    if (data.empresaActualId !== undefined) {
+      const error = new Error(
+        'El cambio de empresa de una placa debe realizarse mediante el flujo de movimiento (/actualizar-con-movimiento)'
+      );
+      error.status = 400;
+      throw error;
+    }
+    
     if (Object.keys(dbData).length === 0) {
       const error = new Error('No hay campos para actualizar');
       error.status = 400;

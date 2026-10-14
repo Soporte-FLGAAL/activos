@@ -9,11 +9,28 @@ class UsuarioEmpresasService {
   async _getNombreRol(rolId, connection = null) {
     return usuarioEmpresasRepository.getNombreRol(rolId, connection);
   }
-  
+
+  /**
+   * Defensa en profundidad: un usuario no global solo puede operar
+   * sobre asignaciones de su propia empresa.
+   */
+  _verificarEmpresaObjetivo(empresaObjetivoId, empresaContextoId, esAdminGlobal) {
+    if (esAdminGlobal) return;
+    if (!empresaContextoId) {
+      const error = new Error('No se pudo determinar la empresa del usuario');
+      error.status = 400;
+      throw error;
+    }
+    if (Number(empresaObjetivoId) !== Number(empresaContextoId)) {
+      const error = new Error('No tiene permisos para operar sobre asignaciones de otra empresa');
+      error.status = 403;
+      throw error;
+    }
+  }
+
   async listar(filters, esAdminGlobal = false) {
     const filtrosAplicados = { ...filters };
 
-    // Defensa en profundidad: si no es ADMIN_GLOBAL, forzar filtro por empresa
     if (!esAdminGlobal) {
       if (!filters.empresaId) {
         const error = new Error('No se pudo determinar la empresa del usuario');
@@ -41,8 +58,10 @@ class UsuarioEmpresasService {
     return usuarioEmpresasRepository.count(filtrosAplicados);
   }
 
-  async asignar(data, auditorId, auditorEsGlobal) {
+  async asignar(data, auditorId, auditorEsGlobal, empresaContextoId = null) {
     const { usuarioId, empresaId, rolId } = data;
+
+    this._verificarEmpresaObjetivo(empresaId, empresaContextoId, auditorEsGlobal);
 
     if (!(await existeRegistro('Usuario', 'Usu_id', usuarioId))) {
       const error = new Error('El usuario no existe');
@@ -77,20 +96,15 @@ class UsuarioEmpresasService {
 
     return withTransaction(async (connection) => {
       await usuarioEmpresasRepository.create({ usuarioId, empresaId, rolId }, connection);
-      await registrarMovimiento(
-        'Usuario_Empresas',
-        `${usuarioId}-${empresaId}`,
-        'INSERT',
-        { usuarioId, empresaId, rolId, rolNombre: nombreRol },
-        auditorId,
-        connection
-      );
+      await registrarMovimiento('Usuario_Empresas',`${usuarioId}-${empresaId}`,'INSERT',{ usuarioId, empresaId, rolId, rolNombre: nombreRol }, auditorId, connection);
       return true;
     });
   }
 
-  async actualizarRol(data, auditorId, auditorEsGlobal) {
+  async actualizarRol(data, auditorId, auditorEsGlobal, empresaContextoId = null) {
     const { usuarioId, empresaId, rolId } = data;
+
+    this._verificarEmpresaObjetivo(empresaId, empresaContextoId, auditorEsGlobal);
 
     const existente = await usuarioEmpresasRepository.findOne(usuarioId, empresaId);
     if (!existente) {
@@ -121,24 +135,21 @@ class UsuarioEmpresasService {
 
     return withTransaction(async (connection) => {
       await usuarioEmpresasRepository.updateRol(usuarioId, empresaId, rolId, connection);
-      await registrarMovimiento(
-        'Usuario_Empresas',
-        `${usuarioId}-${empresaId}`,
+      await registrarMovimiento('Usuario_Empresas',`${usuarioId}-${empresaId}`,
         'UPDATE',
         {
           rolAnteriorId: existente.UE_rol,
           rolAnteriorNombre: rolActualNombre,
           rolNuevoId: rolId,
           rolNuevoNombre,
-        },
-        auditorId,
-        connection
-      );
+        }, auditorId,connection);
       return true;
     });
   }
 
-  async eliminar(usuarioId, empresaId, auditorId, auditorEsGlobal) {
+  async eliminar(usuarioId, empresaId, auditorId, auditorEsGlobal, empresaContextoId = null) {
+    this._verificarEmpresaObjetivo(empresaId, empresaContextoId, auditorEsGlobal);
+
     const existente = await usuarioEmpresasRepository.findOne(usuarioId, empresaId);
     if (!existente) {
       const error = new Error('La asignación no existe');
@@ -157,7 +168,6 @@ class UsuarioEmpresasService {
         throw error;
       }
 
-      // Evitar lock-out: si el auditor se está quitando su propia última asignación global
       if (Number(usuarioId) === Number(auditorId)) {
         const total = await usuarioEmpresasRepository.countByUsuarioAndRolNombre(
           auditorId,
@@ -175,14 +185,7 @@ class UsuarioEmpresasService {
 
     return withTransaction(async (connection) => {
       await usuarioEmpresasRepository.delete(usuarioId, empresaId, connection);
-      await registrarMovimiento(
-        'Usuario_Empresas',
-        `${usuarioId}-${empresaId}`,
-        'DELETE',
-        { rolEliminadoId: existente.UE_rol, rolEliminadoNombre: rolActualNombre },
-        auditorId,
-        connection
-      );
+      await registrarMovimiento('Usuario_Empresas',`${usuarioId}-${empresaId}`,'DELETE',{ rolEliminadoId: existente.UE_rol, rolEliminadoNombre: rolActualNombre },auditorId,connection);
       return true;
     });
   }
