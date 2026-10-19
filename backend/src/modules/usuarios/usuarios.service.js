@@ -53,7 +53,6 @@ class UsuariosService {
       apMaterno: 'Usu_ap_materno',
       telefono: 'Usu_telefono',
       correo: 'Usu_correo',
-      status: 'Usu_status',
     };
     const dbData = {};
     for (const key in data) {
@@ -89,6 +88,7 @@ class UsuariosService {
 
     return withTransaction(async (connection) => {
       await usuariosRepository.updatePassword(id, nuevaPassword, null, connection);
+      await authRepository.revocarTodosDeUsuario(id);
       await registrarMovimiento('Usuario', id, 'UPDATE', { cambio: 'password' }, usuarioId, connection);
       return true;
     });
@@ -105,13 +105,33 @@ class UsuariosService {
         error.status = 500;
         throw error;
       }
+      await authRepository.revocarTodosDeUsuario(id);
       await registrarMovimiento('Usuario', id, 'UPDATE', { cambio: 'password_admin' }, usuarioId, connection);
       return true;
     });
   }
 
-  async reactivar(id, usuarioId, empresaId = null) {
-    await this.obtener(id, empresaId); // valida existencia + pertenencia
+  async reactivar(id, usuarioId, esAdminGlobal = false) {
+    if (!esAdminGlobal) {
+      const error = new Error(
+        'Solo un administrador global puede reactivar cuentas de usuario'
+      );
+      error.status = 403;
+      throw error;
+    }
+
+    const usuario = await usuariosRepository.findById(id);
+    if (!usuario) {
+      const error = new Error('Usuario no encontrado');
+      error.status = 404;
+      throw error;
+    }
+
+    if (usuario.Usu_status === 'ACTIVO') {
+      const error = new Error('El usuario ya está activo');
+      error.status = 409;
+      throw error;
+    }
 
     return withTransaction(async (connection) => {
       const ok = await usuariosRepository.reactivar(id, empresaId, connection);
@@ -130,8 +150,33 @@ class UsuariosService {
   /**
    * Desactivar usuario (soft delete). Es el flujo normal.
    */
-  async desactivar(id, usuarioId, empresaId = null) {
-    await this.obtener(id, empresaId); // valida existencia + pertenencia
+  async desactivar(id, usuarioId, esAdminGlobal = false) {
+    if (!esAdminGlobal) {
+      const error = new Error(
+        'Solo un administrador global puede desactivar cuentas de usuario'
+      );
+      error.status = 403;
+      throw error;
+    }
+
+    if (Number(id) === Number(usuarioId)) {
+      const error = new Error('No puede desactivar su propia cuenta');
+      error.status = 409;
+      throw error;
+    }
+
+    const usuario = await this.obtener(id);;
+    if (!usuario) {
+      const error = new Error('Usuario no encontrado');
+      error.status = 404;
+      throw error;
+    }
+
+    if (usuario.Usu_status === 'INACTIVO') {
+      const error = new Error('El usuario ya está inactivo');
+      error.status = 409;
+      throw error;
+    }
 
     return withTransaction(async (connection) => {
       const ok = await usuariosRepository.softDelete(id, empresaId, connection);
@@ -140,6 +185,7 @@ class UsuariosService {
         error.status = 500;
         throw error;
       }
+      await authRepository.revocarTodosDeUsuario(id);
       await registrarMovimiento('Usuario',id, 'UPDATE',{ campo: 'Usu_status', valor: 'INACTIVO' },usuarioId,connection);
       return true;
     }).then(() => this.obtener(id, empresaId));
@@ -152,6 +198,14 @@ class UsuariosService {
    */
   async eliminarDefinitivo(id, usuarioId) {
     // Sin filtro de empresa: solo ADMIN_GLOBAL llega aquí
+    if (Number(id) === Number(usuarioId)) {
+      const error = new Error(
+        'No puede eliminar su propia cuenta. Pida a otro administrador que lo haga, o utilice la desactivación.'
+      );
+      error.status = 409;
+      throw error;
+    }
+
     const usuario = await usuariosRepository.findById(id);
     if (!usuario) {
       const error = new Error('Usuario no encontrado');
@@ -166,6 +220,7 @@ class UsuariosService {
         error.status = 500;
         throw error;
       }
+      await authRepository.revocarTodosDeUsuario(id);
       await registrarMovimiento('Usuario', id, 'DELETE', { correo: usuario.Usu_correo }, usuarioId, connection);
       return true;
     });

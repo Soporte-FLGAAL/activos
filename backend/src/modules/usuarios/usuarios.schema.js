@@ -15,7 +15,6 @@ const actualizarUsuarioSchema = z.object({
   apMaterno: z.string().max(25).optional().nullable(),
   telefono: z.string().max(13).optional().nullable(),
   correo: z.string().email().optional(),
-  status: z.enum(['ACTIVO', 'INACTIVO']).optional(),
 });
 
 const cambiarPasswordSchema = z.object({

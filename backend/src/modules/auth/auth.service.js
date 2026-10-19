@@ -46,7 +46,14 @@ class AuthService {
     const error = new Error('Refresh token inválido');
     error.status = 401;
     throw error;
-  }
+    }
+
+    const user = await authRepository.findById(decoded.userId);
+    if (!user || user.Usu_status !== 'ACTIVO') {
+      const error = new Error('Refresh token inválido');
+      error.status = 401;
+      throw error;
+    }
 
     // Verificar que exista en BD y no esté expirado
     const storedToken = await authRepository.findRefreshToken(token);
@@ -54,9 +61,10 @@ class AuthService {
       throw new Error('Refresh token no válido o expirado');
     }
 
-    const user = await authRepository.findById(decoded.userId);
-    if (!user || user.Usu_status !== 'ACTIVO') {
-      const error = new Error('Refresh token inválido');
+    if (new Date(stored.expira_en) < new Date()) {
+      // *** ESTE era el caso que faltaba: 401, no 500 ***
+      await authRepository.revokeRefreshToken(token);
+      const error = new Error('Refresh token expirado');
       error.status = 401;
       throw error;
     }
@@ -67,7 +75,6 @@ class AuthService {
     // Generar nuevos tokens
     const accessToken = generateAccessToken(user);
     const refreshToken = generateRefreshToken(user);
-    const expiracion = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
     await authRepository.guardarRefreshToken(user.Usu_id, refreshToken, expiracion);
 
     return { accessToken, refreshToken };

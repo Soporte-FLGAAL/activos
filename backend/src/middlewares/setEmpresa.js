@@ -1,69 +1,71 @@
 const db = require('../config/database');
 const { error } = require('../utils/response');
+const { ROLES } = require('../config/constants');
 
 module.exports = async (req, res, next) => {
   try {
     const userId = req.user.userId;
 
-    // Verificar si el usuario es ADMIN global (rol ADMIN en cualquier empresa)
-    const [adminRows] = await db.query(
+    // 1. Detectar ADMIN_GLOBAL
+    const [adminGlobalRows] = await db.query(
       `SELECT 1
        FROM Usuario_Empresas ue
        JOIN Roles r ON ue.UE_rol = r.Rol_id
-       WHERE ue.UE_usuario = ? AND r.Rol_nombre = 'ADMIN_GLOBAL'
+       WHERE ue.UE_usuario = ? AND r.Rol_nombre = ?
        LIMIT 1`,
-      [userId]
+      [userId, ROLES.ADMIN_GLOBAL]
     );
-    const esAdminGlobal = adminRows.length > 0;
+    const esAdminGlobal = adminGlobalRows.length > 0;
     req.esAdminGlobal = esAdminGlobal;
 
-    // Obtener todas las empresas del usuario
+    // 2. Extraer y validar empresaSolicitada UNA SOLA VEZ
+    const rawEmpresa =
+      req.headers['x-empresa-id'] ||
+      req.query?.empresaId ||
+      req.body?.empresaId ||
+      req.params?.empresaId ||
+      null;
+
+    let empresaSolicitada = null;
+    if (rawEmpresa !== null && rawEmpresa !== undefined && rawEmpresa !== '') {
+      const num = Number(rawEmpresa);
+      if (!Number.isInteger(num) || num <= 0) {
+        return error(res, 'El identificador de empresa es inválido', 400);
+      }
+      empresaSolicitada = num;
+    }
+
+    // 3. Empresas del usuario
     const [empresas] = await db.query(
       'SELECT UE_empresa FROM Usuario_Empresas WHERE UE_usuario = ?',
       [userId]
     );
 
-    // Empresa solicitada desde header, query, body o params
-    const empresaSolicitada =
-      req.headers['x-empresa-id'] ||
-      req.query.empresaId ||
-      req.body?.empresaId ||
-      req.params?.empresaId ||
-      null;
-
-    // Caso: no tiene ninguna empresa asignada
-    if (empresas.length === 0) {
-      if (esAdminGlobal) {
-        // Admin sin empresas asignadas: puede operar sin contexto
-        req.empresaId = null;
-        return next();
-      }
-      return error(res, 'El usuario no tiene empresas asignadas', 403);
-    }
-
-    // Caso: tiene una sola empresa → se asigna automáticamente
-    if (empresas.length === 1) {
-      // Si envían una empresa distinta a la asignada, verificar si es admin
-      if (empresaSolicitada && empresaSolicitada != empresas[0].UE_empresa) {
-        if (!esAdminGlobal) {
-          return error(res, 'No tiene acceso a la empresa especificada', 403);
-        }
-        // Admin puede operar con otra empresa, se respeta la solicitada
-        req.empresaId = empresaSolicitada;
-        return next();
-      }
-      req.empresaId = empresas[0].UE_empresa;
+    // 4. ADMIN_GLOBAL: puede operar con o sin contexto
+    if (esAdminGlobal) {
+      req.empresaId = empresaSolicitada; // ya es Number o null
       return next();
     }
 
-    // Caso: múltiples empresas
-    if (!empresaSolicitada) {
-      if (esAdminGlobal) {
-        // Admin puede operar sin contexto específico
-        req.empresaId = null;
-        return next();
+    // 5. Usuario no global sin empresas → 403
+    if (empresas.length === 0) {
+      return error(res, 'El usuario no tiene empresas asignadas', 403);
+    }
+
+    // 6. Usuario no global con UNA empresa
+    if (empresas.length === 1) {
+      const unicaEmpresa = Number(empresas[0].UE_empresa);
+
+      if (empresaSolicitada !== null && empresaSolicitada !== unicaEmpresa) {
+        return error(res, 'No tiene acceso a la empresa especificada', 403);
       }
-      // Usuario normal con múltiples empresas debe especificar una
+
+      req.empresaId = unicaEmpresa;
+      return next();
+    }
+
+    // 7. Usuario no global con MÚLTIPLES empresas
+    if (empresaSolicitada === null) {
       return error(
         res,
         'Debe especificar la empresa mediante header X-Empresa-Id o parámetro empresaId',
@@ -71,13 +73,12 @@ module.exports = async (req, res, next) => {
       );
     }
 
-    // Verificar que la empresa solicitada pertenezca al usuario (o sea admin)
-    const pertenece = empresas.some(e => e.UE_empresa == empresaSolicitada);
-    if (!pertenece && !esAdminGlobal) {
+    const pertenece = empresas.some(e => Number(e.UE_empresa) === empresaSolicitada);
+    if (!pertenece) {
       return error(res, 'No tiene acceso a la empresa especificada', 403);
     }
 
-    req.empresaId = Number(empresaSolicitada);
+    req.empresaId = empresaSolicitada;
     next();
   } catch (err) {
     next(err);

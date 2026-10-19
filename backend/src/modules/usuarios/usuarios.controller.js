@@ -62,11 +62,10 @@ exports.adminCambiarPassword = async (req, res, next) => {
 
 exports.reactivar = async (req, res, next) => {
   try {
-    const empresaId = req.esAdminGlobal ? null : req.empresaId;
     const reactivado = await usuariosService.reactivar(
       req.params.id,
       req.user.userId,
-      empresaId
+      req.esAdminGlobal
     );
     return success(res, reactivado, 'Usuario reactivado');
   } catch (err) { next(err); }
@@ -78,8 +77,7 @@ exports.reactivar = async (req, res, next) => {
  */
 exports.desactivar = async (req, res, next) => {
   try {
-    const empresaId = req.esAdminGlobal ? null : req.empresaId;
-    const desactivado = await usuariosService.desactivar(req.params.id, req.user.userId, empresaId);
+    const desactivado = await usuariosService.desactivar(req.params.id, req.user.userId, req.esAdminGlobal);
     return success(res, desactivado, 'Usuario desactivado');
   } catch (err) { next(err); }
 };

@@ -81,7 +81,8 @@ class PolizasRepository {
     return this.findById(id, empresaId);
   }
 
-  async updateUrl(id, url , empresaId = null) {
+  async updateUrl(id, url , empresaId = null, connection = null) {
+    const dbConn = connection || db;
     const params = [url, id];
     let sql = 
     `UPDATE Polizas 
@@ -92,11 +93,12 @@ class PolizasRepository {
       sql += ' AND Pol_unidad_id IN (SELECT Uni_id FROM Unidades WHERE Uni_empresa_actual = ?)';
       params.push(empresaId);
     }
-    await db.query(sql, params);
+    await dbConn.query(sql, params);
     return this.findById(id, empresaId);
   }
   
-  async delete(id, empresaId = null) {
+  async delete(id, empresaId = null, connection = null) {
+    const dbConn = connection || db;
     const params = [id];
     let sql = 
     `DELETE FROM Polizas 
@@ -106,7 +108,7 @@ class PolizasRepository {
       sql += ' AND Pol_unidad_id IN (SELECT Uni_id FROM Unidades WHERE Uni_empresa_actual = ?)';
       params.push(empresaId);
     }
-    const [result] = await db.query(sql, params);
+    const [result] = await dbConn.query(sql, params);
     return result.affectedRows > 0;
   }
 }
