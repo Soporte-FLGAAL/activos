@@ -10,10 +10,6 @@ module.exports = async (req, res, next) => {
   const token = authHeader.split(' ')[1];
   try {
     const decoded = verifyAccessToken(token);
-    const user = await authRepository.findById(decoded.userId);
-    if (!user || user.Usu_status !== 'ACTIVO') {
-      return error(res, 'Cuenta inactiva o usuario no encontrado', 401);
-    }
     
     req.user = decoded;
     next();

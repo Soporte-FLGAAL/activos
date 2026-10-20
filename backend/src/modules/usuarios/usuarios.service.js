@@ -2,6 +2,7 @@ const usuariosRepository = require('./usuarios.repository');
 const { comparePassword } = require('../../utils/password');
 const { registrarMovimiento } = require('../../utils/audit');
 const { withTransaction } = require('../../utils/transaction');
+const authRepository = require('./auth.repository');
 
 class UsuariosService {
   async listar(filters) {
