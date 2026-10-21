@@ -23,16 +23,61 @@ class AuthService {
     const accessToken = generateAccessToken(user);
     const refreshToken = generateRefreshToken(user);
 
-    // Extraer la expiración real del token generado
     const decodedNew = verifyRefreshToken(refreshToken);
     const expiraEn = new Date(decodedNew.exp * 1000);
+    await authRepository.saveRefreshToken(user.Usu_id, refreshToken, expiraEn);
 
-    await authRepository.guardarRefreshToken(user.Usu_id, refreshToken, expiraEn);
+    // *** Nuevo: empresas y roles ***
+    const empresasRaw = await authRepository.findEmpresasByUsuario(user.Usu_id);
+    const empresas = empresasRaw.map(e => ({
+      id: e.Emp_id,
+      nombre: e.Emp_nombre,
+      nombreCorto: e.Emp_nombre_corto,
+      rolId: e.Rol_id,
+      rolNombre: e.Rol_nombre,
+    }));
+    const esAdminGlobal = empresas.some(e => e.rolNombre === 'ADMIN_GLOBAL');
 
     return {
-      user: { id: user.Usu_id, email: user.Usu_correo, nombres: `${user.Usu_nombres} ${user.Usu_ap_paterno}` },
+      user: {
+        id: user.Usu_id,
+        email: user.Usu_correo,
+        nombres: `${user.Usu_nombres} ${user.Usu_ap_paterno}`,
+        esAdminGlobal,
+      },
+      empresas,          // <-- lista de empresas + rol por empresa
       accessToken,
       refreshToken,
+    };
+  }
+
+  async me(usuarioId) {
+    const user = await authRepository.findById(usuarioId);
+    if (!user || user.Usu_status !== 'ACTIVO') {
+      const error = new Error('Usuario no encontrado o inactivo');
+      error.status = 401;
+      throw error;
+    }
+
+    const empresasRaw = await authRepository.findEmpresasByUsuario(usuarioId);
+    const empresas = empresasRaw.map(e => ({
+      id: e.Emp_id,
+      nombre: e.Emp_nombre,
+      nombreCorto: e.Emp_nombre_corto,
+      rolId: e.Rol_id,
+      rolNombre: e.Rol_nombre,
+    }));
+    const esAdminGlobal = empresas.some(e => e.rolNombre === 'ADMIN_GLOBAL');
+
+    return {
+      user: {
+        id: user.Usu_id,
+        email: user.Usu_correo,
+        nombres: user.Usu_nombres,
+        apPaterno: user.Usu_ap_paterno,
+        esAdminGlobal,
+      },
+      empresas,
     };
   }
 

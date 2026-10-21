@@ -11,6 +11,13 @@ exports.login = async (req, res, next) => {
   }
 };
 
+exports.me = async (req, res, next) => {
+  try {
+    const contexto = await authService.me(req.user.userId);
+    return success(res, contexto, 'Contexto del usuario');
+  } catch (err) { next(err); }
+};
+
 exports.refreshToken = async (req, res, next) => {
   try {
     const { refreshToken } = req.body;

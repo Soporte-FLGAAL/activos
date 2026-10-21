@@ -12,6 +12,24 @@ class AuthRepository {
     return rows[0] || null;
   }
 
+  async findEmpresasByUsuario(usuarioId) {
+    const [rows] = await db.query(
+      `SELECT
+        e.Emp_id,
+        e.Emp_nombre,
+        e.Emp_nombre_corto,
+        r.Rol_id,
+        r.Rol_nombre
+      FROM Usuario_Empresas ue
+      JOIN Empresas e ON ue.UE_empresa = e.Emp_id
+      JOIN Roles r ON ue.UE_rol = r.Rol_id
+      WHERE ue.UE_usuario = ?
+      ORDER BY e.Emp_nombre`,
+      [usuarioId]
+    );
+    return rows;
+  }
+
   async findRefreshTokenForUpdate(token, connection) {
     if (!connection) {
       throw new Error('findRefreshTokenForUpdate requiere una conexión de transacción');
