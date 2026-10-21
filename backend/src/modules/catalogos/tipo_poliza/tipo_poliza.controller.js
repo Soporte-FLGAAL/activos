@@ -1,6 +1,6 @@
 const tipoPolizaService = require('./tipo_poliza.service');
 const { success } = require('../../../utils/response');
-const { paginate } = require('../../utils/pagination');
+const { paginate } = require('../../../utils/pagination');
 
 exports.listar = async (req, res, next) => {
   try {
