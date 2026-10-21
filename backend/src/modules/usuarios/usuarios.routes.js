@@ -24,7 +24,5 @@ router.post('/:id/cambiar-password-admin', rbac('usuarios:editar'), validate({ p
 
 // Desactivar (soft delete) — normal
 router.patch('/:id/desactivar', rbac('usuarios:editar'), validate({ params: schemas.paramsIdSchema }), controller.desactivar);
-// Eliminar definitivamente — solo ADMIN_GLOBAL
-router.delete('/:id', validate({ params: schemas.paramsIdSchema }), controller.eliminarDefinitivo);
 
 module.exports = router;

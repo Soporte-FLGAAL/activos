@@ -57,7 +57,6 @@ router.use('/catalogos/periodos', catalogoPeriodosRoutes);
 router.use('/catalogos/tipo-poliza', catalogoTipoPolizaRoutes);
 router.use('/catalogos/tipo-tarjeta', catalogoTipoTarjetaRoutes);
 router.use('/catalogos/tipo-movimiento-placa', catalogoTipoMovimientoPlacaRoutes);
-router.use('/catalogos/acciones-movimiento', catalogoAccionesMovimientoRoutes);
 router.use('/upload', require('../modules/upload/upload.routes'));
 
 module.exports = router;
