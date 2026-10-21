@@ -30,7 +30,7 @@ class RolPermisosRepository {
 
   async quitar(rolId, permisoId, connection = null) {
     const dbConn = connection || db;
-    await dbConn.query('DELETE FROM Rol_Permisos WHERE RP_rol = ? AND RP_permiso = ?', [rolId, permisoId]);
+    const [result] = await dbConn.query('DELETE FROM Rol_Permisos WHERE RP_rol = ? AND RP_permiso = ?', [rolId, permisoId]);
     return result.affectedRows > 0
   }
 

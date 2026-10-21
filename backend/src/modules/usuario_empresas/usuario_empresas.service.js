@@ -133,6 +133,24 @@ class UsuarioEmpresasService {
       throw error;
     }
 
+    // Si el auditor está cambiando su propia asignación de ADMIN_GLOBAL a un rol normal,
+    // verificar que le quede al menos otra asignación ADMIN_GLOBAL activa.
+    if (
+      rolActualNombre === ROL_ADMIN_GLOBAL &&
+      rolNuevoNombre !== ROL_ADMIN_GLOBAL &&
+      Number(usuarioId) === Number(auditorId)
+    ) {
+      const total = await usuarioEmpresasRepository.countByUsuarioAndRolNombre(auditorId,ROL_ADMIN_GLOBAL);
+      if (total <= 1) {
+        const error = new Error(
+          'No puede quitarse su propia última asignación ADMIN_GLOBAL porque perdería el acceso'
+        );
+        error.status = 409;
+        throw error;
+      }
+    }
+
+
     return withTransaction(async (connection) => {
       await usuarioEmpresasRepository.updateRol(usuarioId, empresaId, rolId, connection);
       await registrarMovimiento('Usuario_Empresas',`${usuarioId}-${empresaId}`,

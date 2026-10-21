@@ -83,7 +83,7 @@ class RolesService {
     // *** Los roles de sistema no pueden eliminarse ***
     if (ROLES_SISTEMA.has(rol.Rol_nombre)) {
       if (!esAdminGlobal) {
-        const error = new Error(`Solo un administrador global puede eliminar ${data.nombre}`);
+        const error = new Error(`Solo un administrador global puede eliminar ${rol.Rol_nombre}`);
         error.status = 403;
         throw error;
       }

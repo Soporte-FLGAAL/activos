@@ -2,7 +2,7 @@ const usuariosRepository = require('./usuarios.repository');
 const { comparePassword } = require('../../utils/password');
 const { registrarMovimiento } = require('../../utils/audit');
 const { withTransaction } = require('../../utils/transaction');
-const authRepository = require('./auth.repository');
+const authRepository = require('../auth/auth.repository');
 
 class UsuariosService {
   async listar(filters) {
@@ -89,7 +89,7 @@ class UsuariosService {
 
     return withTransaction(async (connection) => {
       await usuariosRepository.updatePassword(id, nuevaPassword, null, connection);
-      await authRepository.revocarTodosDeUsuario(id);
+      await authRepository.revocarTodosDeUsuario(id, connection);
       await registrarMovimiento('Usuario', id, 'UPDATE', { cambio: 'password' }, usuarioId, connection);
       return true;
     });
@@ -106,7 +106,7 @@ class UsuariosService {
         error.status = 500;
         throw error;
       }
-      await authRepository.revocarTodosDeUsuario(id);
+      await authRepository.revocarTodosDeUsuario(id, connection);
       await registrarMovimiento('Usuario', id, 'UPDATE', { cambio: 'password_admin' }, usuarioId, connection);
       return true;
     });
@@ -135,7 +135,7 @@ class UsuariosService {
     }
 
     return withTransaction(async (connection) => {
-      const ok = await usuariosRepository.reactivar(id, empresaId, connection);
+      const ok = await usuariosRepository.reactivar(id, null, connection);
       if (!ok) {
         const error = new Error('No se pudo reactivar el usuario');
         error.status = 500;
@@ -145,7 +145,7 @@ class UsuariosService {
       await registrarMovimiento('Usuario', id, 'UPDATE', { campo: 'Usu_status', valor: 'ACTIVO' }, usuarioId,connection);
 
       return true;
-    }).then(() => this.obtener(id, empresaId));
+    }).then(() => this.obtener(id));
   }
 
   /**
@@ -180,16 +180,16 @@ class UsuariosService {
     }
 
     return withTransaction(async (connection) => {
-      const ok = await usuariosRepository.softDelete(id, empresaId, connection);
+      const ok = await usuariosRepository.softDelete(id, null, connection);
       if (!ok) {
         const error = new Error('No se pudo desactivar el usuario');
         error.status = 500;
         throw error;
       }
-      await authRepository.revocarTodosDeUsuario(id);
+      await authRepository.revocarTodosDeUsuario(id, connection);
       await registrarMovimiento('Usuario',id, 'UPDATE',{ campo: 'Usu_status', valor: 'INACTIVO' },usuarioId,connection);
       return true;
-    }).then(() => this.obtener(id, empresaId));
+    }).then(() => this.obtener(id));
   }
 
   /**
@@ -221,7 +221,7 @@ class UsuariosService {
         error.status = 500;
         throw error;
       }
-      await authRepository.revocarTodosDeUsuario(id);
+      await authRepository.revocarTodosDeUsuario(id, connection);
       await registrarMovimiento('Usuario', id, 'DELETE', { correo: usuario.Usu_correo }, usuarioId, connection);
       return true;
     });

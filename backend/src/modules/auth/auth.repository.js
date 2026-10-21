@@ -31,8 +31,10 @@ class AuthRepository {
     await db.query('DELETE FROM RefreshTokens WHERE RT_token = ?', [token]);
   }
 
-  async revocarTodosDeUsuario(usuarioId) {
-    await db.query('DELETE FROM RefreshTokens WHERE RT_usuario = ?', [usuarioId]);
+  async revocarTodosDeUsuario(usuarioId, connection = null) {
+    const dbConn = connection || db;
+    const [result] = await dbConn.query('DELETE FROM RefreshTokens WHERE RT_usuario = ?', [usuarioId]);
+    return result.affectedRows;
   }
 }
 

@@ -39,30 +39,35 @@ class AuthService {
   }
 
   async refreshToken(token) {
+    const noAutorizado = (mensaje = 'Refresh token inválido') => {
+      const error = new Error(mensaje);
+      error.status = 401;
+      return error;
+    };
+
     let decoded;
     try {
       decoded = verifyRefreshToken(token);
     } catch (err) {
-    const error = new Error('Refresh token inválido');
-    error.status = 401;
-    throw error;
+      throw noAutorizado();
     }
 
     const user = await authRepository.findById(decoded.userId);
     if (!user || user.Usu_status !== 'ACTIVO') {
-      const error = new Error('Refresh token inválido');
-      error.status = 401;
-      throw error;
+      throw noAutorizado();
     }
 
     // Verificar que exista en BD y no esté expirado
     const storedToken = await authRepository.findRefreshToken(token);
+    
+    if (!storedToken) {
+      throw noAutorizado();;
+    }
+
     if (new Date(storedToken.RT_expiracion) < new Date()) {
-      // *** ESTE era el caso que faltaba: 401, no 500 ***
+      // Es un token que existía pero ya venció → revocarlo para limpiar
       await authRepository.revocarRefreshToken(token);
-      const error = new Error('Refresh token expirado');
-      error.status = 401;
-      throw error;
+      throw noAutorizado('Refresh token expirado');
     }
 
     // Revocar token anterior
@@ -71,7 +76,8 @@ class AuthService {
     // Generar nuevos tokens
     const accessToken = generateAccessToken(user);
     const refreshToken = generateRefreshToken(user);
-    const expiracion = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    const decodedNew = jwt.decode(refreshToken);
+    const expiracion = new Date(decodedNew.exp * 1000);
     await authRepository.guardarRefreshToken(user.Usu_id, refreshToken, expiracion);
 
     return { accessToken, refreshToken };

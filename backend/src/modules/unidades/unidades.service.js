@@ -70,6 +70,20 @@ class UnidadesService {
       empresaActualFinal = empresaId;
     }
 
+    // Regla: solo ADMIN_GLOBAL puede asignar un propietario distinto a su propia empresa
+    if (!esAdminGlobal) {
+      if (!empresaId) {
+        const error = new Error('No se pudo determinar la empresa del usuario');
+        error.status = 400;
+        throw error;
+      }
+      if (Number(data.propietarioId) !== Number(empresaId)) {
+        const error = new Error('No tiene permisos para asignar propietarios externos');
+        error.status = 403;
+        throw error;
+      }
+    }
+    
     // Construir dbData
     const dbData = this._toDbData(data);
     dbData.Uni_empresa_actual = empresaActualFinal;

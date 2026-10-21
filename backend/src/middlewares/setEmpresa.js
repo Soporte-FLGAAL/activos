@@ -11,9 +11,9 @@ module.exports = async (req, res, next) => {
       `SELECT 1
        FROM Usuario_Empresas ue
        JOIN Roles r ON ue.UE_rol = r.Rol_id
-       WHERE ue.UE_usuario = ? AND r.Rol_nombre = ?
+       WHERE ue.UE_usuario = ? AND r.Rol_nombre = 'ADMIN_GLOBAL'
        LIMIT 1`,
-      [userId, ROLES.ADMIN_GLOBAL]
+      [userId]
     );
     const esAdminGlobal = adminGlobalRows.length > 0;
     req.esAdminGlobal = esAdminGlobal;
