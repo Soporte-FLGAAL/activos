@@ -13,7 +13,10 @@ class UploadService {
 
   rutaAbsoluta(archivo) {
     const full = path.join(UPLOAD_DIR, archivo.Arc_ruta);
-    if (!path.resolve(full).startsWith(path.resolve(UPLOAD_DIR))) {
+    // path.relative() devuelve '' si son iguales, una ruta relativa si está dentro,
+    // y una ruta con '..' si está fuera.
+    const rel = path.relative(UPLOAD_DIR, full);
+    if (rel === '' || rel.startsWith('..') || path.isAbsolute(rel)) {
       return null;
     }
     return full;
