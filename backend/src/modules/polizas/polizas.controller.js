@@ -4,12 +4,13 @@ const { paginate } = require('../../utils/pagination');
 
 exports.listar = async (req, res, next) => {
   try {
+    const q = req.validatedQuery || {};
     // Se pasa empresaId desde req.empresaId (inyectado por setEmpresa)
     const filtros = {
       empresaId: req.empresaId || null,
-      unidadId: req.query.unidadId || null,
-      aseguradoraId: req.query.aseguradoraId || null,
-      vigente: req.query.vigente || null,
+      unidadId: q.unidadId || null,
+      aseguradoraId: q.aseguradoraId || null,
+      vigente: q.vigente || null,
     };
     const resultado = await paginate(
       (f) => polizasService.listar(f),

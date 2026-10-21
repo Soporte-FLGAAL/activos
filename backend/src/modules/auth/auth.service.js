@@ -74,13 +74,30 @@ class AuthService {
     await authRepository.revocarRefreshToken(token);
 
     // Generar nuevos tokens
-    const accessToken = generateAccessToken(user);
-    const refreshToken = generateRefreshToken(user);
-    const decodedNew = jwt.decode(refreshToken);
-    const expiracion = new Date(decodedNew.exp * 1000);
-    await authRepository.guardarRefreshToken(user.Usu_id, refreshToken, expiracion);
+    return withTransaction(async (connection) => {
+      // 4a. Bloquear la fila para evitar uso concurrente
+      const locked = await authRepository.findRefreshTokenForUpdate(token, connection);
+      if (!locked) {
+        // Otro request ya lo consumió entre el paso 3 y este punto
+        throw noAutorizado();
+      }
 
-    return { accessToken, refreshToken };
+      // 4b. Revocar el token usado
+      await authRepository.revocarRefreshToken(token, connection);
+
+      // 4c. Generar nuevos tokens
+      const accessToken = generateAccessToken(user);
+      const refreshToken = generateRefreshToken(user);
+
+      // 4d. Extraer `exp` del token recién generado sin dependencia adicional
+      //     (verifyRefreshToken ya está importado del módulo jwt.js)
+      const decodedNew = verifyRefreshToken(refreshToken);
+      const expiracion = new Date(decodedNew.exp * 1000);
+
+      await authRepository.guardarRefreshToken(user.Usu_id,refreshToken,expiracion);
+
+      return { accessToken, refreshToken };
+    });
   }
 
   async logout(token) {

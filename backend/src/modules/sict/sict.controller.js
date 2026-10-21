@@ -4,8 +4,9 @@ const { paginate } = require('../../utils/pagination');
 
 exports.listar = async (req, res, next) => {
   try {
-    const empresaFiltro = req.esAdminGlobal ? (req.query.empresaId || null) : req.empresaId;
-    const filtros = { empresaId: empresaFiltro, unidadId: req.query.unidadId || null };
+    const q = req.validatedQuery || {};
+    const empresaFiltro = req.esAdminGlobal ? (q.empresaId || null) : req.empresaId;
+    const filtros = { empresaId: empresaFiltro, unidadId: q.unidadId || null };
     const resultado = await paginate(
       (f) => sictService.listar(f),
       (f) => sictService.contar(f),

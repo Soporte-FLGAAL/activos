@@ -13,7 +13,7 @@ module.exports = (schema) => {
         req.body = schema.body.parse(req.body);
       }
       if (schema.query) {
-        req.query = schema.query.parse(req.query);
+        req.validatedQuery = schema.query.parse(req.query);
       }
       if (schema.params) {
         req.params = schema.params.parse(req.params);
@@ -21,7 +21,7 @@ module.exports = (schema) => {
       next();
     } catch (err) {
       if (err instanceof ZodError) {
-        const details = err.issues.map(issue => ({
+        const details = err.issues.map((issue) => ({
           field: issue.path.join('.'),
           message: issue.message,
         }));

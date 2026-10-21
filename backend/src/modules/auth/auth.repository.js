@@ -11,6 +11,15 @@ class AuthRepository {
     return rows[0] || null;
   }
 
+  async findRefreshTokenForUpdate(token, connection = null) {
+    const dbConn = connection || db;
+    const [rows] = await dbConn.query(
+      'SELECT * FROM RefreshTokens WHERE RT_token = ? FOR UPDATE',
+      [token]
+    );
+    return rows[0] || null;
+  }
+  
   async updateLastAccess(id) {
     await db.query('UPDATE Usuario SET Usu_ultimo_acceso = NOW() WHERE Usu_id = ?', [id]);
   }

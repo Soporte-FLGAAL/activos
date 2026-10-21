@@ -4,8 +4,9 @@ const { paginate } = require('../../utils/pagination');
 
 exports.listar = async (req, res, next) => {
   try {
-    const empresaFiltro = req.esAdminGlobal ? (req.query.empresaId || null) : req.empresaId;
-    const filtros = { empresaId: empresaFiltro, tarjetaId: req.query.tarjetaId || null };
+    const q = req.validatedQuery || {};
+    const empresaFiltro = req.esAdminGlobal ? (q.empresaId || null) : req.empresaId;
+    const filtros = { empresaId: empresaFiltro, tarjetaId: q.tarjetaId || null };
     const resultado = await paginate(
       (f) => cotejosService.listar(f),
       (f) => cotejosService.contar(f),

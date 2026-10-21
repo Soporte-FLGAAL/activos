@@ -4,10 +4,11 @@ const { paginate } = require('../../utils/pagination');
 
 exports.listar = async (req, res, next) => {
   try {
-    const empresaFiltro = req.esAdminGlobal ? (req.query.empresaId || null) : req.empresaId;
+    const q = req.validatedQuery || {};
+    const empresaFiltro = req.esAdminGlobal ? (q.empresaId || null) : req.empresaId;
     const filtros = {
       empresaId: empresaFiltro,
-      polizaId: req.query.polizaId || null,
+      polizaId: q.polizaId || null,
     };
     const resultado = await paginate(
       (f) => endososService.listar(f),

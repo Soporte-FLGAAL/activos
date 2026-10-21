@@ -22,7 +22,19 @@ class TarjetasService {
     return tarjeta;
   }
 
-  async crear(data, usuarioId, empresaId = null) {
+  _requiereAdminGlobal(esAdminGlobal) {
+    if (!esAdminGlobal) {
+      const error = new Error(
+        'Solo un administrador global puede gestionar tarjetas de circulación'
+      );
+      error.status = 403;
+      throw error;
+    }
+  }
+
+  async crear(data, usuarioId, esAdminGlobal = false) {
+    this._requiereAdminGlobal(esAdminGlobal);
+
     // Validaciones de FK básicas
     if (!(await existeRegistro('Unidades', 'Uni_id', data.unidadId))) {
       const error = new Error('La unidad no existe');
@@ -57,28 +69,18 @@ class TarjetasService {
     };
 
     return withTransaction(async (connection) => {
-      // Validar pertenencia de la unidad a la empresa
-      if (empresaId) {
-        const [unidadRow] = await connection.query('SELECT Uni_empresa_actual FROM Unidades WHERE Uni_id = ?',
-          [data.unidadId]
-        );
-        if (unidadRow.length === 0 || unidadRow[0].Uni_empresa_actual !== empresaId) {
-          const error = new Error('La unidad no pertenece a la empresa');
-          error.status = 403;
-          throw error;
-        }
-      }
-
     const [result] = await connection.query('INSERT INTO Tarjeta_circulacion SET ?', dbData);
     const nuevoId = result.insertId;
 
     await registrarMovimiento('Tarjeta_circulacion', nuevoId,'INSERT',dbData,usuarioId,connection);
 
     return nuevoId;
-    }).then((id) => this.obtener(id, empresaId));
+    }).then((id) => this.obtener(id));
   }
 
-  async crearTarjetaConCotejos(dataTarjeta, cotejos, usuarioId, empresaId = null) {
+  async crearTarjetaConCotejos(dataTarjeta, cotejos, usuarioId, esAdminGlobal = false) {
+    this._requiereAdminGlobal(esAdminGlobal);
+
     // Validaciones de FK
     if (!(await existeRegistro('Unidades', 'Uni_id', dataTarjeta.unidadId))) {
       const error = new Error('La unidad no existe');
@@ -97,19 +99,6 @@ class TarjetasService {
     }
 
     return withTransaction(async (connection) => {
-      // Validar pertenencia a la empresa
-      if (empresaId) {
-        const [unidadRow] = await connection.query(
-          'SELECT Uni_empresa_actual FROM Unidades WHERE Uni_id = ?',
-          [dataTarjeta.unidadId]
-        );
-        if (unidadRow.length === 0 || unidadRow[0].Uni_empresa_actual !== empresaId) {
-          const error = new Error('La unidad no pertenece a la empresa');
-          error.status = 403;
-          throw error;
-        }
-      }
-
       const [result] = await connection.query(
         `INSERT INTO Tarjeta_circulacion
         (TC_tarjeta, TC_unidad_id, TC_costo, TC_tipo, TC_status, TC_no_original,
@@ -150,11 +139,12 @@ class TarjetasService {
       await registrarMovimiento('Tarjeta_circulacion', tarjetaId, 'INSERT', { ...dataTarjeta, cotejos }, usuarioId, connection);
 
       return tarjetaId;
-    }).then((id) => this.obtener(id, empresaId));
+    }).then((id) => this.obtener(id));
   }
 
-  async actualizar(id, data, usuarioId, empresaId = null) {
-    await this.obtener(id, empresaId);
+  async actualizar(id, data, usuarioId, esAdminGlobal = false) {
+    this._requiereAdminGlobal(esAdminGlobal);
+    await this.obtener(id);
 
     const map = {
       tarjeta: 'TC_tarjeta',
@@ -188,17 +178,6 @@ class TarjetasService {
           error.status = 422;
           throw error;
         }
-        if (empresaId) {
-          const [row] = await connection.query(
-            'SELECT Uni_empresa_actual FROM Unidades WHERE Uni_id = ?',
-            [data.unidadId]
-          );
-          if (row.length === 0 || row[0].Uni_empresa_actual !== empresaId) {
-            const error = new Error('La unidad no pertenece a la empresa');
-            error.status = 403;
-            throw error;
-          }
-        }
       }
 
       if (data.tipoId !== undefined) {
@@ -219,7 +198,7 @@ class TarjetasService {
         }
       }
 
-      const ok = await tarjetasRepository.update(id, dbData, empresaId, connection);
+      const ok = await tarjetasRepository.update(id, dbData, null, connection);
       if (!ok) {
         const error = new Error('No se pudo actualizar la tarjeta');
         error.status = 500;
@@ -231,10 +210,11 @@ class TarjetasService {
     }).then(() => this.obtener(id, empresaId));
   }
 
-  async actualizarUrl(id, url, usuarioId, empresaId = null) {
-    await this.obtener(id, empresaId);
+  async actualizarUrl(id, url, usuarioId, esAdminGlobal = false) {
+    this._requiereAdminGlobal(esAdminGlobal);
+    await this.obtener(id);
     return withTransaction(async (connection) => {
-      const ok = await tarjetasRepository.updateUrl(id, url, empresaId, connection);
+      const ok = await tarjetasRepository.updateUrl(id, url, null, connection);
       if (!ok) {
         const error = new Error('No se pudo actualizar la URL');
         error.status = 500;
@@ -242,13 +222,14 @@ class TarjetasService {
       }
       await registrarMovimiento('Tarjeta_circulacion',id,'UPDATE',{ campo: 'TC_url', valor: url },usuarioId,connection);
       return true;
-    }).then(() => this.obtener(id, empresaId));
+    }).then(() => this.obtener(id));
   }
 
-  async eliminar(id, usuarioId, empresaId = null) {
-    await this.obtener(id, empresaId);
+  async eliminar(id, usuarioId, esAdminGlobal = false) {
+    this._requiereAdminGlobal(esAdminGlobal);
+    await this.obtener(id);
     return withTransaction(async (connection) => {
-      const ok = await tarjetasRepository.delete(id, empresaId, connection);
+      const ok = await tarjetasRepository.delete(id, null, connection);
       if (!ok) {
         const error = new Error('No se pudo eliminar la tarjeta');
         error.status = 500;

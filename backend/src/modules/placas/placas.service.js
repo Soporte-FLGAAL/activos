@@ -63,8 +63,9 @@ class PlacasService {
   }
 
 
-  async actualizarPlacaConMovimiento(idPlaca, dataPlaca, dataMovimiento, usuarioId, empresaId = null) {
-    await this.obtener(idPlaca, empresaId); // verifica existencia
+  async actualizarPlacaConMovimiento(idPlaca, dataPlaca, dataMovimiento, usuarioId, empresaId = null, esAdminGlobal = false) {
+    const placaActual = await this.obtener(idPlaca, empresaId);
+    
     // Validar FK del movimiento
     if (!(await existeRegistro('Tipo_movimiento_placa', 'TpMP_id', dataMovimiento.tipoMovimientoId))) {
       const error = new Error('El tipo de movimiento no existe');
@@ -80,6 +81,29 @@ class PlacasService {
       }
     }
 
+    const empresaNueva = dataPlaca.empresaActualId;
+    const esTransferencia =
+      empresaNueva !== undefined &&
+      Number(empresaNueva) !== Number(placaActual.Pla_empresa_actual);
+
+    if (esTransferencia) {
+      // 3a. Regla estricta: solo ADMIN_GLOBAL
+      if (!esAdminGlobal) {
+        const error = new Error(
+          'Solo un administrador global puede transferir o prestar placas entre empresas'
+        );
+        error.status = 403;
+        throw error;
+      }
+
+      // 3b. Empresa destino debe existir
+      if (!(await existeRegistro('Empresas', 'Emp_id', empresaNueva))) {
+        const error = new Error('La empresa destino no existe');
+        error.status = 422;
+        throw error;
+      }
+    }
+
     return withTransaction(async (connection) => {
       // Actualizar placa
       const campos = [];
@@ -87,14 +111,21 @@ class PlacasService {
       if (dataPlaca.placas !== undefined) { campos.push('Pla_placas = ?'); valores.push(dataPlaca.placas); }
       if (dataPlaca.status !== undefined) { campos.push('Pla_status = ?'); valores.push(dataPlaca.status); }
       if (dataPlaca.propietarioId !== undefined) { campos.push('Pla_propietario = ?'); valores.push(dataPlaca.propietarioId); }
-      if (dataPlaca.empresaActualId !== undefined) { campos.push('Pla_empresa_actual = ?'); valores.push(dataPlaca.empresaActualId); }
+      if (esTransferencia) { campos.push('Pla_empresa_actual = ?'); valores.push(empresaNueva); }
 
       if (campos.length > 0) {
         valores.push(idPlaca);
-        await connection.query(
-          `UPDATE Placas SET ${campos.join(', ')} WHERE Pla_id = ?`,
-          valores
-        );
+        let sql = `UPDATE Placas SET ${campos.join(', ')} WHERE Pla_id = ?`;
+        if (empresaId) {
+          sql += ' AND Pla_empresa_actual = ?';
+          valores.push(empresaId);
+        }
+        const [result] = await connection.query(sql, valores);
+        if (result.affectedRows === 0) {
+          const error = new Error('No se pudo actualizar la placa');
+          error.status = 500;
+          throw error;
+        }
       }
 
       // Insertar detalle de movimiento
@@ -114,7 +145,7 @@ class PlacasService {
       await registrarMovimiento('Placas', idPlaca, 'UPDATE', { dataPlaca, dataMovimiento }, usuarioId, connection);
 
       return true;
-    });
+    }).then(() => this.obtener(idPlaca, esAdminGlobal ? null : empresaId));
   }
 
   async actualizar(id, data, usuarioId, empresaId = null) {

@@ -50,7 +50,6 @@ router.use('/cotejos', cotejosRoutes);
 router.use('/doble-articulado', dobleArticuladoRoutes);
 router.use('/sict', sictRoutes);
 router.use('/catalogos/tipo-unidad', catalogoTipoUnidadRoutes);
-router.use('/auditoria', auditoriaRoutes);
 router.use('/responsables-aseguradoras', responsablesAseguradorasRoutes);
 router.use('/catalogos/estado-unidad', catalogoEstadoUnidadRoutes);
 router.use('/catalogos/combustible', catalogoCombustibleRoutes);

@@ -4,12 +4,13 @@ const { paginate } = require('../../utils/pagination');
 
 exports.listar = async (req, res, next) => {
   try {
+    const q = req.validatedQuery || {};
     const filtros = {
-      tabla: req.query.tabla || null,
-      accionId: req.query.accionId || null,
-      usuarioId: req.query.usuarioId || null,
-      fechaInicio: req.query.fechaInicio || null,
-      fechaFin: req.query.fechaFin || null,
+      tabla: q.tabla || null,
+      accionId: q.accionId || null,
+      usuarioId: q.usuarioId || null,
+      fechaInicio: q.fechaInicio || null,
+      fechaFin: q.fechaFin || null,
     };
     const resultado = await paginate(
       (f) => auditoriaService.listar(f),

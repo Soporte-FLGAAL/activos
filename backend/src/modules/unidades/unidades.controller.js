@@ -4,18 +4,19 @@ const { success, error } = require('../../utils/response');
 
 exports.listar = async (req, res, next) => {
   try {
+    const q = req.validatedQuery || {};
     // Admin global puede filtrar por cualquier empresa; usuario normal queda atado a la suya
     const empresaFiltro = req.esAdminGlobal
-      ? (req.query.empresaId || null)
+      ? (q.empresaId || null)
       : req.empresaId;
 
     const filtros = {
-      empresaId: empresaFiltro, // <-- antes estaba req.query.empresaId || null (BUG)
-      tipoId: req.query.tipoId || null,
-      combustibleId: req.query.combustibleId || null,
-      ejes: req.query.ejes || null,
-      status: req.query.status || null,
-      search: req.query.search || null,
+      empresaId: empresaFiltro, // <-- antes estaba q.empresaId || null (BUG)
+      tipoId: q.tipoId || null,
+      combustibleId: q.combustibleId || null,
+      ejes: q.ejes || null,
+      status: q.status || null,
+      search: q.search || null,
     };
 
     const resultado = await paginate(

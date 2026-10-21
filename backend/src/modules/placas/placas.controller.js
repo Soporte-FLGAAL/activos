@@ -43,12 +43,22 @@ exports.actualizarConMovimiento = async (req, res, next) => {
   try {
     const { id } = req.params;
     const { placa, movimiento } = req.body;
+
+    if (placa?.empresaActualId !== undefined && !req.esAdminGlobal) {
+      return error(
+        res,
+        'Solo un administrador global puede transferir o prestar placas entre empresas',
+        403
+      );
+    }
+
     const resultado = await placasService.actualizarPlacaConMovimiento(
       id,
       placa,
       movimiento,
       req.user.userId,
-      req.esAdminGlobal ? null : req.empresaId
+      req.esAdminGlobal ? null : req.empresaId,
+      req.esAdminGlobal
     );
     return success(res, resultado, 'Placa actualizada con movimiento');
   } catch (err) {

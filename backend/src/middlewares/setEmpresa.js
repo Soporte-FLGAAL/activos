@@ -28,8 +28,14 @@ module.exports = async (req, res, next) => {
 
     let empresaSolicitada = null;
     if (rawEmpresa !== null && rawEmpresa !== undefined && rawEmpresa !== '') {
-      const num = Number(rawEmpresa);
-      if (!Number.isInteger(num) || num <= 0) {
+      const str = String(rawEmpresa).trim();
+      // 2a. Solo dígitos (rechaza "12abc", "1e3", "+5", " 1 2", etc.)
+      if (!/^\d+$/.test(str)) {
+        return error(res, 'El identificador de empresa es inválido', 400);
+      }
+      const num = Number(str);
+      // 2b. Debe ser un entero seguro y positivo
+      if (!Number.isSafeInteger(num) || num <= 0) {
         return error(res, 'El identificador de empresa es inválido', 400);
       }
       empresaSolicitada = num;
