@@ -13,5 +13,9 @@ const actualizarDetallePlacaSchema = crearDetallePlacaSchema.partial();
 const paramsIdSchema = z.object({
   id: z.string().regex(/^\d+$/).transform(Number),
 });
+const filtrosDetallePlacasSchema = z.object({
+  empresaId: z.string().regex(/^\d+$/).transform(Number).optional(),
+  placasId: z.string().regex(/^\d+$/).transform(Number).optional(),
+});
 
-module.exports = { crearDetallePlacaSchema, actualizarDetallePlacaSchema, paramsIdSchema };
+module.exports = { crearDetallePlacaSchema, actualizarDetallePlacaSchema, paramsIdSchema, filtrosDetallePlacasSchema };

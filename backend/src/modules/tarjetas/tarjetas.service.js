@@ -207,7 +207,7 @@ class TarjetasService {
 
       await registrarMovimiento('Tarjeta_circulacion', id, 'UPDATE', dbData, usuarioId, connection);
       return true;
-    }).then(() => this.obtener(id, empresaId));
+    }).then(() => this.obtener(id));
   }
 
   async actualizarUrl(id, url, usuarioId, esAdminGlobal = false) {

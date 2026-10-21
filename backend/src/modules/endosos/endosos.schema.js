@@ -12,4 +12,9 @@ const paramsIdSchema = z.object({
   id: z.string().regex(/^\d+$/).transform(Number),
 });
 
-module.exports = { crearEndosoSchema, actualizarEndosoSchema, paramsIdSchema };
+const filtrosEndososSchema = z.object({
+  empresaId: z.string().regex(/^\d+$/).transform(Number).optional(),
+  polizaId: z.string().regex(/^\d+$/).transform(Number).optional(),
+});
+
+module.exports = { crearEndosoSchema, actualizarEndosoSchema, paramsIdSchema, filtrosEndososSchema };

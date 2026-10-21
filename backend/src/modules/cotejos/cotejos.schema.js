@@ -12,4 +12,9 @@ const paramsIdSchema = z.object({
   id: z.string().regex(/^\d+$/).transform(Number),
 });
 
-module.exports = { crearCotejoSchema, actualizarCotejoSchema, paramsIdSchema };
+const filtrosCotejosSchema = z.object({
+  empresaId: z.string().regex(/^\d+$/).transform(Number).optional(),
+  tarjetaId: z.string().regex(/^\d+$/).transform(Number).optional(),
+});
+
+module.exports = { crearCotejoSchema, actualizarCotejoSchema, paramsIdSchema, filtrosCotejosSchema };

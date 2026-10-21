@@ -12,4 +12,9 @@ const paramsIdSchema = z.object({
   id: z.string().regex(/^\d+$/).transform(Number),
 });
 
-module.exports = { crearIncisoSchema, actualizarIncisoSchema, paramsIdSchema };
+const filtrosIncisosSchema = z.object({
+  empresaId: z.string().regex(/^\d+$/).transform(Number).optional(),
+  endosoId: z.string().regex(/^\d+$/).transform(Number).optional(),
+});
+
+module.exports = { crearIncisoSchema, actualizarIncisoSchema, paramsIdSchema, filtrosIncisosSchema };

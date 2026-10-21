@@ -37,6 +37,12 @@ const crearTarjetaConCotejosSchema = z.object({
 const paramsIdSchema = z.object({
   id: z.string().regex(/^\d+$/).transform(Number),
 });
+const filtrosTarjetasSchema = z.object({
+  empresaId: z.string().regex(/^\d+$/).transform(Number).optional(),
+  unidadId: z.string().regex(/^\d+$/).transform(Number).optional(),
+  status: z.string().max(20).optional(),
+  vencida: z.enum(['true', 'false']).optional(),
+});
 
 module.exports = {
   crearTarjetaSchema,
@@ -44,4 +50,5 @@ module.exports = {
   actualizarUrlSchema,
   crearTarjetaConCotejosSchema,
   paramsIdSchema,
+  filtrosTarjetasSchema
 };

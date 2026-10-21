@@ -10,7 +10,7 @@ const schemas = require('./incisos.schema');
 router.use(auth);
 router.use(setEmpresa);
 
-router.get('/', rbac('incisos:ver'), controller.listar);
+router.get('/',rbac('incisos:ver'),validate({ query: schemas.filtrosIncisosSchema }),controller.listar);
 router.get('/:id', rbac('incisos:ver'), validate({ params: schemas.paramsIdSchema }), controller.obtener);
 router.post('/', rbac('incisos:crear'), validate({ body: schemas.crearIncisoSchema }), controller.crear);
 router.put('/:id', rbac('incisos:editar'), validate({ params: schemas.paramsIdSchema, body: schemas.actualizarIncisoSchema }), controller.actualizar);

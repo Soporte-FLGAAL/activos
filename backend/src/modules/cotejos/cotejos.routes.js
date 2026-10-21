@@ -10,7 +10,7 @@ const schemas = require('./cotejos.schema');
 router.use(auth);
 router.use(setEmpresa);
 
-router.get('/', rbac('cotejos:ver'), controller.listar);
+router.get('/',rbac('cotejos:ver'),validate({ query: schemas.filtrosCotejosSchema }),controller.listar);
 router.get('/:id', rbac('cotejos:ver'), validate({ params: schemas.paramsIdSchema }), controller.obtener);
 router.post('/', rbac('cotejos:crear'), validate({ body: schemas.crearCotejoSchema }), controller.crear);
 router.put('/:id', rbac('cotejos:editar'), validate({ params: schemas.paramsIdSchema, body: schemas.actualizarCotejoSchema }), controller.actualizar);

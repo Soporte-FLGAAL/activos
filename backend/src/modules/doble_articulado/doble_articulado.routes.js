@@ -10,7 +10,7 @@ const schemas = require('./doble_articulado.schema');
 router.use(auth);
 router.use(setEmpresa);
 
-router.get('/', rbac('permisos_especiales:ver'), controller.listar);
+router.get('/',rbac('permisos_especiales:ver'),validate({ query: schemas.filtrosDobleArticuladoSchema }),controller.listar);
 router.get('/:id', rbac('permisos_especiales:ver'), validate({ params: schemas.paramsIdSchema }), controller.obtener);
 router.post('/', rbac('permisos_especiales:crear'), validate({ body: schemas.crearPermisoSchema }), controller.crear);
 router.put('/:id', rbac('permisos_especiales:editar'), validate({ params: schemas.paramsIdSchema, body: schemas.actualizarPermisoSchema }), controller.actualizar);

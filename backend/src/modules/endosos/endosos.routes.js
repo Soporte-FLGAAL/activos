@@ -10,7 +10,7 @@ const schemas = require('./endosos.schema');
 router.use(auth);
 router.use(setEmpresa);
 
-router.get('/', rbac('endosos:ver'), controller.listar);
+router.get('/',rbac('endosos:ver'),validate({ query: schemas.filtrosEndososSchema }),controller.listar);
 router.get('/:id', rbac('endosos:ver'), validate({ params: schemas.paramsIdSchema }), controller.obtener);
 router.post('/', rbac('endosos:crear'), validate({ body: schemas.crearEndosoSchema }), controller.crear);
 router.put('/:id', rbac('endosos:editar'), validate({ params: schemas.paramsIdSchema, body: schemas.actualizarEndosoSchema }), controller.actualizar);

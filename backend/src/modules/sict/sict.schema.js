@@ -14,4 +14,9 @@ const paramsIdSchema = z.object({
   id: z.string().regex(/^\d+$/).transform(Number),
 });
 
-module.exports = { crearSictSchema, actualizarSictSchema, paramsIdSchema };
+const filtrosSictSchema = z.object({
+  empresaId: z.string().regex(/^\d+$/).transform(Number).optional(),
+  unidadId: z.string().regex(/^\d+$/).transform(Number).optional(),
+});
+
+module.exports = { crearSictSchema, actualizarSictSchema, paramsIdSchema, filtrosSictSchema };

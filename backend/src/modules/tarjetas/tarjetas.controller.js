@@ -1,5 +1,5 @@
 const tarjetasService = require('./tarjetas.service');
-const { success } = require('../../utils/response');
+const { success, error } = require('../../utils/response');
 const { paginate } = require('../../utils/pagination');
 
 exports.listar = async (req, res, next) => {

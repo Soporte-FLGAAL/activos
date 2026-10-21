@@ -14,4 +14,9 @@ const paramsIdSchema = z.object({
   id: z.string().regex(/^\d+$/).transform(Number),
 });
 
-module.exports = { crearPermisoSchema, actualizarPermisoSchema, paramsIdSchema };
+const filtrosDobleArticuladoSchema = z.object({
+  empresaId: z.string().regex(/^\d+$/).transform(Number).optional(),
+  unidadId: z.string().regex(/^\d+$/).transform(Number).optional(),
+});
+
+module.exports = { crearPermisoSchema, actualizarPermisoSchema, paramsIdSchema, filtrosDobleArticuladoSchema };

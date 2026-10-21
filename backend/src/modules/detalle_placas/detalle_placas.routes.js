@@ -10,7 +10,7 @@ const schemas = require('./detalle_placas.schema');
 router.use(auth);
 router.use(setEmpresa);
 
-router.get('/', rbac('detalle_placas:ver'), controller.listar);
+router.get('/',rbac('detalle_placas:ver'),validate({ query: schemas.filtrosDetallePlacasSchema }),controller.listar);
 router.get('/:id', rbac('detalle_placas:ver'), validate({ params: schemas.paramsIdSchema }), controller.obtener);
 router.post('/', rbac('detalle_placas:crear'), validate({ body: schemas.crearDetallePlacaSchema }), controller.crear);
 router.put('/:id', rbac('detalle_placas:editar'), validate({ params: schemas.paramsIdSchema, body: schemas.actualizarDetallePlacaSchema }), controller.actualizar);

@@ -10,7 +10,7 @@ const schemas = require('./sict.schema');
 router.use(auth);
 router.use(setEmpresa);
 
-router.get('/', rbac('sict:ver'), controller.listar);
+router.get('/',rbac('sict:ver'),validate({ query: schemas.filtrosSictSchema }),controller.listar);
 router.get('/:id', rbac('sict:ver'), validate({ params: schemas.paramsIdSchema }), controller.obtener);
 router.post('/', rbac('sict:crear'), validate({ body: schemas.crearSictSchema }), controller.crear);
 router.put('/:id', rbac('sict:editar'), validate({ params: schemas.paramsIdSchema, body: schemas.actualizarSictSchema }), controller.actualizar);
