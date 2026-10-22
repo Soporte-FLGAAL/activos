@@ -25,7 +25,7 @@ class AuthService {
 
     const decodedNew = verifyRefreshToken(refreshToken);
     const expiraEn = new Date(decodedNew.exp * 1000);
-    await authRepository.saveRefreshToken(user.Usu_id, refreshToken, expiraEn);
+    await authRepository.guardarRefreshToken(user.Usu_id, refreshToken, expiraEn);
 
     // *** Nuevo: empresas y roles ***
     const empresasRaw = await authRepository.findEmpresasByUsuario(user.Usu_id);
