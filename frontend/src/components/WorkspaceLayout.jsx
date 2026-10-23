@@ -9,7 +9,7 @@ function initials(user) {
 
 export default function WorkspaceLayout({ children, activeNav = 'home' }) {
   const navigate = useNavigate();
-  const { user, activeCompany, isAdminGlobal, logout } = useAuth();
+  const { user, activeCompany, isAdminGlobal, logout, clearCompanySelection } = useAuth();
 
   async function handleLogout() {
     await logout();
@@ -18,7 +18,7 @@ export default function WorkspaceLayout({ children, activeNav = 'home' }) {
 
   const navItems = [
     { id: 'home', label: 'Panel principal', icon: Home, action: () => navigate('/app') },
-    { id: 'units', label: 'Unidades', icon: Grid2X2, action: () => navigate(activeCompany ? '/unidades' : '/app'), disabled: !activeCompany },
+    { id: 'units', label: 'Unidades', icon: Grid2X2, action: () => navigate(activeCompany || isAdminGlobal ? '/unidades' : '/app'), disabled: !activeCompany && !isAdminGlobal },
     { id: 'users', label: 'Usuarios', icon: Users, action: () => navigate('/administracion') },
     { id: 'catalogs', label: 'Catálogos', icon: FileText, action: () => navigate('/catalogos') },
     { id: 'settings', label: 'Administración', icon: Settings, action: () => navigate('/administracion') },
@@ -34,8 +34,9 @@ export default function WorkspaceLayout({ children, activeNav = 'home' }) {
         <div className="workspace-header-right">
           <div className="workspace-user-text">
             <strong>{user?.nombres || user?.email || 'Usuario'}</strong>
-            <span>{isAdminGlobal || activeCompany?.role === 'ADMIN_GLOBAL' ? 'Administrador' : (activeCompany?.roleLabel || activeCompany?.role || 'Usuario')}</span>
+            <span>{isAdminGlobal ? 'Administrador global' : (activeCompany?.roleLabel || activeCompany?.role || 'Usuario')}</span>
           </div>
+          {isAdminGlobal && <button type="button" className={`workspace-scope-pill${activeCompany ? '' : ' is-global'}`} onClick={() => activeCompany ? clearCompanySelection() : navigate('/seleccionar-empresa')} title={activeCompany ? 'Cambiar a vista de todas las empresas' : 'Seleccionar una empresa específica'}>{activeCompany ? activeCompany.shortName || activeCompany.name : 'Vista global'} <span>{activeCompany ? '· cambiar a global' : '· seleccionar empresa'}</span></button>}
           <div className="workspace-avatar" aria-hidden="true">{initials(user)}</div>
           <button className="workspace-logout" onClick={handleLogout} type="button" title="Cerrar sesión" aria-label="Cerrar sesión"><LogOut size={17} /></button>
         </div>

@@ -22,7 +22,7 @@ export default function AdministrationPage() {
     let cancelled = false;
     Promise.all(MODULES.map(async (module) => {
       try {
-        const count = await getRegistryCount(module.endpoint);
+        const count = await getRegistryCount(module.endpoint, { company: false });
         return [module.key, { value: count, status: 'ready' }];
       } catch {
         return [module.key, { value: null, status: 'error' }];
@@ -49,7 +49,7 @@ export default function AdministrationPage() {
           </button>;
         })}
       </div>
-      <p className="registry-muted-note">Los indicadores provienen de las rutas de listado del backend. Las pantallas de detalle consultan los registros reales; esta versión todavía no envía altas, modificaciones o eliminaciones.</p>
+      <p className="registry-muted-note">Los registros se consultan desde la API. Abre cada módulo para crear, editar o eliminar registros y administrar las relaciones disponibles; las restricciones de sistema siguen aplicándose en el backend.</p>
     </WorkspaceLayout>
   );
 }

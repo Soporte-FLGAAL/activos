@@ -104,7 +104,17 @@ export function AuthProvider({ children }) {
 
     const savedCompany = getActiveCompany();
     const match = availableCompanies.find((company) => String(company.id) === String(savedCompany?.id));
-    if (availableCompanies.length === 1) {
+    // ADMIN_GLOBAL arranca en ámbito global si no había una empresa elegida.
+    // Solo se conserva una empresa cuando el administrador la seleccionó explícitamente.
+    if (global) {
+      if (match) {
+        saveActiveCompany(match);
+        setActiveCompanyState(match);
+      } else {
+        clearActiveCompany();
+        setActiveCompanyState(null);
+      }
+    } else if (availableCompanies.length === 1) {
       saveActiveCompany(availableCompanies[0]);
       setActiveCompanyState(availableCompanies[0]);
     } else if (match) {
@@ -168,6 +178,12 @@ export function AuthProvider({ children }) {
     return { nextPath: '/app' };
   }, [applyContext]);
 
+  const clearCompanySelection = useCallback(() => {
+    if (!isAdminGlobal) return;
+    clearActiveCompany();
+    setActiveCompanyState(null);
+  }, [isAdminGlobal]);
+
   const selectCompany = useCallback((company) => {
     const isAvailableCompany = company?.id != null && companies.some((item) => item.scope !== 'global' && String(item.id) === String(company.id));
     if (!isAvailableCompany) {
@@ -217,8 +233,8 @@ export function AuthProvider({ children }) {
   }, [activeCompany, isAdminGlobal]);
 
   const value = useMemo(() => ({
-    user, companies, isAdminGlobal, activeCompany, loading, login, logout, selectCompany, patchCompany, removeCompany, can,
-  }), [user, companies, isAdminGlobal, activeCompany, loading, login, logout, selectCompany, patchCompany, removeCompany, can]);
+    user, companies, isAdminGlobal, activeCompany, loading, login, logout, selectCompany, clearCompanySelection, patchCompany, removeCompany, can,
+  }), [user, companies, isAdminGlobal, activeCompany, loading, login, logout, selectCompany, clearCompanySelection, patchCompany, removeCompany, can]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

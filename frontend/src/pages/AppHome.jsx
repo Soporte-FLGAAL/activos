@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Activity, ArrowUpRight, Building2, Database, Grid2X2, Info, List, Pencil, Settings, ShieldCheck, Trash2, TrendingUp } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { Activity, ArrowUpRight, Building2, Database, Grid2X2, Info, List, Pencil, Settings, Trash2, TrendingUp, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import WorkspaceLayout from '../components/WorkspaceLayout';
 import { useAuth } from '../context/AuthContext';
 import { getActiveUnitsCount } from '../services/fleetApi';
-import { deleteCompany, updateCompany } from '../services/companyApi';
+import { deleteCompany, getCompanyById, updateCompany } from '../services/companyApi';
 
 const CARD_TONES = ['red', 'wine', 'gray', 'charcoal', 'red'];
 
@@ -14,26 +15,27 @@ function initials(label) {
 
 function NoticeDialog({ notice, onClose }) {
   if (!notice) return null;
-  return (
+  return createPortal(
     <div className="workspace-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
       <section className="workspace-modal" role="dialog" aria-modal="true" aria-labelledby="notice-title">
-        <button className="workspace-modal-close" type="button" aria-label="Cerrar" onClick={onClose}>×</button>
+        <button className="workspace-modal-close" type="button" aria-label="Cerrar" onClick={onClose}><X size={18} /></button>
         <div className="workspace-modal-icon"><Info size={20} /></div>
         <h2 id="notice-title">{notice.title}</h2>
         <p>{notice.message}</p>
         {notice.details && <div className="workspace-modal-details">{notice.details}</div>}
         <button type="button" className="workspace-primary-button" onClick={onClose}>Entendido</button>
       </section>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
 function CompanyEditorDialog({ company, form, setForm, busy, error, onClose, onSubmit }) {
   if (!company) return null;
-  return (
+  return createPortal(
     <div className="workspace-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) onClose(); }}>
       <form className="workspace-modal company-editor-modal" role="dialog" aria-modal="true" aria-labelledby="company-editor-title" onSubmit={onSubmit}>
-        <button className="workspace-modal-close" type="button" aria-label="Cerrar" disabled={busy} onClick={onClose}>×</button>
+        <button className="workspace-modal-close" type="button" aria-label="Cerrar" disabled={busy} onClick={onClose}><X size={18} /></button>
         <div className="workspace-modal-icon"><Building2 size={20} /></div>
         <h2 id="company-editor-title">Editar empresa</h2>
         <p>Los cambios se guardarán en la empresa del backend.</p>
@@ -44,29 +46,36 @@ function CompanyEditorDialog({ company, form, setForm, busy, error, onClose, onS
         {error && <div className="workspace-error" role="alert">{error}</div>}
         <div className="company-form-actions"><button type="button" className="workspace-secondary-button" disabled={busy} onClick={onClose}>Cancelar</button><button type="submit" className="workspace-primary-button" disabled={busy}>{busy ? 'Guardando…' : 'Guardar cambios'}</button></div>
       </form>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
 function DeleteCompanyDialog({ company, busy, error, onClose, onConfirm }) {
   if (!company) return null;
-  return (
+  return createPortal(
     <div className="workspace-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) onClose(); }}>
       <section className="workspace-modal" role="dialog" aria-modal="true" aria-labelledby="delete-company-title">
-        <button className="workspace-modal-close" type="button" aria-label="Cerrar" disabled={busy} onClick={onClose}>×</button>
+        <button className="workspace-modal-close" type="button" aria-label="Cerrar" disabled={busy} onClick={onClose}><X size={18} /></button>
         <div className="workspace-modal-icon"><Trash2 size={20} /></div>
         <h2 id="delete-company-title">Eliminar empresa</h2>
         <p>Se solicitará al backend eliminar <strong>{company.name}</strong>. La base de datos puede rechazarlo si existen unidades, usuarios u otros registros relacionados.</p>
         {error && <div className="workspace-error" role="alert">{error}</div>}
         <div className="company-form-actions"><button type="button" className="workspace-secondary-button" disabled={busy} onClick={onClose}>Cancelar</button><button type="button" className="workspace-danger-button" disabled={busy} onClick={onConfirm}>{busy ? 'Eliminando…' : 'Confirmar eliminación'}</button></div>
       </section>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
-function CompanyCard({ company, index, active, count, countStatus, onOpen, onInfo, onEdit, onDelete, showManagementActions }) {
+function CompanyCard({ company, index, active, count, countStatus, onOpen, onInfo, onEdit, onDelete, showManagementActions, expanded, companyDetails, infoStatus, infoError }) {
+  const details = companyDetails || company;
+  const name = details?.name || details?.Emp_nombre || company.name || '—';
+  const shortName = details?.shortName || details?.Emp_nombre_corto || company.shortName || '—';
+  const rfc = details?.rfc || details?.Emp_rfc || company.rfc || 'No disponible';
+  const address = details?.address || details?.Emp_direccion || company.address || 'No disponible';
   return (
-    <article className="dashboard-company-card">
+    <article className={`dashboard-company-card${expanded ? ' has-expanded-info' : ''}`}>
       <button className={`dashboard-company-cover tone-${CARD_TONES[index % CARD_TONES.length]}`} type="button" onClick={onOpen} aria-label={`Abrir unidades de ${company.name}`}>
         <span className="company-monogram">{initials(company.shortName || company.name)}</span>
         <span className="dashboard-company-name">{company.name}</span>
@@ -77,8 +86,18 @@ function CompanyCard({ company, index, active, count, countStatus, onOpen, onInf
         <div className="company-unit-count"><span><TrendingUp size={15} /> Unidades Activas</span><strong>{countStatus === 'loading' ? '…' : countStatus === 'error' ? '—' : Number(count || 0).toLocaleString('es-MX')}</strong></div>
         <div className="company-card-actions">
           <div className="company-action-group">{showManagementActions && <><button type="button" title={`Editar ${company.name}`} aria-label={`Editar ${company.name}`} onClick={onEdit}><Pencil size={14} /></button><span className="company-action-separator" /><button type="button" title={`Eliminar ${company.name}`} aria-label={`Eliminar ${company.name}`} onClick={onDelete}><Trash2 size={14} /></button></>}</div>
-          <button type="button" className="company-info-button" title="Información de empresa" aria-label={`Información de ${company.name}`} onClick={onInfo}><Info size={15} /></button>
+          <button type="button" className={`company-info-button${expanded ? ' is-expanded' : ''}`} title={expanded ? 'Ocultar información de empresa' : 'Mostrar información de empresa'} aria-label={expanded ? `Ocultar información de ${company.name}` : `Mostrar información de ${company.name}`} aria-expanded={expanded} onClick={onInfo}><Info size={15} /></button>
         </div>
+        {expanded && <section className="company-info-panel" aria-label={`Información de ${company.name}`}>
+          <div className="company-info-grid">
+            <div><span>Nombre</span><strong>{name}</strong></div>
+            <div><span>Nombre corto</span><strong>{shortName}</strong></div>
+            <div><span>RFC</span><strong>{rfc}</strong></div>
+            <div className="company-info-address"><span>Dirección</span><strong>{address}</strong></div>
+          </div>
+          {infoStatus === 'loading' && <p className="company-info-hint">Consultando información completa…</p>}
+          {infoStatus === 'error' && <p className="company-info-hint is-warning">No se pudieron consultar los datos adicionales del backend. Se muestran los datos disponibles del contexto.{infoError ? ` Detalle: ${infoError}` : ''}</p>}
+        </section>}
       </div>
     </article>
   );
@@ -95,6 +114,10 @@ export default function AppHome() {
   const [editForm, setEditForm] = useState({ nombre: '', nombreCorto: '', direccion: '', rfc: '' });
   const [operationBusy, setOperationBusy] = useState(false);
   const [operationError, setOperationError] = useState('');
+  const [expandedCompanyId, setExpandedCompanyId] = useState(null);
+  const [companyDetails, setCompanyDetails] = useState({});
+  const [companyInfoStatus, setCompanyInfoStatus] = useState({});
+  const [companyInfoErrors, setCompanyInfoErrors] = useState({});
 
   const realCompanies = useMemo(() => companies.filter((company) => company.scope !== 'global' && company.id != null), [companies]);
 
@@ -118,6 +141,31 @@ export default function AppHome() {
       navigate('/unidades');
     } catch (error) {
       setNotice({ title: 'No se pudo abrir la empresa', message: error.message || 'Verifica las empresas asignadas a tu usuario.' });
+    }
+  }
+
+  async function toggleCompanyInfo(company) {
+    const key = String(company.id);
+    if (String(expandedCompanyId) === key) {
+      setExpandedCompanyId(null);
+      return;
+    }
+    setExpandedCompanyId(key);
+    setCompanyInfoStatus((current) => ({ ...current, [key]: 'loading' }));
+    setCompanyInfoErrors((current) => ({ ...current, [key]: '' }));
+    try {
+      const raw = await getCompanyById(company.id, { headers: { 'X-Empresa-Id': key } });
+      const details = raw?.empresa || raw?.company || raw?.data || raw || {};
+      setCompanyDetails((current) => ({ ...current, [key]: {
+        name: details.Emp_nombre ?? details.nombre ?? details.name ?? company.name,
+        shortName: details.Emp_nombre_corto ?? details.nombreCorto ?? details.shortName ?? company.shortName,
+        rfc: details.Emp_rfc ?? details.rfc ?? company.rfc ?? '',
+        address: details.Emp_direccion ?? details.direccion ?? details.address ?? company.address ?? '',
+      } }));
+      setCompanyInfoStatus((current) => ({ ...current, [key]: 'ready' }));
+    } catch (error) {
+      setCompanyInfoStatus((current) => ({ ...current, [key]: 'error' }));
+      setCompanyInfoErrors((current) => ({ ...current, [key]: error.message || '' }));
     }
   }
 
@@ -169,16 +217,15 @@ export default function AppHome() {
   return (
     <WorkspaceLayout activeNav="home">
       <section className="dashboard-heading-row">
-        <div><p className="workspace-eyebrow">ACTIVOS · GESTIÓN MULTIEMPRESA</p><h1>Bienvenido al Panel Principal</h1><p className="workspace-subtitle">Selecciona una empresa para gestionar su flotilla, o accede a los catálogos y la administración.</p></div>
-        <div className="workspace-view-toggle" aria-label="Vista de empresas"><button type="button" className={viewMode === 'grid' ? 'is-selected' : ''} onClick={() => setViewMode('grid')}><Grid2X2 size={15} /> Grid</button><button type="button" className={viewMode === 'list' ? 'is-selected' : ''} onClick={() => setViewMode('list')}><List size={16} /> Lista</button></div>
+        <div className="dashboard-heading-copy"><p className="workspace-eyebrow">ACTIVOS · GESTIÓN MULTIEMPRESA</p><h1>Bienvenido al Panel Principal</h1><p className="workspace-subtitle">Selecciona una empresa para gestionar su flotilla, o accede a los catálogos y la administración.</p></div>
+        <div className="dashboard-heading-tools"><div className="dashboard-company-total"><span>{realCompanies.length}</span><div><strong>Empresas disponibles</strong><small>Según tu acceso</small></div></div><div className="workspace-view-toggle" aria-label="Vista de empresas"><button type="button" className={viewMode === 'grid' ? 'is-selected' : ''} onClick={() => setViewMode('grid')}><Grid2X2 size={15} /> Grid</button><button type="button" className={viewMode === 'list' ? 'is-selected' : ''} onClick={() => setViewMode('list')}><List size={16} /> Lista</button></div></div>
       </section>
-
-      {isAdminGlobal && <div className="workspace-global-note"><ShieldCheck size={17} /><span>Administrador global: se muestran las empresas registradas. Los permisos y las operaciones se validan en el servidor.</span></div>}
 
       {realCompanies.length === 0 ? <div className="workspace-empty-state"><Building2 size={30} /><h2>No hay empresas disponibles</h2><p>Tu usuario no tiene empresas en el contexto recibido por la API. Contacta al administrador del sistema.</p></div> : <div className={`dashboard-card-grid${viewMode === 'list' ? ' is-list' : ''}`}>
         {realCompanies.map((company, index) => {
           const currentCount = counts[String(company.id)] || { value: null, status: 'loading' };
-          return <CompanyCard key={company.id} company={company} index={index} active={String(activeCompany?.id) === String(company.id)} count={currentCount.value} countStatus={currentCount.status} onOpen={() => openCompany(company)} onInfo={() => setNotice({ title: company.name, message: 'Información de acceso de esta empresa.', details: `Rol asignado: ${company.roleLabel || company.role || 'Usuario'}\nLa API actual no devuelve permisos detallados en /auth/me. El backend valida cada operación.` })} onEdit={() => beginEdit(company)} onDelete={() => { setOperationError(''); setDeletingCompany(company); }} showManagementActions={isAdminGlobal} />;
+          const key = String(company.id);
+          return <CompanyCard key={company.id} company={company} index={index} active={String(activeCompany?.id) === String(company.id)} count={currentCount.value} countStatus={currentCount.status} onOpen={() => openCompany(company)} onInfo={() => toggleCompanyInfo(company)} onEdit={() => beginEdit(company)} onDelete={() => { setOperationError(''); setDeletingCompany(company); }} showManagementActions={isAdminGlobal} expanded={expandedCompanyId === key} companyDetails={companyDetails[key]} infoStatus={companyInfoStatus[key]} infoError={companyInfoErrors[key]} />;
         })}
 
         <button type="button" className="dashboard-shortcut-card" onClick={() => navigate('/catalogos')}><span className="dashboard-shortcut-cover tone-wine"><Database size={33} strokeWidth={1.7} /><strong>Catálogos</strong></span><span className="dashboard-shortcut-body"><span><Activity size={15} /> Tipos de datos</span><strong>Explorar <ArrowUpRight size={15} /></strong></span></button>

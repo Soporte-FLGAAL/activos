@@ -8,8 +8,8 @@ function toQuery(values = {}) {
   return params.toString();
 }
 
-export async function getRegistryPage(endpoint, { page = 1, limit = 20 } = {}, options = {}) {
-  const query = toQuery({ page, limit });
+export async function getRegistryPage(endpoint, { page = 1, limit = 20, ...filters } = {}, options = {}) {
+  const query = toQuery({ ...filters, page, limit });
   const result = await apiRequest(`${endpoint}?${query}`, options);
   return {
     items: Array.isArray(result?.data) ? result.data : [],

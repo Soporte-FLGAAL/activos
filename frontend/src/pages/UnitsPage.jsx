@@ -30,7 +30,7 @@ function UnitCard({ unit, card, onOpen }) {
 
 export default function UnitsPage() {
   const navigate = useNavigate();
-  const { activeCompany } = useAuth();
+  const { activeCompany, isAdminGlobal } = useAuth();
   const [units, setUnits] = useState([]);
   const [cardsByUnit, setCardsByUnit] = useState({});
   const [typeOptions, setTypeOptions] = useState([]);
@@ -53,13 +53,15 @@ export default function UnitsPage() {
   }, [search]);
 
   const loadUnits = useCallback(async (signal) => {
-    if (!activeCompany?.id) return;
+    if (!activeCompany?.id && !isAdminGlobal) return;
     setLoading(true);
     setError('');
     const filters = { page, limit: 20 };
     if (debouncedSearch) filters.search = debouncedSearch;
     if (selectedType !== 'all') filters.tipoId = selectedType;
     if (status) filters.status = status;
+    // El backend filtra por empresaId de query para ADMIN_GLOBAL; sin empresa activa consulta el ámbito global.
+    if (isAdminGlobal && activeCompany?.id) filters.empresaId = activeCompany.id;
     try {
       const result = await getUnits(filters, { signal });
       setUnits(result.items);
@@ -69,7 +71,7 @@ export default function UnitsPage() {
     } finally {
       if (!signal?.aborted) setLoading(false);
     }
-  }, [activeCompany?.id, debouncedSearch, selectedType, status, page]);
+  }, [activeCompany?.id, isAdminGlobal, debouncedSearch, selectedType, status, page]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -78,7 +80,7 @@ export default function UnitsPage() {
   }, [loadUnits]);
 
   useEffect(() => {
-    if (!activeCompany?.id) return undefined;
+    if (!activeCompany?.id && !isAdminGlobal) return undefined;
     const controller = new AbortController();
     getUnitTypes({ signal: controller.signal })
       .then((items) => {
@@ -89,10 +91,10 @@ export default function UnitsPage() {
         if (requestError.name !== 'AbortError') setTypeError('No se pudieron consultar los tipos de unidad; puedes seguir usando la búsqueda.');
       });
     return () => controller.abort();
-  }, [activeCompany?.id]);
+  }, [activeCompany?.id, isAdminGlobal]);
 
   useEffect(() => {
-    if (!activeCompany?.id || !units.length) {
+    if ((!activeCompany?.id && !isAdminGlobal) || !units.length) {
       setCardsByUnit({});
       return undefined;
     }
@@ -113,7 +115,7 @@ export default function UnitsPage() {
       if (!cancelled) setLoadingCards(false);
     });
     return () => { cancelled = true; controller.abort(); };
-  }, [activeCompany?.id, units]);
+  }, [activeCompany?.id, isAdminGlobal, units]);
 
   const derivedTypes = useMemo(() => {
     if (typeOptions.length) return typeOptions;
@@ -125,7 +127,7 @@ export default function UnitsPage() {
     return [...byId.values()];
   }, [typeOptions, units]);
 
-  if (!activeCompany?.id) return <Navigate to="/seleccionar-empresa" replace state={{ from: '/unidades' }} />;
+  if (!activeCompany?.id && !isAdminGlobal) return <Navigate to="/seleccionar-empresa" replace state={{ from: '/unidades' }} />;
 
   function selectType(value) {
     setSelectedType(value);
@@ -144,7 +146,7 @@ export default function UnitsPage() {
       <section className="units-heading-row">
         <div>
           <h1>Catálogo de Unidades</h1>
-          <p className="workspace-subtitle">{activeCompany.name} · Gestiona los vehículos y remolques</p>
+          <p className="workspace-subtitle">{activeCompany?.name || 'Todas las empresas'} · Gestiona los vehículos y remolques</p>
         </div>
         <div className="units-search-tools">
           <label className="units-search"><Search size={17} /><input type="search" placeholder="Buscar unidad…" value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} /><button type="button" aria-label="Limpiar búsqueda" onClick={() => setSearch('')} hidden={!search}><X size={14} /></button></label>
@@ -171,7 +173,7 @@ export default function UnitsPage() {
 
       {typeError && <p className="registry-muted-note">{typeError}</p>}
       {error && <div className="workspace-error"><AlertCircle size={18} /><span>{error}</span><button type="button" onClick={() => loadUnits()}>Reintentar</button></div>}
-      {loading ? <div className="workspace-loading">Cargando unidades…</div> : !error && units.length === 0 ? <div className="workspace-empty-state unit-empty"><Truck size={30} /><h2>No se encontraron unidades</h2><p>Prueba quitando filtros o verifica que existan unidades registradas para esta empresa.</p><button type="button" className="workspace-primary-button" onClick={clearFilters}>Limpiar búsqueda y filtros</button></div> : (
+      {loading ? <div className="workspace-loading">Cargando unidades…</div> : !error && units.length === 0 ? <div className="workspace-empty-state unit-empty"><Truck size={30} /><h2>No se encontraron unidades</h2><p>Prueba quitando filtros o verifica que existan unidades registradas para este ámbito.</p><button type="button" className="workspace-primary-button" onClick={clearFilters}>Limpiar búsqueda y filtros</button></div> : (
         <div className={`units-grid${view === 'list' ? ' is-list' : ''}`}>
           {units.map((unit) => <UnitCard key={unitId(unit)} unit={unit} card={cardsByUnit[unitId(unit)]} onOpen={() => navigate(`/unidades/${unitId(unit)}`)} />)}
         </div>

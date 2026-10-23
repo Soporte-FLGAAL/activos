@@ -160,7 +160,7 @@ function MaintenanceSection({ unit }) {
 export default function UnitDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { activeCompany } = useAuth();
+  const { activeCompany, isAdminGlobal } = useAuth();
   const [unit, setUnit] = useState(null);
   const [documents, setDocuments] = useState({ cards: [], policies: [], doublePermits: [], sictPermits: [], cotejosByCard: {} });
   const [warnings, setWarnings] = useState([]);
@@ -171,7 +171,7 @@ export default function UnitDetailPage() {
   const [expanded, setExpanded] = useState({ general: true, documents: false, maintenance: false });
 
   useEffect(() => {
-    if (!activeCompany?.id) return undefined;
+    if (!activeCompany?.id && !isAdminGlobal) return undefined;
     const controller = new AbortController();
     let cancelled = false;
 
@@ -236,11 +236,11 @@ export default function UnitDetailPage() {
     }
     load();
     return () => { cancelled = true; controller.abort(); };
-  }, [id, activeCompany?.id]);
+  }, [id, activeCompany?.id, isAdminGlobal]);
 
   const unitName = useMemo(() => unit?.Uni_no_economico || id, [unit, id]);
 
-  if (!activeCompany?.id) return <Navigate to="/seleccionar-empresa" replace state={{ from: `/unidades/${id}` }} />;
+  if (!activeCompany?.id && !isAdminGlobal) return <Navigate to="/seleccionar-empresa" replace state={{ from: `/unidades/${id}` }} />;
 
   function renderSection(sectionId) {
     if (!unit) return null;
@@ -257,7 +257,7 @@ export default function UnitDetailPage() {
     <WorkspaceLayout activeNav="units">
       <section className="unit-detail-page-heading">
         <button type="button" className="unit-detail-back" onClick={() => navigate('/unidades')} aria-label="Volver al catálogo"><ArrowLeft size={19} /></button>
-        <div className="unit-detail-title-group"><div className="unit-detail-title-row"><h1>Unidad {unitName}</h1>{unit?.tipo_nombre && <span className="unit-type-pill">{unit.tipo_nombre}</span>}</div><p className="workspace-subtitle">Detalles y administración del vehículo{activeCompany ? ` · ${activeCompany.name}` : ''}</p></div>
+        <div className="unit-detail-title-group"><div className="unit-detail-title-row"><h1>Unidad {unitName}</h1>{unit?.tipo_nombre && <span className="unit-type-pill">{unit.tipo_nombre}</span>}</div><p className="workspace-subtitle">Detalles y administración del vehículo{activeCompany ? ` · ${activeCompany.name}` : isAdminGlobal ? ' · Vista global' : ''}</p></div>
         <div className="unit-detail-mode-toggle" aria-label="Modo de presentación">
           <button type="button" className={layoutMode === 'accordion' ? 'is-selected' : ''} onClick={() => setLayoutMode('accordion')}><LayoutList size={15} /> Acordeón</button>
           <button type="button" className={layoutMode === 'tabs' ? 'is-selected' : ''} onClick={() => setLayoutMode('tabs')}><CarFront size={15} /> Pestañas</button>
