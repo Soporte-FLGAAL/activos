@@ -227,14 +227,32 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
+  const addCompany = useCallback((rawCompany) => {
+    const normalized = normalizeCompany(rawCompany);
+    if (normalized.id == null) return;
+    const added = {
+      ...normalized,
+      role: normalized.role || 'ADMIN_GLOBAL',
+      roleLabel: normalized.roleLabel || 'Acceso global',
+      permissions: ['*'],
+    };
+    setCompanies((current) => {
+      const exists = current.some((company) => String(company.id) === String(added.id));
+      const next = exists
+        ? current.map((company) => String(company.id) === String(added.id) ? { ...company, ...added } : company)
+        : [...current, added];
+      return next.sort((left, right) => String(left.name || '').localeCompare(String(right.name || ''), 'es-MX'));
+    });
+  }, []);
+
   const can = useCallback((permissionName) => {
     if (isAdminGlobal) return true;
     return Boolean(activeCompany?.permissions?.includes(permissionName));
   }, [activeCompany, isAdminGlobal]);
 
   const value = useMemo(() => ({
-    user, companies, isAdminGlobal, activeCompany, loading, login, logout, selectCompany, clearCompanySelection, patchCompany, removeCompany, can,
-  }), [user, companies, isAdminGlobal, activeCompany, loading, login, logout, selectCompany, clearCompanySelection, patchCompany, removeCompany, can]);
+    user, companies, isAdminGlobal, activeCompany, loading, login, logout, selectCompany, clearCompanySelection, patchCompany, removeCompany, addCompany, can,
+  }), [user, companies, isAdminGlobal, activeCompany, loading, login, logout, selectCompany, clearCompanySelection, patchCompany, removeCompany, addCompany, can]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

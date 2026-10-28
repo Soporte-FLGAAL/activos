@@ -32,6 +32,10 @@ const REGISTRIES = {
       { label: 'Teléfono', key: 'Ase_telefono' }, { label: 'Dirección', key: 'Ase_direccion' },
     ],
   },
+  permisos: {
+    title: 'Permisos', subtitle: 'Permisos disponibles para asignar a los roles del sistema.', endpoint: '/permisos', activeNav: 'settings', idKey: 'PerM_id', system: 'permissions',
+    columns: [{ label: 'ID', key: 'PerM_id' }, { label: 'Nombre del permiso', key: 'PerM_nombre' }],
+  },
 };
 
 const EMPTY_PAGE = { page: 1, limit: 20, total: 0, totalPages: 1 };
@@ -47,10 +51,12 @@ function toInsurerForm(row = {}) {
   return { nombre: row.Ase_nombre || '', rfc: row.Ase_rfc || '', telefono: row.Ase_telefono || '', direccion: row.Ase_direccion || '' };
 }
 function toRoleForm(row = {}) { return { nombre: row.Rol_nombre || '' }; }
+function toPermissionForm(row = {}) { return { nombre: row.PerM_nombre || '' }; }
 
 function getForm(system, row) {
   if (system === 'users') return toUserForm(row);
   if (system === 'roles') return toRoleForm(row);
+  if (system === 'permissions') return toPermissionForm(row);
   return toInsurerForm(row);
 }
 
@@ -137,6 +143,7 @@ function RegistryEditor({ registry, editor, setEditor, companies, roles, permiss
           {editor.permissionsLoading ? <div className="admin-inline-loading">Cargando permisos…</div> : permissions.length === 0 ? <div className="admin-inline-empty">No se pudieron cargar permisos disponibles.</div> : <div className="admin-permission-grid">{permissions.map((permission) => <label key={permission.PerM_id} className="admin-permission-option"><input type="checkbox" checked={selectedPermissionIds.has(Number(permission.PerM_id))} onChange={(event) => togglePermission(permission.PerM_id, event.target.checked)} /><span>{permission.PerM_nombre}</span></label>)}</div>}
         </section>}
       </>}
+      {system === 'permissions' && <Field label="Nombre del permiso" value={form.nombre} onChange={(v) => updateForm('nombre', v)} required maxLength={50} />}
       {system === 'insurers' && <div className="admin-form-grid">
         <Field label="Nombre de la aseguradora" value={form.nombre} onChange={(v) => updateForm('nombre', v)} required maxLength={100} />
         <Field label="RFC" value={form.rfc} onChange={(v) => updateForm('rfc', v.toUpperCase())} required minLength={12} maxLength={13} />
@@ -153,7 +160,8 @@ function DeleteConfirmation({ registry, item, busy, error, onClose, onConfirm })
   if (!item) return null;
   const name = registry.system === 'users'
     ? [item.Usu_nombres, item.Usu_ap_paterno, item.Usu_ap_materno].filter(Boolean).join(' ')
-    : registry.system === 'roles' ? item.Rol_nombre : item.Ase_nombre;
+    : registry.system === 'roles' ? item.Rol_nombre
+      : registry.system === 'permissions' ? item.PerM_nombre : item.Ase_nombre;
   return <Modal title={`Eliminar ${registry.singular}`} subtitle="Esta acción no se puede deshacer." onClose={onClose}>
     <div className="admin-delete-details"><strong>{name}</strong><span>ID: {item[registry.idKey]}</span>{registry.system === 'users' && <small>Se borrará la cuenta, sus asignaciones de empresa y sus sesiones de acceso.</small>}</div>
     {error && <div className="workspace-error admin-form-error"><AlertCircle size={16} /><span>{error}</span></div>}
@@ -379,7 +387,9 @@ export default function AdminDirectoryPage({ fixedDirectoryKey = null } = {}) {
 
   if (!registry) return <Navigate to="/administracion" replace />;
   if (!isAdminGlobal) return <Navigate to="/app" replace />;
-  const singular = registryKey === 'usuarios' ? 'usuario' : registryKey === 'roles' ? 'rol' : 'aseguradora';
+  const singular = registryKey === 'usuarios' ? 'usuario'
+    : registryKey === 'roles' ? 'rol'
+      : registryKey === 'permisos' ? 'permiso' : 'aseguradora';
   const registryForEditor = { ...registry, singular };
   const isCurrentUser = (row) => registry.system === 'users' && Number(row.Usu_id) === Number(user?.id);
 
@@ -393,7 +403,7 @@ export default function AdminDirectoryPage({ fixedDirectoryKey = null } = {}) {
       </section>
 
       <div className="registry-panel">
-        <div className="registry-panel-heading"><div>{registry.system === 'users' ? <Users size={17} /> : registry.system === 'roles' ? <Shield size={17} /> : <Building2 size={17} />}<strong>Registros de {registry.title.toLowerCase()}</strong></div><span>{loading ? 'Consultando…' : `${pagination.total} en total`}</span></div>
+        <div className="registry-panel-heading"><div>{registry.system === 'users' ? <Users size={17} /> : registry.system === 'roles' ? <Shield size={17} /> : registry.system === 'permissions' ? <KeyRound size={17} /> : <Building2 size={17} />}<strong>Registros de {registry.title.toLowerCase()}</strong></div><span>{loading ? 'Consultando…' : `${pagination.total} en total`}</span></div>
         {loadError && <div className="workspace-error"><AlertCircle size={18} /><span>{loadError}</span><button type="button" onClick={() => load()}>Reintentar</button></div>}
         {loading ? <div className="workspace-loading">Cargando información…</div> : !loadError && visibleItems.length === 0 ? <div className="workspace-empty-state"><Activity size={27} /><h2>Sin registros</h2><p>{query ? 'No se encontraron registros con ese criterio.' : 'Todavía no hay registros para mostrar.'}</p><button type="button" className="workspace-primary-button" onClick={openCreate}><Plus size={15} /> Crear el primero</button></div> : !loadError && <div className="registry-table-wrap"><table className="registry-table admin-registry-table"><thead><tr>{registry.columns.map((column) => <th key={column.label}>{column.label}</th>)}<th className="admin-actions-heading">Acciones</th></tr></thead><tbody>
           {visibleItems.map((row, index) => {

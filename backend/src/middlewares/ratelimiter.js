@@ -12,7 +12,7 @@ const loginLimiter = rateLimit({
 // Limitador general para API: 100 peticiones por IP cada 15 minutos
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 100,
+  max: 1000,
   message: { success: false, message: 'Demasiadas peticiones. Intente más tarde.' },
   standardHeaders: true,
   legacyHeaders: false,

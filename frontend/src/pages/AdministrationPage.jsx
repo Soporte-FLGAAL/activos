@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ArrowUpRight, Building2, Grid2X2, List, Shield, Users } from 'lucide-react';
+import { ArrowUpRight, Building2, Grid2X2, KeyRound, Link2, List, Shield, Users } from 'lucide-react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import WorkspaceLayout from '../components/WorkspaceLayout';
 import { useAuth } from '../context/AuthContext';
@@ -9,6 +9,8 @@ const MODULES = [
   { key: 'usuarios', title: 'Usuarios', detail: 'Gestión de cuentas de acceso al sistema.', countLabel: 'Usuarios registrados', endpoint: '/usuarios', icon: Users, tone: 'charcoal' },
   { key: 'roles', title: 'Roles', detail: 'Configuración de permisos y privilegios.', countLabel: 'Roles registrados', endpoint: '/roles', icon: Shield, tone: 'gray' },
   { key: 'aseguradoras', title: 'Aseguradoras', detail: 'Directorio y control de aseguradoras.', countLabel: 'Aseguradoras registradas', endpoint: '/aseguradoras', icon: Building2, tone: 'red' },
+  { key: 'permisos', title: 'Permisos', detail: 'Define los permisos disponibles para configurar los roles.', countLabel: 'Permisos registrados', endpoint: '/permisos', icon: KeyRound, tone: 'wine' },
+  { key: 'asignaciones', title: 'Asignar empresas a usuarios', detail: 'Administra en qué empresas participa cada usuario y el rol que tendrá en cada una.', countLabel: 'Asignaciones registradas', endpoint: '/usuarios-empresas', icon: Link2, tone: 'charcoal' },
 ];
 
 export default function AdministrationPage() {

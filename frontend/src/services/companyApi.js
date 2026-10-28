@@ -1,5 +1,18 @@
 import { apiRequest } from './apiClient';
 
+export function createCompany(form) {
+  return apiRequest('/empresas', {
+    method: 'POST',
+    company: false,
+    body: JSON.stringify({
+      nombre: form.nombre,
+      nombreCorto: form.nombreCorto || null,
+      direccion: form.direccion || null,
+      rfc: form.rfc,
+    }),
+  });
+}
+
 export function getCompanyById(companyId, options = {}) {
   return apiRequest(`/empresas/${encodeURIComponent(companyId)}`, {
     ...options,

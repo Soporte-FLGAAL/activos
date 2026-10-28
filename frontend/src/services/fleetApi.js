@@ -49,6 +49,43 @@ export function getCirculationCards(filters = {}, options = {}) {
   return getList('/tarjetas', filters, options);
 }
 
+/**
+ * Fetch circulation-card records for the units visible on the current page
+ * in batches, rather than issuing one HTTP request per unit (N+1 requests).
+ * Reads bounded pages to prefer the newest card ID for each requested unit. A
+ * 10-page cap bounds the request count and avoids unbounded dashboard queries.
+ */
+export async function getCardsByUnitIds(unitIds = [], options = {}) {
+  const requestedIds = [...new Set(unitIds.map((id) => String(id)))];
+  const wanted = new Set(requestedIds);
+  const found = new Map();
+  if (!wanted.size) return {};
+
+  const pageSize = 1000;
+  const maxPages = 10;
+  let page = 1;
+  let totalPages = 1;
+
+  while (page <= totalPages && page <= maxPages) {
+    const query = toQuery({ page, limit: pageSize });
+    const result = await apiRequest(`/tarjetas?${query}`, options);
+    const normalized = normalizePage(result, pageSize);
+
+    normalized.items.forEach((card) => {
+      const unitId = card?.TC_unidad_id ?? card?.unidadId;
+      const key = String(unitId ?? '');
+      if (!wanted.has(key)) return;
+      const previous = found.get(key);
+      if (!previous || Number(card.TC_id || 0) > Number(previous.TC_id || 0)) found.set(key, card);
+    });
+
+    totalPages = Math.max(1, Number(normalized.pagination.totalPages || 1));
+    page += 1;
+  }
+
+  return Object.fromEntries(requestedIds.map((id) => [id, found.get(id) || null]));
+}
+
 export function getPolicies(filters = {}, options = {}) {
   return getList('/polizas', filters, options);
 }

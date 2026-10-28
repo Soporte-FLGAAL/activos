@@ -3,7 +3,7 @@ import { AlertCircle, Box, Building2, ChevronLeft, ChevronRight, ClipboardList, 
 import { Navigate, useNavigate } from 'react-router-dom';
 import WorkspaceLayout from '../components/WorkspaceLayout';
 import { useAuth } from '../context/AuthContext';
-import { getCirculationCards, getUnitTypes, getUnits } from '../services/fleetApi';
+import { getCardsByUnitIds, getUnitTypes, getUnits } from '../services/fleetApi';
 
 function unitId(unit) { return Number(unit?.Uni_id ?? unit?.id); }
 function unitTypeId(unit) { return Number(unit?.Uni_tipo ?? unit?.tipoId); }
@@ -101,19 +101,18 @@ export default function UnitsPage() {
     const controller = new AbortController();
     let cancelled = false;
     setLoadingCards(true);
-    Promise.all(units.map(async (unit) => {
-      try {
-        const cards = await getCirculationCards({ unidadId: unitId(unit), limit: 10 }, { signal: controller.signal });
-        return [unitId(unit), cards[0] || null];
-      } catch (requestError) {
-        if (requestError.name === 'AbortError') throw requestError;
-        return [unitId(unit), null];
-      }
-    })).then((entries) => {
-      if (!cancelled) setCardsByUnit(Object.fromEntries(entries));
-    }).catch(() => {}).finally(() => {
-      if (!cancelled) setLoadingCards(false);
-    });
+    getCardsByUnitIds(units.map(unitId), { signal: controller.signal })
+      .then((cardsById) => {
+        if (!cancelled) setCardsByUnit(Object.fromEntries(
+          Object.entries(cardsById).map(([id, card]) => [Number(id), card]),
+        ));
+      })
+      .catch((requestError) => {
+        if (!cancelled && requestError.name !== 'AbortError') setCardsByUnit({});
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingCards(false);
+      });
     return () => { cancelled = true; controller.abort(); };
   }, [activeCompany?.id, isAdminGlobal, units]);
 
