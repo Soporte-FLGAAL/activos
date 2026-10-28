@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { AlertCircle, Box, Building2, ChevronLeft, ChevronRight, ClipboardList, Filter, Hash, Search, Shield, Truck, X } from 'lucide-react';
+import { AlertCircle, Box, Building2, ChevronLeft, ChevronRight, ClipboardList, Filter, Hash, Plus, Search, Shield, Truck, X } from 'lucide-react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import WorkspaceLayout from '../components/WorkspaceLayout';
 import { useAuth } from '../context/AuthContext';
@@ -148,6 +148,7 @@ export default function UnitsPage() {
           <p className="workspace-subtitle">{activeCompany?.name || 'Todas las empresas'} · Gestiona los vehículos y remolques</p>
         </div>
         <div className="units-search-tools">
+          <button type="button" className="units-add-button" onClick={() => navigate('/unidades/alta')}><Plus size={16} /> Añadir</button>
           <label className="units-search"><Search size={17} /><input type="search" placeholder="Buscar unidad…" value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} /><button type="button" aria-label="Limpiar búsqueda" onClick={() => setSearch('')} hidden={!search}><X size={14} /></button></label>
           <button type="button" className={`units-filter-button${showFilters ? ' is-active' : ''}`} onClick={() => setShowFilters((current) => !current)}><Filter size={16} /> Filtros</button>
           <button type="button" className="units-change-company" onClick={() => navigate('/app')} title="Volver al panel principal"><Building2 size={16} /></button>

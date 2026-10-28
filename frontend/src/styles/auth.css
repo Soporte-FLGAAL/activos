@@ -8,7 +8,7 @@ button { cursor: pointer; }
 button:disabled { cursor: not-allowed; opacity: .65; }
 
 .auth-screen { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: clamp(18px, 4vw, 44px); position: relative; isolation: isolate; overflow: hidden; background: #101a2b; }
-.auth-backdrop { position: absolute; inset: 0; z-index: -2; background-image: linear-gradient(115deg, rgba(9, 16, 30, .83), rgba(9, 20, 37, .57) 48%, rgba(7, 15, 30, .78)), url('../assets/GAAL_Puebla_049.jpg'); background-position: center; background-size: cover; transform: scale(1.02); }
+.auth-backdrop { position: absolute; inset: 0; z-index: -2; background-image: linear-gradient(115deg, rgba(9, 16, 30, .83), rgba(9, 20, 37, .57) 48%, rgba(7, 15, 30, .78)), url('/assets/GAAL_Puebla_049.jpg'); background-position: center; background-size: cover; transform: scale(1.02); }
 .auth-screen::before, .auth-screen::after { content: ''; position: absolute; z-index: -1; border-radius: 50%; filter: blur(2px); pointer-events: none; }
 .auth-screen::before { width: 470px; height: 470px; top: -170px; right: -130px; background: rgba(36, 115, 225, .28); }
 .auth-screen::after { width: 360px; height: 360px; bottom: -160px; left: -100px; background: rgba(37, 99, 235, .16); }
@@ -729,3 +729,9 @@ button:disabled { cursor: not-allowed; opacity: .65; }
 .workspace-modal-backdrop { z-index: 9999; }
 @keyframes company-info-in { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: translateY(0); } }
 @media (max-width: 620px) { .company-info-grid { grid-template-columns: minmax(0,1fr); } .company-info-grid .company-info-address { grid-column: auto; } }
+
+/* Alta de registros: acceso desde el catálogo de unidades */
+.units-add-button { display:inline-flex; align-items:center; justify-content:center; gap:7px; min-height:38px; padding:0 13px; border:1px solid #9c1420; border-radius:9px; background:#9c1420; color:#fff; font-size:12px; font-weight:750; white-space:nowrap; cursor:pointer; transition:background .15s, transform .15s; }
+.units-add-button:hover { background:#7f0e18; transform:translateY(-1px); }
+.units-add-button:focus-visible { outline:3px solid rgba(156,20,32,.2); outline-offset:2px; }
+@media(max-width:760px) { .units-add-button { min-height:36px; padding:0 10px; } }

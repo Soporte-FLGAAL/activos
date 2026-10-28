@@ -39,7 +39,7 @@ export default function LoginPage() {
         <div className="brand-badge">
           <img
             className="brand-logo"
-            src="../assets/flg.png"
+            src="/assets/1__2_.png"
             alt="GAAL Logística"
             onError={(event) => { event.currentTarget.style.display = 'none'; event.currentTarget.nextElementSibling.style.display = 'block'; }}
           />
