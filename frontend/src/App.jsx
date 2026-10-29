@@ -14,7 +14,7 @@ import AdminDirectoryPage from './pages/AdminDirectoryPage';
 import UsersAdminPage from './pages/UsersAdminPage';
 import RolesAdminPage from './pages/RolesAdminPage';
 import InsurersAdminPage from './pages/InsurersAdminPage';
-import UserCompanyAssignmentsPage from './pages/UserCompanyAssignmentsPage';
+import RolePermissionsAdminPage from './pages/RolePermissionsAdminPage';
 import { CatalogRegistryPage } from './pages/DataRegistryPage';
 import NoCompaniesPage from './pages/NoCompaniesPage';
 import './styles/auth.css';
@@ -44,7 +44,7 @@ function AppRoutes() {
         <Route path="/administracion/usuarios" element={<UsersAdminPage />} />
         <Route path="/administracion/roles" element={<RolesAdminPage />} />
         <Route path="/administracion/aseguradoras" element={<InsurersAdminPage />} />
-        <Route path="/administracion/asignaciones" element={<UserCompanyAssignmentsPage />} />
+        <Route path="/administracion/rol-permisos" element={<RolePermissionsAdminPage />} />
         <Route path="/administracion/:directoryKey" element={<AdminDirectoryPage />} />
       </Route>
       <Route element={<RequireAuth needsCompany /> }>
