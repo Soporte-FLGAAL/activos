@@ -7,7 +7,10 @@ class PolizasService {
   async listar(filters) {
     return polizasRepository.findAll(filters);
   }
-
+  async contar(filters) {
+    return polizasRepository.count(filters);
+  }
+  
   async obtener(id, empresaId = null) {
     const poliza = await polizasRepository.findById(id, empresaId);
     if (!poliza) {

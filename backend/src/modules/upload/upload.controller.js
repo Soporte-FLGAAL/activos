@@ -1,47 +1,76 @@
 const fs = require('fs');
+const path = require('path');
+const env = require('../../config/env');
 const uploadService = require('./upload.service');
 const { success, error } = require('../../utils/response');
+const { CARPETAS_PERMITIDAS } = require('../../config/multer');
 
 exports.subir = async (req, res, next) => {
-  // Si no llegó archivo (o el error es de multer), no hay nada que limpiar aquí
   if (!req.file) {
     return error(res, 'No se recibió ningún archivo', 400);
   }
-
-  const cleanup = () => {
-    try {
-      if (req.file?.path && fs.existsSync(req.file.path)) {
-        fs.unlinkSync(req.file.path);
-      }
-    } catch (err) {
-      console.error('No se pudo limpiar el archivo tras error:', err);
-    }
-  };
-
-  // Validaciones previas: si fallan, limpiamos el archivo físico
   if (!req.empresaId) {
-    cleanup();
     return error(res, 'No se pudo determinar la empresa del usuario', 400);
   }
 
-  const tipoSolicitado = (req.body.tipo || 'general').toString();
-  const tipo = require('../../config/multer').TIPOS_PERMITIDOS.has(tipoSolicitado)
-    ? tipoSolicitado
-    : 'general';
+  // 1. Determinar carpeta (Ahora req.body.tipo YA ESTÁ DISPONIBLE)
+  const tipoSolicitado = req.body.tipo;
+  const tipo = CARPETAS_PERMITIDAS.has(tipoSolicitado) ? tipoSolicitado : 'Polizas';
+  
+  const dir = path.join(env.STORAGE_PATH, tipo);
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
 
+  // 2. Generar el nombre del archivo
+  const ext = path.extname(req.file.originalname).toLowerCase();
+  let nombreBase = '';
+
+  if (tipo === 'Polizas') {
+    const { polizaId, endosoId, incisoId } = req.body;
+    if (!polizaId) return error(res, 'Falta polizaId', 400);
+    nombreBase = `poliza_${polizaId}`;
+    if (endosoId) nombreBase += `_endoso_${endosoId}`;
+    if (incisoId) nombreBase += `_inciso_${incisoId}`;
+  } else if (tipo === 'Verificaciones') {
+    const { noEconomico, verificacionTipo } = req.body;
+    if (!noEconomico) return error(res, 'Falta noEconomico', 400);
+    nombreBase = `${noEconomico}_${verificacionTipo || 'mecanica'}`;
+  } else {
+    const { identificador } = req.body;
+    const uuid = require('crypto').randomUUID();
+    nombreBase = identificador ? `${tipo.toLowerCase()}_${identificador}` : `${tipo.toLowerCase()}_${uuid}`;
+  }
+
+  const nombreArchivo = `${nombreBase}${ext}`;
+  const rutaCompleta = path.join(dir, nombreArchivo);
+  const rutaRelativa = path.posix.join(tipo, nombreArchivo);
+
+  // 3. Guardar el archivo físicamente en la red
   try {
-    const archivo = await uploadService.registrarConAuditoria(
+    await fs.promises.writeFile(rutaCompleta, req.file.buffer);
+  } catch (err) {
+    console.error('Error al escribir en red:', err);
+    return error(res, 'No se pudo guardar el archivo en el servidor de red', 500);
+  }
+
+  // 4. Guardar en Base de Datos
+  try {
+    const archivoDb = await uploadService.registrarConAuditoria(
       req.file,
       tipo,
+      rutaRelativa, // Le pasamos la ruta calculada
       req.empresaId,
       req.user.userId
     );
 
-    const url = `/api/upload/${archivo.Arc_uuid}`;
-    return success(res, { id: archivo.Arc_id, uuid: archivo.Arc_uuid, url }, 'Archivo subido', 201);
+    const url = `/api/upload/${archivoDb.Arc_uuid}`;
+    return success(res, { id: archivoDb.Arc_id, uuid: archivoDb.Arc_uuid, url }, 'Archivo subido', 201);
   } catch (err) {
-    // Si la transacción de BD falló, el archivo físico queda huérfano → lo borramos
-    cleanup();
+    // 5. Si falla la BD, borramos el archivo físico para no dejar basura
+    if (fs.existsSync(rutaCompleta)) {
+      await fs.promises.unlink(rutaCompleta).catch(console.error);
+    }
     next(err);
   }
 };

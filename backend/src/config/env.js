@@ -16,6 +16,9 @@ const env = {
   JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '30m',
   JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET,
   JWT_REFRESH_EXPIRES_IN: process.env.JWT_REFRESH_EXPIRES_IN || '8h',
+  
+  // Upload
+  STORAGE_PATH: process.env.STORAGE_PATH || '\\\\10.0.0.39\\Activos',
 
   // SMTP
   SMTP_HOST: process.env.SMTP_HOST,

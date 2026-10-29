@@ -43,6 +43,26 @@ class PolizasRepository {
     return rows;
   }
 
+  async count(filters = {}) {
+    const { empresaId, unidadId, aseguradoraId, vigente } = filters;
+    let sql = `
+      SELECT COUNT(*) AS total
+      FROM Polizas p
+      JOIN Unidades u ON p.Pol_unidad_id = u.Uni_id
+      WHERE 1=1
+    `;
+    const params = [];
+
+    if (empresaId) { sql += ' AND u.Uni_empresa_actual = ?'; params.push(empresaId); }
+    if (unidadId) { sql += ' AND p.Pol_unidad_id = ?'; params.push(unidadId); }
+    if (aseguradoraId) { sql += ' AND p.Pol_aseguradora = ?'; params.push(aseguradoraId); }
+    if (vigente === 'true') { sql += ' AND p.Pol_fecha_fin >= CURDATE()'; }
+    else if (vigente === 'false') { sql += ' AND p.Pol_fecha_fin < CURDATE()'; }
+
+    const [rows] = await db.query(sql, params);
+    return rows[0].total;
+  }
+
   async findById(id, empresaId = null) {
     let sql = 
       `SELECT p.*, a.Ase_nombre AS aseguradora_nombre, u.Uni_no_economico, tp.TpP_nombre AS tipo_poliza_nombre

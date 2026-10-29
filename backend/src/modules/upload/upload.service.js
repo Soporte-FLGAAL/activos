@@ -1,5 +1,6 @@
 const path = require('path');
 const fs = require('fs');
+const env = require('../../config/env');
 const uploadRepository = require('./upload.repository');
 const { withTransaction } = require('../../utils/transaction');
 const { registrarMovimiento } = require('../../utils/audit');
@@ -11,24 +12,23 @@ class UploadService {
     return uploadRepository.findByUuid(uuid);
   }
 
+  /**
+   * Resuelve la ruta absoluta en la red y verifica que no haya path traversal.
+   */
   rutaAbsoluta(archivo) {
-    const full = path.join(UPLOAD_DIR, archivo.Arc_ruta);
-    // path.relative() devuelve '' si son iguales, una ruta relativa si está dentro,
-    // y una ruta con '..' si está fuera.
-    const rel = path.relative(UPLOAD_DIR, full);
+    // archivo.Arc_ruta guardará algo como: "Polizas/poliza_123.pdf"
+    const full = path.resolve(env.STORAGE_PATH, archivo.Arc_ruta);
+    
+    // Validar que la ruta final esté dentro de STORAGE_PATH
+    const rel = path.relative(env.STORAGE_PATH, full);
     if (rel === '' || rel.startsWith('..') || path.isAbsolute(rel)) {
       return null;
     }
     return full;
   }
 
-  /**
-   * Registra el archivo en BD + auditoría dentro de una transacción.
-   * Si algo falla, el llamador (controller) debe eliminar el archivo físico.
-   */
-  async registrarConAuditoria(file, tipo, empresaId, usuarioId) {
-    const uuid = path.basename(file.filename, path.extname(file.filename));
-    const rutaRelativa = path.posix.join(tipo, file.filename);
+  async registrarConAuditoria(file, tipo, rutaRelativa, empresaId, usuarioId) {
+    const uuid = crypto.randomUUID();
 
     const dbData = {
       Arc_uuid: uuid,
@@ -47,7 +47,7 @@ class UploadService {
         'Archivos',
         id,
         'INSERT',
-        { uuid, tipo, nombre: file.originalname },
+        { uuid, tipo, nombre: file.originalname, ruta: rutaRelativa },
         usuarioId,
         connection
       );
