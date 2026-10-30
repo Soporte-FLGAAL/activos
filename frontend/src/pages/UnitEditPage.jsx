@@ -8,6 +8,15 @@ import { apiRequest } from '../services/apiClient';
 import { getUnitById, updateUnit } from '../services/fleetApi';
 import '../styles/create-record.css';
 
+const EDIT_TABS = [
+  { id: 'unidad', label: 'Unidad', icon: Truck },
+  { id: 'placas', label: 'Placas', icon: BadgeCheck },
+  { id: 'tarjetas', label: 'Tarjetas', icon: ClipboardList },
+  { id: 'polizas', label: 'Pólizas', icon: FileText },
+  { id: 'doble', label: 'Doble articulado', icon: Truck },
+  { id: 'sict', label: 'SICT', icon: ShieldCheck },
+];
+
 function todayValue(value) {
   if (!value) return '';
   const raw = String(value);
@@ -136,7 +145,7 @@ export default function UnitEditPage() {
   const { activeCompany, isAdminGlobal, can } = useAuth();
   const [unit, setUnit] = useState(null);
   const [form, setForm] = useState(null);
-  const [lookups, setLookups] = useState({ types: [], states: [], fuels: [], periods: [] });
+  const [lookups, setLookups] = useState({ types: [], states: [], fuels: [], periods: [], movementTypes: [], cardTypes: [], policyTypes: [], insurers: [] });
   const [files, setFiles] = useState({ invoice: null, mechanical: null, contaminants: null });
   const [loading, setLoading] = useState(true);
   const [loadingLookups, setLoadingLookups] = useState(true);
@@ -144,6 +153,11 @@ export default function UnitEditPage() {
   const [error, setError] = useState('');
   const [lookupError, setLookupError] = useState('');
   const [success, setSuccess] = useState('');
+  const [activeEditTab, setActiveEditTab] = useState('unidad');
+  const [related, setRelated] = useState({ plates: [], movements: [], cards: [], policies: [], doublePermits: [], sictPermits: [] });
+  const [loadingRelated, setLoadingRelated] = useState(true);
+  const [relatedError, setRelatedError] = useState('');
+  const [relatedRefresh, setRelatedRefresh] = useState(0);
 
   const update = (key) => (value) => setForm((current) => ({ ...current, [key]: value }));
   const setFile = (key) => (file) => setFiles((current) => ({ ...current, [key]: file }));
