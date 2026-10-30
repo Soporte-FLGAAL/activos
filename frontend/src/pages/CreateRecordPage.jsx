@@ -207,6 +207,7 @@ export default function CreateRecordPage() {
   }
 
   async function handleCreateUnit(event) {
+    const formElement = event.currentTarget;
     event.preventDefault();
     setPageError(''); setSuccessMessage('');
     if (!targetCompanyId) { setPageError('Selecciona la empresa actual de la unidad.'); return; }
@@ -234,9 +235,13 @@ export default function CreateRecordPage() {
       const id = created?.Uni_id ?? created?.id;
       if (!id) throw new Error('La API no devolvió el identificador de la unidad creada.');
       setLastCreatedUnit({ id: Number(id), label: `Unidad ${payload.noEconomico}` });
+      // Vaciar el formulario y los inputs nativos (incluidos los archivos) solo tras guardar correctamente.
+      formElement.reset();
+      setUnitForm(blankUnit());
+      setUnitFiles({ factura: null, mecanica: null, contaminantes: null });
       setCardForm((current) => ({ ...current, unidadId: String(id) }));
       setPolicyForm((current) => ({ ...current, unidadId: String(id) }));
-      setSuccessMessage(`Unidad ${payload.noEconomico} creada correctamente. Puedes registrar ahora placas, tarjeta, póliza o permisos especiales desde las pestañas superiores.`);
+      setSuccessMessage(`Unidad ${payload.noEconomico} creada correctamente. El formulario quedó limpio; puedes registrar ahora placas, tarjeta, póliza o permisos especiales desde las pestañas superiores.`);
       setPageError('');
     } catch (error) {
       setPageError(error.message || 'No fue posible crear la unidad.');
@@ -246,6 +251,7 @@ export default function CreateRecordPage() {
   }
 
   async function handleCreatePlate(event) {
+    const formElement = event.currentTarget;
     event.preventDefault(); setPageError(''); setSuccessMessage('');
     if (!targetCompanyId) { setPageError('Selecciona una empresa.'); return; }
     if (includePlateMovement) {
@@ -276,8 +282,9 @@ export default function CreateRecordPage() {
           url: movementDocument.url,
         }, targetCompanyId);
       }
+      formElement.reset();
       setCardForm((current) => ({ ...current, placasId: String(id) }));
-      setSuccessMessage(`Placa ${payload.placas} creada correctamente (ID ${id})${includePlateMovement ? ' con su detalle de movimiento.' : '; quedó preseleccionada para el formulario de tarjeta.'}`);
+      setSuccessMessage(`Placa ${payload.placas} creada correctamente${includePlateMovement ? ' con su detalle de movimiento.' : '; quedó preseleccionada para el formulario de tarjeta.'} El formulario quedó limpio.`);
       setPlateForm((current) => ({ ...blankPlate(), empresaActualId: String(targetCompanyId) }));
       setPlateMovementForm(blankPlateMovement());
       setIncludePlateMovement(true);
@@ -288,6 +295,7 @@ export default function CreateRecordPage() {
   }
 
   async function handleCreateSpecialPermit(event, permitType) {
+    const formElement = event.currentTarget;
     event.preventDefault(); setPageError(''); setSuccessMessage('');
     if (!targetCompanyId) { setPageError('Selecciona una empresa.'); return; }
     const isDoubleArticulated = permitType === 'doble-articulado';
@@ -307,11 +315,13 @@ export default function CreateRecordPage() {
       };
       if (isDoubleArticulated) {
         await createDoubleArticulatedPermit(payload, targetCompanyId);
+        formElement.reset();
         setDoubleArticulatedForm(blankSpecialPermit());
         setDoubleArticulatedFile(null);
         setSuccessMessage('Permiso de doble articulado creado correctamente.');
       } else {
         await createSictPermit(payload, targetCompanyId);
+        formElement.reset();
         setSictForm(blankSpecialPermit());
         setSictFile(null);
         setSuccessMessage('Permiso SICT creado correctamente.');
@@ -322,6 +332,7 @@ export default function CreateRecordPage() {
   }
 
   async function handleCreateCard(event) {
+    const formElement = event.currentTarget;
     event.preventDefault(); setPageError(''); setSuccessMessage('');
     if (!isAdminGlobal) { setPageError('El backend actual permite crear tarjetas de circulación únicamente a ADMIN_GLOBAL.'); return; }
     if (!targetCompanyId) { setPageError('Selecciona la empresa de la unidad.'); return; }
@@ -340,13 +351,15 @@ export default function CreateRecordPage() {
         url: uploaded.url, urlReposicion: fileUrl(replacement),
       };
       await createCirculationCard(payload, targetCompanyId);
-      setSuccessMessage('Tarjeta de circulación creada correctamente.');
+      formElement.reset();
+      setSuccessMessage('Tarjeta de circulación creada correctamente. El formulario quedó limpio.');
       setCardFile(null); setCardReplacementFile(null); setCardForm((current) => ({ ...blankCard(), unidadId: current.unidadId }));
     } catch (error) { setPageError(error.message || 'No fue posible crear la tarjeta.'); }
     finally { setSubmitting(false); }
   }
 
   async function handleCreatePolicy(event) {
+    const formElement = event.currentTarget;
     event.preventDefault(); setPageError(''); setSuccessMessage('');
     if (!targetCompanyId) { setPageError('Selecciona la empresa de la unidad.'); return; }
     setSubmitting(true);
@@ -378,9 +391,12 @@ export default function CreateRecordPage() {
       } else {
         await createPolicy(policy, targetCompanyId, false);
       }
-      setSuccessMessage(createInitialEndorsement ? `Póliza creada con endoso ${endorsementNumber || '000000'} e inciso ${incisoNumber || '000000'}. Los documentos compartidos se subieron una sola vez.` : 'Póliza creada correctamente.');
+      formElement.reset();
+      setSuccessMessage(createInitialEndorsement ? `Póliza creada con endoso ${endorsementNumber || '000000'} e inciso ${incisoNumber || '000000'}. Los documentos compartidos se subieron una sola vez. El formulario quedó limpio.` : 'Póliza creada correctamente. El formulario quedó limpio.');
       setPolicyFile(null); setEndorsementFile(null); setIncisoFile(null);
+      setPolicyForm((current) => ({ ...blankPolicy(), unidadId: current.unidadId }));
       setSamePolicyAndEndorsement(true); setSameEndorsementAndInciso(true);
+      setCreateInitialEndorsement(true); setEndorsementNumber('000000'); setIncisoNumber('000000');
     } catch (error) { setPageError(error.message || 'No fue posible crear la póliza.'); }
     finally { setSubmitting(false); }
   }
