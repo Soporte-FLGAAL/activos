@@ -7,6 +7,7 @@ import CompanySelectorPage from './pages/CompanySelectorPage';
 import AppHome from './pages/AppHome';
 import UnitsPage from './pages/UnitsPage';
 import CreateRecordPage from './pages/CreateRecordPage';
+import UnitEditPage from './pages/UnitEditPage';
 import UnitDetailPage from './pages/UnitDetailPage';
 import CatalogsPage from './pages/CatalogsPage';
 import AdministrationPage from './pages/AdministrationPage';
@@ -51,6 +52,7 @@ function AppRoutes() {
         <Route path="/aseguradoras" element={<InsurersAdminPage />} />
         <Route path="/unidades" element={<UnitsPage />} />
         <Route path="/unidades/alta" element={<CreateRecordPage />} />
+        <Route path="/unidades/:id/editar" element={<UnitEditPage />} />
         <Route path="/unidades/:id" element={<UnitDetailPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
