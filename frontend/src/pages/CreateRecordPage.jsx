@@ -15,7 +15,7 @@ const today = localToday();
 const blankUnit = () => ({
   noEconomico: '', status: 'ALTA', tipoId: '', estadoId: '', combustibleId: '', noSerie: '', noMotor: '',
   anioModelo: String(new Date().getFullYear()), modelo: '', marca: '', ejes: '', llantas: '4', viapass: '',
-  propietarioId: '', fechaAltaSCT: today, valorFactura: '0',
+  propietarioId: '', fechaAltaSCT: today, valorFactura: '',
   fechaVerificacionMecanica: today, costoVerificacionMecanica: '0', periodoVerificacionMecanicaId: '',
   fechaVerificacionContaminantes: today, costoVerificacionContaminantes: '0', periodoVerificacionContaminantesId: '',
 });
@@ -222,10 +222,10 @@ export default function CreateRecordPage() {
       const payload = {
         noEconomico: unitForm.noEconomico.trim(), status: unitForm.status,
         tipoId: Number(unitForm.tipoId), estadoId: Number(unitForm.estadoId), combustibleId: Number(unitForm.combustibleId),
-        noSerie: unitForm.noSerie.trim(), noMotor: unitForm.noMotor.trim(), anioModelo: Number(unitForm.anioModelo),
+        noSerie: unitForm.noSerie.trim() || null, noMotor: unitForm.noMotor.trim() || null, anioModelo: Number(unitForm.anioModelo),
         modelo: unitForm.modelo.trim(), marca: unitForm.marca.trim(), ejes: unitForm.ejes === '' ? null : Number(unitForm.ejes),
-        llantas: Number(unitForm.llantas), viapass: unitForm.viapass.trim(), propietarioId: Number(isAdminGlobal ? (unitForm.propietarioId || targetCompanyId) : activeCompany.id),
-        empresaActualId: Number(targetCompanyId), fechaAltaSCT: unitForm.fechaAltaSCT, valorFactura: Number(unitForm.valorFactura),
+        llantas: Number(unitForm.llantas), viapass: unitForm.viapass.trim() || null, propietarioId: Number(isAdminGlobal ? (unitForm.propietarioId || targetCompanyId) : activeCompany.id),
+        empresaActualId: Number(targetCompanyId), fechaAltaSCT: unitForm.fechaAltaSCT, valorFactura: unitForm.valorFactura.trim() === '' ? null : Number(unitForm.valorFactura),
         facturaUrl: fileUrl(invoice), fechaVerificacionMecanica: unitForm.fechaVerificacionMecanica,
         costoVerificacionMecanica: Number(unitForm.costoVerificacionMecanica), periodoVerificacionMecanicaId: Number(unitForm.periodoVerificacionMecanicaId),
         fechaVerificacionContaminantes: unitForm.fechaVerificacionContaminantes,
@@ -438,7 +438,7 @@ export default function CreateRecordPage() {
       {successMessage && <div className="create-alert is-success" role="status"><CheckCircle2 size={18} /><p>{successMessage}</p><button type="button" aria-label="Cerrar mensaje" onClick={() => setSuccessMessage('')}><X size={16} /></button></div>}
 
       {activeTab === 'unidad' && <form className="create-record-form" onSubmit={handleCreateUnit}>
-        <SectionTitle icon={Truck} title="Datos de la unidad" subtitle="Los campos reflejan las columnas obligatorias del modelo Unidades actual." />
+        <SectionTitle icon={Truck} title="Datos de la unidad" subtitle="Los campos obligatorios se indican en el formulario; serie, motor, ViaPass y valor de factura son opcionales." />
         <div className="create-form-grid">
           <Field label="No. económico" required><TextInput value={unitForm.noEconomico} onChange={updateUnit('noEconomico')} maxLength={15} required /></Field>
           <Field label="Estatus" required><SelectInput value={unitForm.status} onChange={updateUnit('status')} required options={[{ value: 'ALTA', label: 'Alta' }, { value: 'BAJA', label: 'Baja' }]} /></Field>
@@ -448,13 +448,13 @@ export default function CreateRecordPage() {
           <Field label="Año modelo" required><TextInput type="number" value={unitForm.anioModelo} onChange={updateUnit('anioModelo')} required min="1980" max={new Date().getFullYear() + 1} /></Field>
           <Field label="Marca" required><TextInput value={unitForm.marca} onChange={updateUnit('marca')} required maxLength={25} /></Field>
           <Field label="Modelo" required><TextInput value={unitForm.modelo} onChange={updateUnit('modelo')} required maxLength={25} /></Field>
-          <Field label="Número de serie (VIN)" required><TextInput value={unitForm.noSerie} onChange={updateUnit('noSerie')} required maxLength={25} /></Field>
-          <Field label="Número de motor" required><TextInput value={unitForm.noMotor} onChange={updateUnit('noMotor')} required maxLength={20} /></Field>
+          <Field label="Número de serie (VIN)"><TextInput value={unitForm.noSerie} onChange={updateUnit('noSerie')} maxLength={25} /></Field>
+          <Field label="Número de motor"><TextInput value={unitForm.noMotor} onChange={updateUnit('noMotor')} maxLength={20} /></Field>
           <Field label="Ejes"><TextInput type="number" value={unitForm.ejes} onChange={updateUnit('ejes')} min="1" /></Field>
           <Field label="Llantas" required><TextInput type="number" value={unitForm.llantas} onChange={updateUnit('llantas')} required min="1" /></Field>
-          <Field label="ViaPass" required><TextInput value={unitForm.viapass} onChange={updateUnit('viapass')} required maxLength={15} /></Field>
+          <Field label="ViaPass"><TextInput value={unitForm.viapass} onChange={updateUnit('viapass')} maxLength={15} /></Field>
           <Field label="Fecha de alta SCT" required><TextInput type="date" value={unitForm.fechaAltaSCT} onChange={updateUnit('fechaAltaSCT')} required /></Field>
-          <Field label="Valor factura" required><TextInput type="number" value={unitForm.valorFactura} onChange={updateUnit('valorFactura')} required min="0" step="0.01" /></Field>
+          <Field label="Valor factura"><TextInput type="number" value={unitForm.valorFactura} onChange={updateUnit('valorFactura')} min="0" step="0.01" /></Field>
           {isAdminGlobal && <Field label="Empresa propietaria" required><SelectInput value={unitForm.propietarioId || targetCompanyId} onChange={updateUnit('propietarioId')} required options={currentCompanyOptions} /></Field>}
         </div>
         <SectionTitle icon={ClipboardList} title="Verificaciones" subtitle="El modelo actual conserva una fecha y un costo vigente; no se genera historial." />
