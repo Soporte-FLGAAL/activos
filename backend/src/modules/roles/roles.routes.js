@@ -2,14 +2,12 @@ const express = require('express');
 const router = express.Router();
 const controller = require('./roles.controller');
 const auth = require('../../middlewares/auth');
-const requireAdminGlobal = require('../../middlewares/requireAdminGlobal');
 const setEmpresa = require('../../middlewares/setEmpresa');
 const rbac = require('../../middlewares/rbac');
 const validate = require('../../middlewares/validate');
 const schemas = require('./roles.schema');
 
 router.use(auth);
-router.use(requireAdminGlobal);
 router.use(setEmpresa);
 
 router.get('/', rbac('roles:ver'), controller.listar);
