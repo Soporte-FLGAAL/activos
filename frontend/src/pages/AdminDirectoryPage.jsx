@@ -609,8 +609,8 @@ export default function AdminDirectoryPage({ fixedDirectoryKey = null } = {}) {
               <span className="admin-catalog-record-icon"><Icon size={20} /></span>
               <div className="admin-catalog-record-copy"><span>{registry.system === 'roles' ? 'ROL DEL SISTEMA' : 'PERMISO DISPONIBLE'}</span><h2>{catalogName(row) || 'Sin nombre'}</h2>{protectedRole && <small>Protegido</small>}</div>
               <div className="admin-catalog-record-actions">
-                {canEditRecord && {canEditRecord && <button type="button" className="admin-icon-action" title="Editar" aria-label={`Editar ${singular}`} onClick={() => openEdit(row)} disabled={protectedRole}><Edit3 size={14} /></button>}}
-                <button type="button" className="admin-icon-action is-danger" title="Eliminar" aria-label={`Eliminar ${singular}`} onClick={() => { setOperationError(''); setDeleteTarget(row); }} disabled={protectedRole}><Trash2 size={14} /></button>
+                {canEditRecord && <button type="button" className="admin-icon-action" title="Editar" aria-label={`Editar ${singular}`} onClick={() => openEdit(row)} disabled={protectedRole}><Edit3 size={14} /></button>}
+                {canDeleteRecord && <button type="button" className="admin-icon-action is-danger" title="Eliminar" aria-label={`Eliminar ${singular}`} onClick={() => { setOperationError(''); setDeleteTarget(row); }} disabled={protectedRole}><Trash2 size={14} /></button>}
               </div>
             </article>;
           })}
