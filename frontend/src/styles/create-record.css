@@ -61,3 +61,28 @@
 .create-schema-note { margin:0 0 20px; color:#7a8490; font-size:11px; line-height:1.6; }
 @media(max-width:1000px) { .create-form-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } .create-company-picker { grid-template-columns:1fr; gap:8px; } }
 @media(max-width:640px) { .create-record-heading { align-items:flex-start; flex-direction:column; } .create-company-chip { align-self:flex-start; } .create-record-form { padding:16px; } .create-form-grid { grid-template-columns:1fr; } .create-record-tabs button { padding:0 12px; } .create-form-actions { flex-wrap:wrap; } .create-form-actions > button { flex:1; } }
+
+
+.unit-edit-tabs { margin-top: 18px; }
+.unit-related-group { display: grid; gap: 12px; padding: 14px 0; border-bottom: 1px solid #f0e6dc; }
+.unit-related-group:last-child { border-bottom: 0; }
+.unit-related-nested { display: grid; gap: 10px; padding: 12px 14px; margin-left: 20px; border-left: 2px solid #efdfd0; background: #fdfaf7; border-radius: 0 10px 10px 0; }
+.unit-related-record { min-width: 0; padding: 14px; border: 1px solid #eee1d5; border-radius: 11px; background: #fffdfb; }
+.unit-related-record-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+.unit-related-record-heading > strong { color: #42171e; font-size: 12px; font-weight: 780; }
+.unit-related-summary { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 9px 14px; margin: 0; }
+.unit-related-summary > div { min-width: 0; padding: 8px 10px; border-radius: 7px; background: #fbf7f2; }
+.unit-related-summary dt { margin-bottom: 4px; color: #7a7176; font-size: 9px; font-weight: 700; }
+.unit-related-summary dd { margin: 0; color: #3f171d; font-size: 11px; font-weight: 650; overflow-wrap: anywhere; }
+.unit-related-fields { grid-template-columns: repeat(3,minmax(0,1fr)); }
+.unit-related-actions { padding-top: 12px; margin-top: 14px; }
+@media(max-width:760px) {
+  .unit-related-summary { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .unit-related-fields { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .unit-related-nested { margin-left: 6px; padding: 9px; }
+}
+@media(max-width:520px) {
+  .unit-related-summary, .unit-related-fields { grid-template-columns: minmax(0,1fr); }
+  .unit-edit-tabs { gap: 5px; }
+  .unit-edit-tabs button { padding: 0 10px; }
+}
