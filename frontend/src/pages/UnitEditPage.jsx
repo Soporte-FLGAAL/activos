@@ -78,13 +78,14 @@ function absoluteFileUrl(uploaded) {
   return uploaded?.url || null;
 }
 
-function RelatedRecordEditor({ record, title, fields, canEdit, onSave }) {
-  const initialValues = () => Object.fromEntries(fields.map((field) => [
+function RelatedRecordEditor({ record, title, fields, canEdit, onSave, companyId }) {
+  const initialValues = () => Object.fromEntries(fields.filter((field) => field.type !== 'file').map((field) => [
     field.key,
     field.type === 'date' ? todayValue(record?.[field.source]) : (record?.[field.source] == null ? '' : String(record[field.source])),
   ]));
   const [editing, setEditing] = useState(false);
   const [values, setValues] = useState(initialValues);
+  const [files, setFiles] = useState({});
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -93,16 +94,26 @@ function RelatedRecordEditor({ record, title, fields, canEdit, onSave }) {
     setSaving(true);
     setError('');
     const payload = {};
-    fields.forEach((field) => {
+    fields.filter((field) => field.type !== 'file').forEach((field) => {
       const value = values[field.key] ?? '';
       if (field.serialize === 'number') payload[field.key] = value === '' ? null : Number(value);
       else if (field.serialize === 'nullable') payload[field.key] = String(value).trim() || null;
       else if (field.type === 'date' && field.nullable) payload[field.key] = value || null;
       else payload[field.key] = value;
     });
+
     try {
+      for (const field of fields.filter((item) => item.type === 'file')) {
+        const selectedFile = files[field.key];
+        if (!selectedFile) continue;
+        const uploaded = await uploadDocument(selectedFile, field.uploadType, companyId, {
+          metadata: field.metadata || {},
+        });
+        payload[field.key] = absoluteFileUrl(uploaded);
+      }
       await onSave(payload);
       setEditing(false);
+      setFiles({});
     } catch (requestError) {
       setError(requestError.message || 'No se pudo actualizar el registro.');
     } finally {
@@ -119,21 +130,23 @@ function RelatedRecordEditor({ record, title, fields, canEdit, onSave }) {
       {editing ? (
         <form onSubmit={submit}>
           <div className="create-form-grid unit-related-fields">
-            {fields.map((field) => <Field key={field.key} label={field.label} required={field.required}>
-              {field.options
-                ? <SelectInput value={values[field.key]} onChange={(value) => setValues((current) => ({ ...current, [field.key]: value }))} options={values[field.key] && !field.options.some((option) => String(option.value) === String(values[field.key])) ? [{ value: String(values[field.key]), label: `Actual (${values[field.key]})` }, ...field.options] : field.options} required={field.required} />
-                : <TextInput type={field.type || 'text'} value={values[field.key]} onChange={(value) => setValues((current) => ({ ...current, [field.key]: value }))} required={field.required} min={field.min} max={field.max} maxLength={field.maxLength} step={field.step} />}
+            {fields.map((field) => <Field key={field.key} label={field.label} required={field.required} hint={field.type === 'file' ? (files[field.key]?.name || (record?.[field.source] ? 'Documento existente. Déjalo vacío para conservarlo.' : 'No hay documento adjunto.')) : undefined}>
+              {field.type === 'file'
+                ? <input className="create-file-input" type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" onChange={(event) => setFiles((current) => ({ ...current, [field.key]: event.target.files?.[0] || null }))} />
+                : field.options
+                  ? <SelectInput value={values[field.key]} onChange={(value) => setValues((current) => ({ ...current, [field.key]: value }))} options={values[field.key] && !field.options.some((option) => String(option.value) === String(values[field.key])) ? [{ value: String(values[field.key]), label: `Actual (${values[field.key]})` }, ...field.options] : field.options} required={field.required} />
+                  : <TextInput type={field.type || 'text'} value={values[field.key]} onChange={(value) => setValues((current) => ({ ...current, [field.key]: value }))} required={field.required} min={field.min} max={field.max} maxLength={field.maxLength} step={field.step} />}
             </Field>)}
           </div>
           {error && <div className="create-alert is-error" role="alert"><CircleAlert size={16} /><p>{error}</p></div>}
           <div className="create-form-actions unit-related-actions">
-            <button type="button" className="workspace-secondary-button" onClick={() => { setValues(initialValues()); setEditing(false); setError(''); }} disabled={saving}>Cancelar</button>
+            <button type="button" className="workspace-secondary-button" onClick={() => { setValues(initialValues()); setFiles({}); setEditing(false); setError(''); }} disabled={saving}>Cancelar</button>
             <button type="submit" className="workspace-primary-button" disabled={saving}>{saving ? 'Guardando…' : 'Guardar cambios'}</button>
           </div>
         </form>
       ) : (
         <dl className="unit-related-summary">
-          {fields.map((field) => <div key={field.key}><dt>{field.label}</dt><dd>{record?.[field.source] == null || record?.[field.source] === '' ? '—' : (field.type === 'date' ? todayValue(record[field.source]) : String(record[field.source]))}</dd></div>)}
+          {fields.map((field) => <div key={field.key}><dt>{field.label}</dt><dd>{field.type === 'file' ? (record?.[field.source] ? 'Documento adjunto' : 'Sin documento') : record?.[field.source] == null || record?.[field.source] === '' ? '—' : (field.type === 'date' ? todayValue(record[field.source]) : String(record[field.source]))}</dd></div>)}
         </dl>
       )}
     </article>
@@ -399,6 +412,7 @@ export default function UnitEditPage() {
       title={title}
       fields={fields}
       canEdit={forceGlobal ? isAdminGlobal : hasReadPermission(permission)}
+      companyId={activeCompany?.id ?? unit?.Uni_empresa_actual}
       onSave={(payload) => saveRelatedRecord(endpoint, recordId, payload)}
     />
   );
@@ -494,6 +508,7 @@ export default function UnitEditPage() {
           { key: 'tipoMovimientoId', source: 'DP_tipo_movimiento', label: 'Tipo de movimiento', type: 'select', options: lookups.movementTypes, required: true, serialize: 'number' },
           { key: 'costo', source: 'DP_costo', label: 'Costo', type: 'number', required: true, min: 0, step: '0.01', serialize: 'number' },
           { key: 'fecha', source: 'DP_fecha', label: 'Fecha', type: 'date', required: true },
+          { key: 'url', source: 'DP_url', label: 'Comprobante del movimiento', type: 'file', uploadType: 'detalle_placa' },
         ], 'detalle_placas:editar'))}
       </section>}
 
@@ -512,6 +527,8 @@ export default function UnitEditPage() {
             { key: 'fechaVencimiento', source: 'TC_fecha_vencimiento', label: 'Fecha de vencimiento', type: 'date', nullable: true },
             { key: 'fechaReposicion', source: 'TC_fecha_reposicion', label: 'Fecha de reposición', type: 'date', nullable: true },
             { key: 'costoReposicion', source: 'TC_costo_reposicion', label: 'Costo de reposición', type: 'number', min: 0, step: '0.01', serialize: 'number' },
+            { key: 'url', source: 'TC_url', label: 'Documento de tarjeta', type: 'file', uploadType: 'tarjeta' },
+            { key: 'urlReposicion', source: 'TC_url_reposicion', label: 'Documento de reposición', type: 'file', uploadType: 'tarjeta_reposicion' },
           ], 'tarjetas:editar', true))}
         </>}
       </section>}
@@ -527,14 +544,17 @@ export default function UnitEditPage() {
               { key: 'fechaInicio', source: 'Pol_fecha_inicio', label: 'Fecha de inicio', type: 'date', required: true },
               { key: 'fechaFin', source: 'Pol_fecha_fin', label: 'Fecha de fin', type: 'date', required: true },
               { key: 'costo', source: 'Pol_costo', label: 'Costo', type: 'number', min: 0, step: '0.01', required: true, serialize: 'number' },
+              { key: 'url', source: 'Pol_url', label: 'Documento de póliza', type: 'file', uploadType: 'poliza' },
             ], 'polizas:editar')}
             {!hasReadPermission('endosos:ver') ? <p className="registry-muted-note">No tienes permiso para consultar endosos.</p> : (policy.endosos || []).map((endorsement) => (
               <div className="unit-related-nested" key={`endorsement-${endorsement.End_id}`}>
                 {editorFor(endorsement, '/endosos', endorsement.End_id, `Endoso ${endorsement.End_endoso}`, [
                   { key: 'endoso', source: 'End_endoso', label: 'Número de endoso', required: true, maxLength: 6 },
+                  { key: 'url', source: 'End_url', label: 'Documento del endoso', type: 'file', uploadType: 'endoso' },
                 ], 'endosos:editar')}
                 {!hasReadPermission('incisos:ver') ? <p className="registry-muted-note">No tienes permiso para consultar incisos.</p> : (endorsement.incisos || []).map((inciso) => editorFor(inciso, '/incisos', inciso.Inc_id, `Inciso ${inciso.Inc_inciso}`, [
                   { key: 'inciso', source: 'Inc_inciso', label: 'Número de inciso', required: true, maxLength: 6 },
+                  { key: 'url', source: 'Inc_url', label: 'Documento del inciso', type: 'file', uploadType: 'inciso' },
                 ], 'incisos:editar'))}
               </div>
             ))}
@@ -548,6 +568,7 @@ export default function UnitEditPage() {
           { key: 'permiso', source: 'PDA_permiso', label: 'Número de permiso', required: true, maxLength: 30 },
           { key: 'fechaObtencion', source: 'PDA_fecha_obtencion', label: 'Fecha de obtención', type: 'date', required: true },
           { key: 'fechaVencimiento', source: 'PDA_fecha_vencimiento', label: 'Fecha de vencimiento', type: 'date', required: true },
+          { key: 'url', source: 'PDA_url', label: 'Documento del permiso', type: 'file', uploadType: 'doble_articulado' },
         ], 'permisos_especiales:editar'))}
       </section>}
 
@@ -557,6 +578,7 @@ export default function UnitEditPage() {
           { key: 'permiso', source: 'SICT_permiso', label: 'Número de permiso', required: true, maxLength: 30 },
           { key: 'fechaObtencion', source: 'SICT_fecha_obtencion', label: 'Fecha de obtención', type: 'date', required: true },
           { key: 'fechaVencimiento', source: 'SICT_fecha_vencimiento', label: 'Fecha de vencimiento', type: 'date', required: true },
+          { key: 'url', source: 'SICT_url', label: 'Documento SICT', type: 'file', uploadType: 'sict' },
         ], 'sict:editar'))}
       </section>}
     </WorkspaceLayout>
