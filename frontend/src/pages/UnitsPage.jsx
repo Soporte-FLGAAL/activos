@@ -3,7 +3,7 @@ import { AlertCircle, Box, Building2, ChevronLeft, ChevronRight, ClipboardList, 
 import { Navigate, useNavigate } from 'react-router-dom';
 import WorkspaceLayout from '../components/WorkspaceLayout';
 import { useAuth } from '../context/AuthContext';
-import { getCardsByUnitIds, getUnitTypes, getUnits } from '../services/fleetApi';
+import { deleteUnit, getCardsByUnitIds, getUnitTypes, getUnits } from '../services/fleetApi';
 
 function unitId(unit) { return Number(unit?.Uni_id ?? unit?.id); }
 function unitTypeId(unit) { return Number(unit?.Uni_tipo ?? unit?.tipoId); }
@@ -144,7 +144,6 @@ export default function UnitsPage() {
     setDeletingId(id);
     setError('');
     try {
-      const { deleteUnit } = await import('../services/fleetApi');
       await deleteUnit(id);
       setUnits((current) => current.filter((item) => unitId(item) !== id));
       setPagination((current) => ({
