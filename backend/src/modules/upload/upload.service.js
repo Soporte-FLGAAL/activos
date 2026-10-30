@@ -1,5 +1,6 @@
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 const env = require('../../config/env');
 const uploadRepository = require('./upload.repository');
 const { withTransaction } = require('../../utils/transaction');

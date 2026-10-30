@@ -201,9 +201,9 @@ export default function CreateRecordPage() {
     setSuccessMessage('');
   }
 
-  async function uploadIfSelected(file, type, companyId) {
+  async function uploadIfSelected(file, type, companyId, metadata = {}) {
     if (!file) return null;
-    return uploadDocument(file, type, companyId);
+    return uploadDocument(file, type, companyId, { metadata });
   }
 
   async function handleCreateUnit(event) {
@@ -213,10 +213,11 @@ export default function CreateRecordPage() {
     if (!targetCompanyId) { setPageError('Selecciona la empresa actual de la unidad.'); return; }
     setSubmitting(true);
     try {
+      const noEconomico = unitForm.noEconomico.trim();
       const [invoice, mechanical, contaminants] = await Promise.all([
-        uploadIfSelected(unitFiles.factura, 'factura', targetCompanyId),
-        uploadIfSelected(unitFiles.mecanica, 'verificacion_mecanica', targetCompanyId),
-        uploadIfSelected(unitFiles.contaminantes, 'verificacion_contaminantes', targetCompanyId),
+        uploadIfSelected(unitFiles.factura, 'factura', targetCompanyId, { identificador: noEconomico }),
+        uploadIfSelected(unitFiles.mecanica, 'verificacion_mecanica', targetCompanyId, { noEconomico, verificacionTipo: 'mecanica' }),
+        uploadIfSelected(unitFiles.contaminantes, 'verificacion_contaminantes', targetCompanyId, { noEconomico, verificacionTipo: 'contaminantes' }),
       ]);
       const payload = {
         noEconomico: unitForm.noEconomico.trim(), status: unitForm.status,

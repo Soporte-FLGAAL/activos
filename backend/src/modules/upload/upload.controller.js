@@ -14,8 +14,23 @@ exports.subir = async (req, res, next) => {
   }
 
   // 1. Determinar carpeta (Ahora req.body.tipo YA ESTÁ DISPONIBLE)
-  const tipoSolicitado = req.body.tipo;
-  const tipo = CARPETAS_PERMITIDAS.has(tipoSolicitado) ? tipoSolicitado : 'Polizas';
+  const tipoSolicitado = String(req.body.tipo || '').trim();
+  const aliasCarpetas = {
+    factura: 'Facturas',
+    verificacion_mecanica: 'Verificaciones',
+    verificacion_contaminantes: 'Verificaciones',
+    detalle_placa: 'Placas',
+    tarjeta: 'Tarjetas',
+    tarjeta_reposicion: 'Tarjetas',
+    doble_articulado: 'Doble_articulado',
+    sict: 'SICT',
+    poliza: 'Polizas',
+    endoso: 'Polizas',
+    inciso: 'Polizas',
+  };
+  const tipo = CARPETAS_PERMITIDAS.has(tipoSolicitado)
+    ? tipoSolicitado
+    : (aliasCarpetas[tipoSolicitado.toLowerCase()] || 'Polizas');
   
   const dir = path.join(env.STORAGE_PATH, tipo);
   if (!fs.existsSync(dir)) {
@@ -28,14 +43,30 @@ exports.subir = async (req, res, next) => {
 
   if (tipo === 'Polizas') {
     const { polizaId, endosoId, incisoId } = req.body;
-    if (!polizaId) return error(res, 'Falta polizaId', 400);
-    nombreBase = `poliza_${polizaId}`;
-    if (endosoId) nombreBase += `_endoso_${endosoId}`;
-    if (incisoId) nombreBase += `_inciso_${incisoId}`;
+    const crypto = require('crypto');
+    const identificador = crypto.randomUUID();
+
+    // Los archivos pueden subirse antes de crear la póliza/endoso/inciso,
+    // por lo que los IDs son opcionales durante el alta inicial.
+    if (tipoSolicitado.toLowerCase() === 'endoso') {
+      nombreBase = endosoId ? `endoso_${endosoId}` : `endoso_${identificador}`;
+    } else if (tipoSolicitado.toLowerCase() === 'inciso') {
+      nombreBase = incisoId ? `inciso_${incisoId}` : `inciso_${identificador}`;
+    } else {
+      nombreBase = polizaId ? `poliza_${polizaId}` : `poliza_${identificador}`;
+      if (endosoId) nombreBase += `_endoso_${endosoId}`;
+      if (incisoId) nombreBase += `_inciso_${incisoId}`;
+    }
   } else if (tipo === 'Verificaciones') {
     const { noEconomico, verificacionTipo } = req.body;
     if (!noEconomico) return error(res, 'Falta noEconomico', 400);
-    nombreBase = `${noEconomico}_${verificacionTipo || 'mecanica'}`;
+    const tipoVerificacion = String(verificacionTipo || 'mecanica').trim().toLowerCase();
+    if (!['mecanica', 'contaminantes'].includes(tipoVerificacion)) {
+      return error(res, 'El tipo de verificación debe ser mecanica o contaminantes', 400);
+    }
+    const nombreSeguro = String(noEconomico).trim().replace(/[^a-zA-Z0-9_-]/g, '_');
+    if (!nombreSeguro) return error(res, 'El número económico es inválido', 400);
+    nombreBase = `${nombreSeguro}_${tipoVerificacion}`;
   } else {
     const { identificador } = req.body;
     const uuid = require('crypto').randomUUID();
@@ -71,6 +102,90 @@ exports.subir = async (req, res, next) => {
     if (fs.existsSync(rutaCompleta)) {
       await fs.promises.unlink(rutaCompleta).catch(console.error);
     }
+    next(err);
+  }
+};
+
+exports.descargarDeUnidad = async (req, res, next) => {
+  try {
+    const unidadId = Number(req.params.unidadId);
+    const tipoDocumento = String(req.params.tipo || '').toLowerCase();
+    const columnas = {
+      factura: 'Uni_factura_url',
+      mecanica: 'Uni_url_verificacion_mecanica',
+      contaminantes: 'Uni_url_verificacion_contaminantes',
+    };
+    const columna = columnas[tipoDocumento];
+
+    if (!Number.isSafeInteger(unidadId) || unidadId <= 0 || !columna) {
+      return error(res, 'La unidad o el tipo de documento no son válidos', 400);
+    }
+
+    const db = require('../../config/database');
+    const [unidades] = await db.query(
+      `SELECT Uni_id, Uni_empresa_actual, ${columna} AS documento
+       FROM Unidades
+       WHERE Uni_id = ?
+       LIMIT 1`,
+      [unidadId]
+    );
+    const unidad = unidades[0];
+    if (!unidad) return error(res, 'Unidad no encontrada', 404);
+
+    if (!req.esAdminGlobal && Number(unidad.Uni_empresa_actual) !== Number(req.empresaId)) {
+      return error(res, 'No tiene acceso a los documentos de esta unidad', 403);
+    }
+
+    const rutaGuardada = String(unidad.documento || '').trim();
+    if (!rutaGuardada) return error(res, 'La unidad no tiene una ruta guardada para este documento', 404);
+
+    // Compatibilidad con archivos que ya están registrados mediante UUID.
+    const uuidMatch = rutaGuardada.match(/\/upload\/([^/?#]+)/i);
+    if (uuidMatch) {
+      const archivo = await uploadService.obtenerPorUuid(uuidMatch[1]);
+      if (!archivo) return error(res, 'Archivo no encontrado en el registro de archivos', 404);
+      if (!req.esAdminGlobal && Number(archivo.Arc_empresa) !== Number(unidad.Uni_empresa_actual)) {
+        return error(res, 'No tiene acceso a este archivo', 403);
+      }
+      const fullPath = uploadService.rutaAbsoluta(archivo);
+      if (!fullPath || !fs.existsSync(fullPath)) return error(res, 'Archivo no disponible en el almacenamiento', 404);
+      res.setHeader('Content-Type', archivo.Arc_mime || 'application/octet-stream');
+      res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(archivo.Arc_nombre_original || path.basename(fullPath))}"`);
+      return fs.createReadStream(fullPath).on('error', next).pipe(res);
+    }
+
+    // Compatibilidad con rutas relativas o absolutas guardadas históricamente
+    // directamente en las columnas de la unidad.
+    const storageRoot = path.resolve(env.STORAGE_PATH);
+    const rutaNormalizada = rutaGuardada.replace(/\\/g, '/').replace(/^\/+/, '');
+    const esSoloNombre = !rutaNormalizada.includes('/');
+    const carpetaDocumento = tipoDocumento === 'factura' ? 'Facturas' : 'Verificaciones';
+    const rutaRelativa = esSoloNombre
+      ? path.join(carpetaDocumento, rutaNormalizada)
+      : rutaNormalizada;
+    const fullPath = path.isAbsolute(rutaGuardada)
+      ? path.resolve(rutaGuardada)
+      : path.resolve(storageRoot, rutaRelativa);
+    const relativePath = path.relative(storageRoot, fullPath);
+
+    if (!relativePath || relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
+      return error(res, 'La ruta del documento está fuera del almacenamiento permitido', 400);
+    }
+    if (!fs.existsSync(fullPath) || !fs.statSync(fullPath).isFile()) {
+      return error(res, 'El archivo no existe en la carpeta compartida', 404);
+    }
+
+    const extension = path.extname(fullPath).toLowerCase();
+    const mimeByExtension = {
+      '.pdf': 'application/pdf',
+      '.jpg': 'image/jpeg',
+      '.jpeg': 'image/jpeg',
+      '.png': 'image/png',
+    };
+    res.setHeader('Content-Type', mimeByExtension[extension] || 'application/octet-stream');
+    res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(path.basename(fullPath))}"`);
+    return fs.createReadStream(fullPath).on('error', next).pipe(res);
+  } catch (err) {
     next(err);
   }
 };

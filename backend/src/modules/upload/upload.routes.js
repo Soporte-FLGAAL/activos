@@ -10,6 +10,7 @@ router.use(auth);
 router.use(setEmpresa);
 
 router.post('/', upload.single('archivo'), uploadErrorHandler, controller.subir);
+router.get('/unit/:unidadId/:tipo', controller.descargarDeUnidad);
 router.get('/:uuid', controller.descargar);
 
 module.exports = router;

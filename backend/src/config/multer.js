@@ -3,7 +3,7 @@ const path = require('path');
 
 // Carpetas permitidas en la red
 const CARPETAS_PERMITIDAS = new Set([
-  'Polizas', 'Placas', 'Tarjetas', 'Verificaciones', 'Doble_articulado', 'SICT',
+  'Polizas', 'Placas', 'Tarjetas', 'Verificaciones', 'Facturas', 'Doble_articulado', 'SICT',
 ]);
 
 const MIMES_PERMITIDOS = new Set(['application/pdf', 'image/jpeg', 'image/png']);
