@@ -343,8 +343,10 @@ button:disabled { cursor: not-allowed; opacity: .65; }
 .unit-document-copy { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 0; }
 .unit-document-copy > strong { color: #351016; font-size: 12px; font-weight: 750; overflow-wrap: anywhere; }
 .unit-document-copy > small { color: #69717b; font-size: 10px; line-height: 1.45; overflow-wrap: anywhere; }
+.unit-document-link-wrap { display: flex; flex: 0 0 auto; flex-direction: column; align-items: flex-start; gap: 4px; }
 .unit-document-link { flex: 0 0 auto; color: var(--app-red); font-size: 10px; font-weight: 750; text-decoration: none; }
 .unit-document-link:hover { text-decoration: underline; }
+.unit-document-link-error { max-width: 220px; color: #a51f2d; font-size: 9px; line-height: 1.4; }
 .unit-document-nested { display: grid; gap: 8px; padding: 10px 15px 13px 59px; border-top: 1px solid #f1e5d9; color: #4f3033; font-size: 11px; }
 .unit-document-nested-block { display: grid; gap: 7px; padding-top: 5px; }
 .unit-document-nested-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 7px 0; border-bottom: 1px solid #f6eee7; font-size: 11px; }
