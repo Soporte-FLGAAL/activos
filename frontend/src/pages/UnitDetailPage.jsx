@@ -39,7 +39,7 @@ function ValueCard({ label, value, variant = '' }) {
   return <div className={`unit-detail-value-card ${variant}`}><span>{label}</span><strong>{value == null || value === '' ? '—' : String(value)}</strong></div>;
 }
 
-function DocumentLink({ href, children = 'Ver documento' }) {
+function DocumentLink({ href, children = 'Ver documento', downloadPath = null }) {
   const [opening, setOpening] = useState(false);
   const [openError, setOpenError] = useState('');
 
@@ -49,7 +49,8 @@ function DocumentLink({ href, children = 'Ver documento' }) {
     // Los archivos administrados por /upload requieren el token Bearer y el
     // encabezado X-Empresa-Id; un enlace HTML normal no envía esos encabezados.
     const match = String(href).match(/\/upload\/([^/?#]+)/i);
-    if (!match) return;
+    const requestPath = downloadPath || (match ? `/upload/${encodeURIComponent(match[1])}` : null);
+    if (!requestPath) return;
 
     event.preventDefault();
     if (opening) return;
@@ -67,7 +68,7 @@ function DocumentLink({ href, children = 'Ver documento' }) {
     popup.opener = null;
 
     try {
-      const blob = await apiRequestBlob(`/upload/${encodeURIComponent(match[1])}`);
+      const blob = await apiRequestBlob(requestPath);
       const objectUrl = URL.createObjectURL(blob);
       popup.location.href = objectUrl;
       window.setTimeout(() => URL.revokeObjectURL(objectUrl), 5 * 60 * 1000);
@@ -89,12 +90,12 @@ function DocumentLink({ href, children = 'Ver documento' }) {
   );
 }
 
-function DocumentRow({ title, subtitle, meta, href, children }) {
+function DocumentRow({ title, subtitle, meta, href, downloadPath, children }) {
   return (
     <article className="unit-document-row">
       <span className="unit-document-icon"><FileText size={17} /></span>
       <div className="unit-document-copy"><strong>{title}</strong>{subtitle && <small>{subtitle}</small>}{meta && <small>{meta}</small>}{children}</div>
-      <DocumentLink href={href} />
+      <DocumentLink href={href} downloadPath={downloadPath} />
     </article>
   );
 }
@@ -133,10 +134,10 @@ function GeneralSection({ unit, cards }) {
 function DocumentsSection({ documents, warnings, unit }) {
   const { cards, policies, doublePermits, sictPermits, cotejosByCard } = documents;
   const unitFiles = [
-    { key: 'factura', title: 'Factura de la unidad', href: unit?.Uni_factura_url },
-    { key: 'mecanica', title: 'Verificación mecánica', href: unit?.Uni_url_verificacion_mecanica, meta: `Fecha: ${dateText(unit?.Uni_fecha_verificacion_mecanica)} · Costo: ${moneyText(unit?.Uni_costo_verificacion_mecanica)}` },
-    { key: 'contaminantes', title: 'Verificación de contaminantes', href: unit?.Uni_url_verificacion_contaminantes, meta: `Fecha: ${dateText(unit?.Uni_fecha_verificacion_contaminantes)} · Costo: ${moneyText(unit?.Uni_costo_verificacion_contaminantes)}` },
-  ].filter((file) => Boolean(file.href));
+    { key: 'factura', title: 'Factura de la unidad', href: unit?.Uni_factura_url, hasData: Boolean(unit?.Uni_factura_url), downloadPath: `/upload/unit/${unit?.Uni_id}/factura` },
+    { key: 'mecanica', title: 'Verificación mecánica', href: unit?.Uni_url_verificacion_mecanica, hasData: Boolean(unit?.Uni_fecha_verificacion_mecanica || unit?.Uni_costo_verificacion_mecanica), downloadPath: `/upload/unit/${unit?.Uni_id}/mecanica`, meta: `Fecha: ${dateText(unit?.Uni_fecha_verificacion_mecanica)} · Costo: ${moneyText(unit?.Uni_costo_verificacion_mecanica)}` },
+    { key: 'contaminantes', title: 'Verificación de contaminantes', href: unit?.Uni_url_verificacion_contaminantes, hasData: Boolean(unit?.Uni_fecha_verificacion_contaminantes || unit?.Uni_costo_verificacion_contaminantes), downloadPath: `/upload/unit/${unit?.Uni_id}/contaminantes`, meta: `Fecha: ${dateText(unit?.Uni_fecha_verificacion_contaminantes)} · Costo: ${moneyText(unit?.Uni_costo_verificacion_contaminantes)}` },
+  ].filter((file) => Boolean(file.href || file.hasData));
   const hasAny = cards.length || policies.length || doublePermits.length || sictPermits.length || unitFiles.length;
   return (
     <div className="unit-detail-section-body">
@@ -144,7 +145,7 @@ function DocumentsSection({ documents, warnings, unit }) {
       {!hasAny ? <div className="workspace-empty-state unit-document-empty"><FileText size={27} /><h2>Sin documentos disponibles</h2><p>No se encontraron documentos asociados o el usuario no tiene permisos para consultarlos.</p></div> : <div className="unit-document-groups">
         {unitFiles.length > 0 && <section className="unit-document-group">
           <div className="unit-detail-subhead-row"><h3>Documentos y verificaciones de la unidad</h3><span>{unitFiles.length}</span></div>
-          {unitFiles.map((file) => <DocumentRow key={file.key} title={file.title} meta={file.meta} href={file.href} />)}
+          {unitFiles.map((file) => <DocumentRow key={file.key} title={file.title} meta={file.meta} href={file.href} downloadPath={file.downloadPath} />)}
         </section>}
         <section className="unit-document-group">
           <div className="unit-detail-subhead-row"><h3>Tarjetas de circulación</h3><span>{cards.length}</span></div>
