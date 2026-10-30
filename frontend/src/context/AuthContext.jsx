@@ -252,7 +252,16 @@ export function AuthProvider({ children }) {
 
   const can = useCallback((permissionName) => {
     if (isAdminGlobal) return true;
-    return Boolean(activeCompany?.permissions?.includes(permissionName));
+    const required = String(permissionName ?? '').trim().toLocaleLowerCase('es-MX');
+    if (!required) return false;
+    const permissions = Array.isArray(activeCompany?.permissions) ? activeCompany.permissions : [];
+    return permissions.some((permission) => {
+      const granted = String(permission ?? '').trim().toLocaleLowerCase('es-MX');
+      if (granted === required) return true;
+      // El permiso genérico "ver" cubre cualquier consulta de lectura,
+      // pero nunca sustituye permisos de crear, editar o eliminar.
+      return required.split(':').at(-1) === 'ver' && granted === 'ver';
+    });
   }, [activeCompany, isAdminGlobal]);
 
   const value = useMemo(() => ({
