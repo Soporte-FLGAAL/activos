@@ -33,6 +33,21 @@ export async function getUnitById(id, options = {}) {
   return apiRequest(`/unidades/${encodeURIComponent(id)}`, options);
 }
 
+export async function updateUnit(id, payload, options = {}) {
+  return apiRequest(`/unidades/${encodeURIComponent(id)}`, {
+    ...options,
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteUnit(id, options = {}) {
+  return apiRequest(`/unidades/${encodeURIComponent(id)}`, {
+    ...options,
+    method: 'DELETE',
+  });
+}
+
 export async function getUnitTypes(options = {}) {
   const query = toQuery({ page: 1, limit: 100 });
   const result = await apiRequest(`/catalogos/tipo-unidad?${query}`, options);
