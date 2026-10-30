@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, CheckCircle2, CircleAlert, ClipboardList, FileUp, Save, Truck, X } from 'lucide-react';
+import { ArrowLeft, BadgeCheck, CheckCircle2, CircleAlert, ClipboardList, FileUp, FileText, Save, ShieldCheck, Truck, X } from 'lucide-react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import WorkspaceLayout from '../components/WorkspaceLayout';
 import { useAuth } from '../context/AuthContext';
 import { listRecords, uploadDocument } from '../services/creationApi';
+import { apiRequest } from '../services/apiClient';
 import { getUnitById, updateUnit } from '../services/fleetApi';
 import '../styles/create-record.css';
 
@@ -66,6 +67,67 @@ function ExistingFile({ label, url, file, onChange }) {
 
 function absoluteFileUrl(uploaded) {
   return uploaded?.url || null;
+}
+
+function RelatedRecordEditor({ record, recordId, title, fields, canEdit, onSave, refreshKey }) {
+  const [editing, setEditing] = useState(false);
+  const [values, setValues] = useState(() => Object.fromEntries(fields.map((field) => [
+    field.key,
+    field.type === 'date' ? todayValue(record?.[field.source]) : (record?.[field.source] == null ? '' : String(record[field.source])),
+  ])));
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  async function submit(event) {
+    event.preventDefault();
+    setSaving(true);
+    setError('');
+    const payload = {};
+    fields.forEach((field) => {
+      const value = values[field.key] ?? '';
+      if (field.serialize === 'number') payload[field.key] = value === '' ? null : Number(value);
+      else if (field.serialize === 'nullable') payload[field.key] = String(value).trim() || null;
+      else if (field.type === 'date' && field.nullable) payload[field.key] = value || null;
+      else payload[field.key] = value;
+    });
+    try {
+      await onSave(payload);
+      setEditing(false);
+    } catch (requestError) {
+      setError(requestError.message || 'No se pudo actualizar el registro.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <article className="unit-related-record">
+      <header className="unit-related-record-heading">
+        <strong>{title}</strong>
+        {canEdit && !editing && <button type="button" className="unit-card-action" onClick={() => setEditing(true)}>Editar</button>}
+      </header>
+      {editing ? (
+        <form onSubmit={submit}>
+          <div className="create-form-grid unit-related-fields">
+            {fields.map((field) => <Field key={field.key} label={field.label} required={field.required}>
+              {field.options
+                ? <SelectInput value={values[field.key]} onChange={(value) => setValues((current) => ({ ...current, [field.key]: value }))} options={field.options} required={field.required} />
+                : <TextInput type={field.type || 'text'} value={values[field.key]} onChange={(value) => setValues((current) => ({ ...current, [field.key]: value }))} required={field.required} min={field.min} max={field.max} maxLength={field.maxLength} step={field.step} />}
+            </Field>)}
+          </div>
+          {error && <div className="create-alert is-error" role="alert"><CircleAlert size={16} /><p>{error}</p></div>}
+          <div className="create-form-actions unit-related-actions">
+            <button type="button" className="workspace-secondary-button" onClick={() => { setEditing(false); setError(''); }} disabled={saving}>Cancelar</button>
+            <button type="submit" className="workspace-primary-button" disabled={saving}>{saving ? 'Guardando…' : 'Guardar cambios'}</button>
+          </div>
+        </form>
+      ) : (
+        <dl className="unit-related-summary">
+          {fields.map((field) => <div key={field.key}><dt>{field.label}</dt><dd>{record?.[field.source] == null || record?.[field.source] === '' ? '—' : (field.type === 'date' ? todayValue(record[field.source]) : String(record[field.source]))}</dd></div>)}
+        </dl>
+      )}
+    </article>
+  );
 }
 
 export default function UnitEditPage() {
