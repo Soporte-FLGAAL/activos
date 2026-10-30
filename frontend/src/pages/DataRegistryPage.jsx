@@ -73,7 +73,7 @@ export function CatalogRegistryPage() {
 }
 
 function RegistryInner({ kind, registryKey, navigate }) {
-  const { activeCompany, isAdminGlobal } = useAuth();
+  const { activeCompany, isAdminGlobal, can } = useAuth();
   const adminMode = kind === 'admin';
   const config = (adminMode ? ADMIN_REGISTRIES : CATALOG_REGISTRIES)[registryKey];
   const [items, setItems] = useState([]);
@@ -84,7 +84,7 @@ function RegistryInner({ kind, registryKey, navigate }) {
   const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 1 });
 
   const load = useCallback(async (signal) => {
-    if (!config?.endpoint || (adminMode && !isAdminGlobal) || (!adminMode && !activeCompany?.id && !isAdminGlobal)) {
+    if (!config?.endpoint || (adminMode && !isAdminGlobal) || (!adminMode && (!can('catalogos:ver') || !activeCompany?.id) && !isAdminGlobal)) {
       setLoading(false);
       return;
     }
@@ -99,7 +99,7 @@ function RegistryInner({ kind, registryKey, navigate }) {
     } finally {
       if (!signal?.aborted) setLoading(false);
     }
-  }, [config?.endpoint, page, adminMode, isAdminGlobal, activeCompany?.id]);
+  }, [config?.endpoint, page, adminMode, isAdminGlobal, activeCompany?.id, can]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -121,6 +121,7 @@ function RegistryInner({ kind, registryKey, navigate }) {
   if (!adminMode && !activeCompany?.id && !isAdminGlobal) {
     return <Navigate to="/seleccionar-empresa" replace state={{ from: `/catalogos/${registryKey}` }} />;
   }
+  if (!adminMode && !can('catalogos:ver')) return <Navigate to="/catalogos" replace />;
 
   return (
     <WorkspaceLayout activeNav={adminMode ? (config.activeNav || 'settings') : 'catalogs'}>

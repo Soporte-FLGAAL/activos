@@ -1,4 +1,4 @@
-import { FileText, Grid2X2, Home, LogOut, Settings, Users } from 'lucide-react';
+import { Building2, FileText, Grid2X2, Home, LogOut, Settings, Users } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
@@ -9,7 +9,8 @@ function initials(user) {
 
 export default function WorkspaceLayout({ children, activeNav = 'home' }) {
   const navigate = useNavigate();
-  const { user, activeCompany, isAdminGlobal, logout, clearCompanySelection } = useAuth();
+  const { user, activeCompany, companies, isAdminGlobal, logout, clearCompanySelection, can } = useAuth();
+  const canAccessModule = (permission) => isAdminGlobal || (activeCompany ? can(permission) : companies.some((company) => company.permissions?.includes(permission)));
 
   async function handleLogout() {
     await logout();
@@ -19,9 +20,12 @@ export default function WorkspaceLayout({ children, activeNav = 'home' }) {
   const navItems = [
     { id: 'home', label: 'Panel principal', icon: Home, action: () => navigate('/app') },
     { id: 'units', label: 'Unidades', icon: Grid2X2, action: () => navigate(activeCompany || isAdminGlobal ? '/unidades' : '/app'), disabled: !activeCompany && !isAdminGlobal },
-    { id: 'users', label: 'Usuarios', icon: Users, action: () => navigate('/administracion') },
-    { id: 'catalogs', label: 'Catálogos', icon: FileText, action: () => navigate('/catalogos') },
-    { id: 'settings', label: 'Administración', icon: Settings, action: () => navigate('/administracion') },
+    ...(canAccessModule('catalogos:ver') ? [{ id: 'catalogs', label: 'Catálogos', icon: FileText, action: () => navigate('/catalogos') }] : []),
+    ...(canAccessModule('aseguradoras:ver') ? [{ id: 'insurers', label: 'Aseguradoras', icon: Building2, action: () => navigate('/aseguradoras') }] : []),
+    ...(isAdminGlobal ? [
+      { id: 'users', label: 'Usuarios', icon: Users, action: () => navigate('/administracion') },
+      { id: 'settings', label: 'Administración', icon: Settings, action: () => navigate('/administracion') },
+    ] : []),
   ];
 
   return (

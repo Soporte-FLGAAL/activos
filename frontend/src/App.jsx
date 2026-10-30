@@ -48,6 +48,7 @@ function AppRoutes() {
         <Route path="/administracion/:directoryKey" element={<AdminDirectoryPage />} />
       </Route>
       <Route element={<RequireAuth needsCompany /> }>
+        <Route path="/aseguradoras" element={<InsurersAdminPage />} />
         <Route path="/unidades" element={<UnitsPage />} />
         <Route path="/unidades/alta" element={<CreateRecordPage />} />
         <Route path="/unidades/:id" element={<UnitDetailPage />} />

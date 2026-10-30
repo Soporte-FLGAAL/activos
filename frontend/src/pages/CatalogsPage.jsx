@@ -109,7 +109,7 @@ function DeleteCatalogDialog({ config, item, busy, error, onClose, onConfirm }) 
   );
 }
 
-function CatalogCard({ config, catalog, expanded, onToggle, onAdd, onEdit, onDelete, onOpen }) {
+function CatalogCard({ config, catalog, expanded, onToggle, onAdd, onEdit, onDelete, onOpen, canCreate, canEdit, canDelete }) {
   const Icon = config.icon;
   const entries = catalog.items.slice(0, 5);
   return (
@@ -122,11 +122,11 @@ function CatalogCard({ config, catalog, expanded, onToggle, onAdd, onEdit, onDel
       <div className="catalog-admin-body">
         <div className="catalog-admin-actions">
           <div className="catalog-icon-actions" aria-label={`Acciones de ${config.title}`}>
-            <button type="button" title={`Agregar ${config.singular}`} aria-label={`Agregar ${config.singular}`} onClick={onAdd}><Plus size={15} /></button>
-            <span />
-            <button type="button" title="Editar el primer registro" aria-label={`Editar el primer registro de ${config.title}`} onClick={() => entries[0] && onEdit(entries[0])} disabled={catalog.status !== 'ready' || entries.length === 0}><Pencil size={14} /></button>
-            <span />
-            <button type="button" title="Eliminar el primer registro" aria-label={`Eliminar el primer registro de ${config.title}`} onClick={() => entries[0] && onDelete(entries[0])} disabled={catalog.status !== 'ready' || entries.length === 0}><Trash2 size={14} /></button>
+            {canCreate && <button type="button" title={`Agregar ${config.singular}`} aria-label={`Agregar ${config.singular}`} onClick={onAdd}><Plus size={15} /></button>}
+            {canCreate && (canEdit || canDelete) && <span />}
+            {canEdit && <button type="button" title="Editar el primer registro" aria-label={`Editar el primer registro de ${config.title}`} onClick={() => entries[0] && onEdit(entries[0])} disabled={catalog.status !== 'ready' || entries.length === 0}><Pencil size={14} /></button>}
+            {canEdit && canDelete && <span />}
+            {canDelete && <button type="button" title="Eliminar el primer registro" aria-label={`Eliminar el primer registro de ${config.title}`} onClick={() => entries[0] && onDelete(entries[0])} disabled={catalog.status !== 'ready' || entries.length === 0}><Trash2 size={14} /></button>}
           </div>
           <button type="button" className="catalog-expand-button" onClick={onToggle} aria-expanded={expanded}>
             <Info size={14} /> {expanded ? 'Ocultar tipos' : 'Ver tipos'} {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
@@ -134,7 +134,7 @@ function CatalogCard({ config, catalog, expanded, onToggle, onAdd, onEdit, onDel
         </div>
         {expanded && <div className="catalog-preview-panel">
           <div className="catalog-preview-heading"><span>REGISTROS</span><button type="button" onClick={onOpen}>Ver todos <ArrowUpRight size={13} /></button></div>
-          {catalog.status === 'loading' ? <p className="catalog-preview-state"><LoaderCircle size={14} className="spin" /> Cargando catálogo…</p> : catalog.status === 'error' ? <p className="catalog-preview-state is-error"><AlertCircle size={14} /> {catalog.error}</p> : entries.length ? <ul className="catalog-chip-list">{entries.map((item) => <li key={item[config.idKey]}><span>{item[config.valueKey] || 'Sin nombre'}</span>{config.secondaryKey && item[config.secondaryKey] && <small>{item[config.secondaryKey]}</small>}<div><button type="button" title="Editar" aria-label={`Editar ${item[config.valueKey]}`} onClick={() => onEdit(item)}><Pencil size={12} /></button><button type="button" title="Eliminar" aria-label={`Eliminar ${item[config.valueKey]}`} onClick={() => onDelete(item)}><Trash2 size={12} /></button></div></li>)}</ul> : <p className="catalog-preview-state">Este catálogo aún no tiene registros.</p>}
+          {catalog.status === 'loading' ? <p className="catalog-preview-state"><LoaderCircle size={14} className="spin" /> Cargando catálogo…</p> : catalog.status === 'error' ? <p className="catalog-preview-state is-error"><AlertCircle size={14} /> {catalog.error}</p> : entries.length ? <ul className="catalog-chip-list">{entries.map((item) => <li key={item[config.idKey]}><span>{item[config.valueKey] || 'Sin nombre'}</span>{config.secondaryKey && item[config.secondaryKey] && <small>{item[config.secondaryKey]}</small>}{(canEdit || canDelete) && <div>{canEdit && <button type="button" title="Editar" aria-label={`Editar ${item[config.valueKey]}`} onClick={() => onEdit(item)}><Pencil size={12} /></button>}{canDelete && <button type="button" title="Eliminar" aria-label={`Eliminar ${item[config.valueKey]}`} onClick={() => onDelete(item)}><Trash2 size={12} /></button>}</div>}</li>)}</ul> : <p className="catalog-preview-state">Este catálogo aún no tiene registros.</p>}
           {catalog.status === 'ready' && catalog.total > 5 && <p className="catalog-more-note">Y {catalog.total - 5} registros más. <button type="button" onClick={onOpen}>Ver catálogo completo</button></p>}
         </div>}
         {!expanded && <div className="catalog-card-summary"><span><Database size={14} /> Datos compartidos del sistema</span><button type="button" onClick={onOpen}>Administrar <ArrowUpRight size={14} /></button></div>}
@@ -145,7 +145,7 @@ function CatalogCard({ config, catalog, expanded, onToggle, onAdd, onEdit, onDel
 
 export default function CatalogsPage() {
   const navigate = useNavigate();
-  const { activeCompany, isAdminGlobal } = useAuth();
+  const { activeCompany, isAdminGlobal, can } = useAuth();
   const [catalogData, setCatalogData] = useState(() => Object.fromEntries(CATALOGS.map((catalog) => [catalog.key, { ...EMPTY_CATALOG }])));
   const [viewMode, setViewMode] = useState('grid');
   const [expandedKey, setExpandedKey] = useState('combustible');
@@ -157,7 +157,7 @@ export default function CatalogsPage() {
   const [toast, setToast] = useState('');
 
   const loadCatalogs = useCallback(async (signal) => {
-    if (!isAdminGlobal && !activeCompany?.id) return;
+    if (!can('catalogos:ver') || (!isAdminGlobal && !activeCompany?.id)) return;
     const results = await Promise.all(CATALOGS.map(async (config) => {
       try {
         const page = await getRegistryPage(config.endpoint, { page: 1, limit: 5 }, { signal });
@@ -167,7 +167,7 @@ export default function CatalogsPage() {
       }
     }));
     if (!signal?.aborted) setCatalogData(Object.fromEntries(results));
-  }, [activeCompany?.id, isAdminGlobal]);
+  }, [activeCompany?.id, can, isAdminGlobal]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -260,10 +260,10 @@ export default function CatalogsPage() {
         </div>
       </section>
 
-      {!isAdminGlobal && !activeCompany?.id ? <div className="workspace-empty-state catalog-company-required"><Info size={28} /><h2>Selecciona una empresa</h2><p>Para consultar o modificar catálogos, primero selecciona una empresa y usa los permisos asignados a tu rol.</p><button type="button" className="workspace-primary-button" onClick={() => navigate('/seleccionar-empresa', { state: { from: '/catalogos' } })}>Elegir empresa</button></div> : <>
+      {(!isAdminGlobal && !activeCompany?.id) ? <div className="workspace-empty-state catalog-company-required"><Info size={28} /><h2>Selecciona una empresa</h2><p>Los catálogos son compartidos por todo el sistema. Selecciona una empresa para validar los permisos de tu rol.</p><button type="button" className="workspace-primary-button" onClick={() => navigate('/seleccionar-empresa', { state: { from: '/catalogos' } })}>Elegir empresa</button></div> : !can('catalogos:ver') ? <div className="workspace-empty-state catalog-company-required"><ShieldAlert size={28} /><h2>Sin permiso para consultar catálogos</h2><p>Tu rol no tiene asignado el permiso catalogos:ver en la empresa seleccionada.</p></div> : <>
         <div className="catalog-overview-strip"><div><span className="catalog-overview-icon"><Database size={18} /></span><span><strong>Datos operativos centralizados</strong><small>Los cambios se guardan en el backend y se validan con los permisos del usuario.</small></span></div><span className={`catalog-overview-status${anyError ? ' has-error' : ''}`}><span /> {connectionLabel}</span></div>
         <div className={`catalogs-grid catalog-admin-grid${viewMode === 'list' ? ' is-list' : ''}`}>
-          {visibleCatalogs.map((config) => <CatalogCard key={config.key} config={config} catalog={catalogData[config.key] || EMPTY_CATALOG} expanded={expandedKey === config.key} onToggle={() => setExpandedKey((current) => current === config.key ? null : config.key)} onAdd={() => { setOperationError(''); setEditor({ config, item: null }); }} onEdit={(item) => { setOperationError(''); setEditor({ config, item }); }} onDelete={(item) => { setOperationError(''); setDeleteTarget({ config, item }); }} onOpen={() => navigate(`/catalogos/${config.key}`)} />)}
+          {visibleCatalogs.map((config) => <CatalogCard key={config.key} config={config} catalog={catalogData[config.key] || EMPTY_CATALOG} expanded={expandedKey === config.key} onToggle={() => setExpandedKey((current) => current === config.key ? null : config.key)} canCreate={can('catalogos:crear')} canEdit={can('catalogos:editar')} canDelete={can('catalogos:eliminar')} onAdd={() => { setOperationError(''); setEditor({ config, item: null }); }} onEdit={(item) => { setOperationError(''); setEditor({ config, item }); }} onDelete={(item) => { setOperationError(''); setDeleteTarget({ config, item }); }} onOpen={() => navigate(`/catalogos/${config.key}`)} />)}
         </div>
         {visibleCatalogs.length === 0 && <div className="workspace-empty-state"><Search size={26} /><h2>No hay coincidencias</h2><p>Prueba con otro nombre de catálogo.</p></div>}
       </>}

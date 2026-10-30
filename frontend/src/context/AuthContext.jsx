@@ -31,9 +31,14 @@ function normalizeCompany(row) {
     roleId: row?.roleId ?? row?.rolId ?? row?.Rol_id ?? null,
     rfc: row?.rfc ?? row?.Emp_rfc ?? '',
     address: row?.address ?? row?.direccion ?? row?.Emp_direccion ?? '',
-    // Backend v22 no devuelve permisos detallados en /auth/login ni /auth/me.
-    // No se simulan: la autorización definitiva se mantiene en RBAC del servidor.
-    permissions: Array.isArray(row?.permissions) ? row.permissions : [],
+    // El backend entrega los permisos de cada empresa en "permisos"
+    // tanto en /auth/login como en /auth/me. Se conserva "permissions"
+    // como alias de compatibilidad con respuestas anteriores.
+    permissions: Array.isArray(row?.permisos)
+      ? [...new Set(row.permisos.filter((permission) => typeof permission === 'string'))]
+      : Array.isArray(row?.permissions)
+        ? [...new Set(row.permissions.filter((permission) => typeof permission === 'string'))]
+        : [],
     scope: row?.scope,
   };
 }

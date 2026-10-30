@@ -26,7 +26,7 @@ const REGISTRIES = {
     columns: [{ label: 'ID', key: 'Rol_id' }, { label: 'Nombre del rol', key: 'Rol_nombre' }],
   },
   aseguradoras: {
-    title: 'Aseguradoras', subtitle: 'Directorio de compañías aseguradoras.', endpoint: '/aseguradoras', activeNav: 'settings', idKey: 'Ase_id', system: 'insurers',
+    title: 'Aseguradoras', subtitle: 'Directorio compartido de compañías aseguradoras.', endpoint: '/aseguradoras', activeNav: 'insurers', idKey: 'Ase_id', system: 'insurers',
     columns: [
       { label: 'Aseguradora', key: 'Ase_nombre' }, { label: 'RFC', key: 'Ase_rfc' },
       { label: 'Teléfono', key: 'Ase_telefono' }, { label: 'Dirección', key: 'Ase_direccion' },
@@ -106,7 +106,7 @@ function AssignmentEditor({ editor, setEditor, companies, roles }) {
   );
 }
 
-function RegistryEditor({ registry, editor, setEditor, companies, roles, busy, error, onSubmit, onClose }) {
+function RegistryEditor({ registry, editor, setEditor, companies, roles, busy, error, onSubmit, onClose, canCreateResponsible = true }) {
   const { system } = registry;
   const isEdit = editor.mode === 'edit';
   const form = editor.form;
@@ -142,7 +142,7 @@ function RegistryEditor({ registry, editor, setEditor, companies, roles, busy, e
           <Field label="Teléfono" value={form.telefono} onChange={(v) => updateForm('telefono', v)} required maxLength={13} />
           <label className="admin-form-field is-full"><span>Dirección *</span><textarea value={form.direccion} onChange={(event) => updateForm('direccion', event.target.value)} required maxLength={150} rows={3} /></label>
         </div>
-        {!isEdit && <section className="admin-responsibles-create-section">
+        {!isEdit && canCreateResponsible && <section className="admin-responsibles-create-section">
           <div className="admin-assignment-heading"><div><Users size={16} /><strong>Responsables de la aseguradora</strong></div><button type="button" className="admin-secondary-button" onClick={() => updateForm('responsables', [...responsibleRows, { responsable: '', puestoResponsable: '', telefono: '', empresaResponsableId: '' }])}><Plus size={14} /> Agregar responsable</button></div>
           <p>Puedes registrar uno o varios responsables ahora, o agregarlos después desde el detalle de la aseguradora.</p>
           {responsibleRows.length === 0 ? <div className="admin-inline-empty">Sin responsables iniciales.</div> : responsibleRows.map((row, index) => <div className="admin-responsible-create-row" key={`initial-responsible-${index}`}>
@@ -197,7 +197,7 @@ export default function AdminDirectoryPage({ fixedDirectoryKey = null } = {}) {
   const directoryKey = fixedDirectoryKey || routeDirectoryKey;
   // Alias de la clave de ruta que se usa abajo para el texto y configuración visual.
   const registryKey = directoryKey;
-  const { isAdminGlobal, user, companies } = useAuth();
+  const { isAdminGlobal, user, companies, activeCompany, can } = useAuth();
   const registry = REGISTRIES[directoryKey];
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -228,12 +228,16 @@ export default function AdminDirectoryPage({ fixedDirectoryKey = null } = {}) {
     setLoading(true); setLoadError('');
     if (registry.system === 'users') setAssignmentLoadError('');
     try {
+      if (registry.system === 'insurers' && (!can('aseguradoras:ver') || (!isAdminGlobal && !activeCompany?.id))) {
+        setLoadError('No tienes permiso para consultar el directorio de aseguradoras en la empresa seleccionada.');
+        return;
+      }
       if (['users', 'insurers'].includes(registry.system)) {
         const allRows = [];
         let currentPage = 1;
         let totalPages = 1;
         do {
-          const result = await getRegistryPage(registry.endpoint, { page: currentPage, limit: 100 }, { signal, company: false });
+          const result = await getRegistryPage(registry.endpoint, { page: currentPage, limit: 100 }, { signal, company: registry.system !== 'users' });
           allRows.push(...result.items);
           totalPages = Math.max(1, Number(result.pagination?.totalPages || 1));
           currentPage += 1;
@@ -283,7 +287,7 @@ export default function AdminDirectoryPage({ fixedDirectoryKey = null } = {}) {
     } catch (error) {
       if (error.name !== 'AbortError') setLoadError(error.message || 'No fue posible cargar los registros.');
     } finally { if (!signal?.aborted) setLoading(false); }
-  }, [registry, apiPage]);
+  }, [registry, apiPage, can, isAdminGlobal, activeCompany?.id]);
 
   useEffect(() => {
     const controller = new AbortController(); load(controller.signal); return () => controller.abort();
@@ -409,7 +413,7 @@ export default function AdminDirectoryPage({ fixedDirectoryKey = null } = {}) {
           const preparedResponsibles = responsables.filter((row) => [row.responsable, row.puestoResponsable, row.telefono, row.empresaResponsableId].some((value) => String(value ?? '').trim() !== ''));
           const incomplete = preparedResponsibles.some((row) => !String(row.responsable || '').trim() || !String(row.telefono || '').trim());
           if (incomplete) throw new Error('Cada responsable que captures debe incluir nombre y teléfono. Completa esos campos o elimina la fila vacía.');
-          const created = await apiRequest(registry.endpoint, { method: 'POST', company: false, body: JSON.stringify(insurerData) });
+          const created = await apiRequest(registry.endpoint, { method: 'POST', company: true, body: JSON.stringify(insurerData) });
           id = created?.Ase_id ?? created?.aseguradoraId ?? created?.id;
           if (!id && preparedResponsibles.length) throw new Error('La aseguradora se creó, pero la API no devolvió su identificador para registrar los responsables.');
           if (id) {
@@ -417,7 +421,7 @@ export default function AdminDirectoryPage({ fixedDirectoryKey = null } = {}) {
             for (const row of preparedResponsibles) {
               try {
                 await apiRequest('/responsables-aseguradoras', {
-                  method: 'POST', company: false,
+                  method: 'POST', company: true,
                   body: JSON.stringify({
                     aseguradoraId: Number(id),
                     responsable: row.responsable.trim(),
@@ -431,7 +435,7 @@ export default function AdminDirectoryPage({ fixedDirectoryKey = null } = {}) {
             if (responsibleErrors.length) partialNotice = `La aseguradora se creó, pero hubo errores al registrar responsables: ${responsibleErrors.join(' · ')}`;
           }
         } else {
-          await apiRequest(`${registry.endpoint}/${id}`, { method: 'PUT', company: false, body: JSON.stringify(insurerData) });
+          await apiRequest(`${registry.endpoint}/${id}`, { method: 'PUT', company: true, body: JSON.stringify(insurerData) });
         }
       } else {
         if (editor.mode === 'create') await apiRequest(registry.endpoint, { method: 'POST', company: false, body: JSON.stringify(editor.form) });
@@ -457,7 +461,7 @@ export default function AdminDirectoryPage({ fixedDirectoryKey = null } = {}) {
     setBusy(true); setOperationError('');
     try {
       const id = deleteTarget[registry.idKey];
-      await apiRequest(`${registry.endpoint}/${id}`, { method: 'DELETE', company: false });
+      await apiRequest(`${registry.endpoint}/${id}`, { method: 'DELETE', company: registry.system === 'insurers' });
       setDeleteTarget(null); setToast(`${registry.singular} eliminado correctamente.`); await load();
     } catch (error) { setOperationError(error.message || 'No se pudo eliminar. Puede haber registros relacionados o faltar permisos para esta operación.'); }
     finally { setBusy(false); }
@@ -467,7 +471,7 @@ export default function AdminDirectoryPage({ fixedDirectoryKey = null } = {}) {
     const key = String(aseguradoraId);
     setResponsiblesLoading((current) => ({ ...current, [key]: true }));
     try {
-      const result = await getRegistryPage('/responsables-aseguradoras', { aseguradoraId, page: 1, limit: 100 }, { company: false });
+      const result = await getRegistryPage('/responsables-aseguradoras', { aseguradoraId, page: 1, limit: 100 });
       setResponsiblesByInsurer((current) => ({ ...current, [key]: result.items }));
       return result.items;
     } catch (error) {
@@ -530,7 +534,7 @@ export default function AdminDirectoryPage({ fixedDirectoryKey = null } = {}) {
     try {
       await apiRequest(
         responsibleEditor.mode === 'edit' ? `/responsables-aseguradoras/${responsibleEditor.item.RA_id}` : '/responsables-aseguradoras',
-        { method: responsibleEditor.mode === 'edit' ? 'PUT' : 'POST', company: false, body: JSON.stringify(body) },
+        { method: responsibleEditor.mode === 'edit' ? 'PUT' : 'POST', company: true, body: JSON.stringify(body) },
       );
       const insurerId = Number(responsibleEditor.insurer.Ase_id);
       setResponsibleEditor(null);
@@ -545,7 +549,7 @@ export default function AdminDirectoryPage({ fixedDirectoryKey = null } = {}) {
     if (!window.confirm(`¿Eliminar al responsable ${row.RA_responsable} de ${insurer.Ase_nombre}?`)) return;
     setResponsibleBusy(true);
     try {
-      await apiRequest(`/responsables-aseguradoras/${row.RA_id}`, { method: 'DELETE', company: false });
+      await apiRequest(`/responsables-aseguradoras/${row.RA_id}`, { method: 'DELETE', company: true });
       setToast('Responsable eliminado correctamente.');
       await loadResponsibles(Number(insurer.Ase_id));
     } catch (error) { setToast(error.message || 'No se pudo eliminar el responsable.'); }
@@ -564,29 +568,39 @@ export default function AdminDirectoryPage({ fixedDirectoryKey = null } = {}) {
   }
 
   if (!registry) return <Navigate to="/administracion" replace />;
-  if (!isAdminGlobal) return <Navigate to="/app" replace />;
+  if (!isAdminGlobal && registry.system !== 'insurers') return <Navigate to="/app" replace />;
+  if (registry.system === 'insurers' && !activeCompany?.id && !isAdminGlobal) return <Navigate to="/seleccionar-empresa" replace state={{ from: '/aseguradoras' }} />;
+  if (registry.system === 'insurers' && !can('aseguradoras:ver')) return <Navigate to="/app" replace />;
   const singular = registryKey === 'usuarios' ? 'usuario'
     : registryKey === 'roles' ? 'rol'
       : registryKey === 'permisos' ? 'permiso' : 'aseguradora';
   const registryForEditor = { ...registry, singular };
   const isCurrentUser = (row) => registry.system === 'users' && Number(row.Usu_id) === Number(user?.id);
+  const isInsurerDirectory = registry.system === 'insurers';
+  const canCreateRecord = isAdminGlobal || (isInsurerDirectory && can('aseguradoras:crear'));
+  const canEditRecord = isAdminGlobal || (isInsurerDirectory && can('aseguradoras:editar'));
+  const canDeleteRecord = isAdminGlobal || (isInsurerDirectory && can('aseguradoras:eliminar'));
+  const canViewResponsibles = isAdminGlobal || (isInsurerDirectory && can('responsables_aseguradoras:ver'));
+  const canCreateResponsible = isAdminGlobal || (isInsurerDirectory && can('responsables_aseguradoras:crear'));
+  const canEditResponsible = isAdminGlobal || (isInsurerDirectory && can('responsables_aseguradoras:editar'));
+  const canDeleteResponsible = isAdminGlobal || (isInsurerDirectory && can('responsables_aseguradoras:eliminar'));
   const isCatalogStyle = registry.system === 'roles' || registry.system === 'permissions';
   const catalogName = (row) => registry.system === 'roles' ? row.Rol_nombre : row.PerM_nombre;
 
   return (
     <WorkspaceLayout activeNav={registry.activeNav}>
       <section className="registry-heading admin-directory-heading">
-        <button type="button" className="registry-back" onClick={() => navigate('/administracion')} aria-label="Volver"><ArrowLeft size={18} /></button>
-        <div className="registry-heading-copy"><p className="registry-breadcrumb">Administración / {registry.title}</p><h1>{registry.title}</h1><p className="workspace-subtitle">{registry.subtitle}</p></div>
+        <button type="button" className="registry-back" onClick={() => navigate(isInsurerDirectory ? '/app' : '/administracion')} aria-label="Volver"><ArrowLeft size={18} /></button>
+        <div className="registry-heading-copy"><p className="registry-breadcrumb">{isInsurerDirectory ? 'Directorio compartido' : 'Administración'} / {registry.title}</p><h1>{registry.title}</h1><p className="workspace-subtitle">{registry.subtitle}</p></div>
         <label className="registry-search"><Search size={16} /><input type="search" placeholder={`Buscar ${registry.title.toLowerCase()}…`} value={query} onChange={(event) => { setQuery(event.target.value); setPage(1); }} /></label>
-        <button type="button" className="workspace-primary-button admin-add-button" onClick={openCreate}><Plus size={16} /> Nuevo {singular}</button>
+        {canCreateRecord && <button type="button" className="workspace-primary-button admin-add-button" onClick={openCreate}><Plus size={16} /> Nuevo {singular}</button>}
       </section>
 
       <div className="registry-panel">
         <div className="registry-panel-heading"><div>{registry.system === 'users' ? <Users size={17} /> : registry.system === 'roles' ? <Shield size={17} /> : registry.system === 'permissions' ? <KeyRound size={17} /> : <Building2 size={17} />}<strong>{isCatalogStyle ? `Catálogo de ${registry.title.toLowerCase()}` : `Registros de ${registry.title.toLowerCase()}`}</strong></div><span>{loading ? 'Consultando…' : `${pagination.total} en total`}</span></div>
         {registry.system === 'users' && assignmentLoadError && <div className="admin-assignment-load-warning"><AlertCircle size={15} /><span>No se pudieron cargar las asignaciones de empresa y rol: {assignmentLoadError}</span></div>}
         {loadError && <div className="workspace-error"><AlertCircle size={18} /><span>{loadError}</span><button type="button" onClick={() => load()}>Reintentar</button></div>}
-        {loading ? <div className="workspace-loading">Cargando información…</div> : !loadError && visibleItems.length === 0 ? <div className="workspace-empty-state"><Activity size={27} /><h2>Sin registros</h2><p>{query ? 'No se encontraron registros con ese criterio.' : 'Todavía no hay registros para mostrar.'}</p><button type="button" className="workspace-primary-button" onClick={openCreate}><Plus size={15} /> Crear el primero</button></div> : !loadError && isCatalogStyle ? <div className="admin-catalog-record-grid">
+        {loading ? <div className="workspace-loading">Cargando información…</div> : !loadError && visibleItems.length === 0 ? <div className="workspace-empty-state"><Activity size={27} /><h2>Sin registros</h2><p>{query ? 'No se encontraron registros con ese criterio.' : 'Todavía no hay registros para mostrar.'}</p>{canCreateRecord && <button type="button" className="workspace-primary-button" onClick={openCreate}><Plus size={15} /> Crear el primero</button>}</div> : !loadError && isCatalogStyle ? <div className="admin-catalog-record-grid">
           {sortedVisibleItems.map((row) => {
             const id = row[registry.idKey];
             const protectedRole = registry.system === 'roles' && row.Rol_nombre === GLOBAL_ROLE;
@@ -595,8 +609,8 @@ export default function AdminDirectoryPage({ fixedDirectoryKey = null } = {}) {
               <span className="admin-catalog-record-icon"><Icon size={20} /></span>
               <div className="admin-catalog-record-copy"><span>{registry.system === 'roles' ? 'ROL DEL SISTEMA' : 'PERMISO DISPONIBLE'}</span><h2>{catalogName(row) || 'Sin nombre'}</h2>{protectedRole && <small>Protegido</small>}</div>
               <div className="admin-catalog-record-actions">
-                <button type="button" className="admin-icon-action" title="Editar" aria-label={`Editar ${singular}`} onClick={() => openEdit(row)} disabled={protectedRole}><Edit3 size={14} /></button>
-                <button type="button" className="admin-icon-action is-danger" title="Eliminar" aria-label={`Eliminar ${singular}`} onClick={() => { setOperationError(''); setDeleteTarget(row); }} disabled={protectedRole}><Trash2 size={14} /></button>
+                {canEditRecord && <button type="button" className="admin-icon-action" title="Editar" aria-label={`Editar ${singular}`} onClick={() => openEdit(row)} disabled={protectedRole}><Edit3 size={14} /></button>}
+                {canDeleteRecord && <button type="button" className="admin-icon-action is-danger" title="Eliminar" aria-label={`Eliminar ${singular}`} onClick={() => { setOperationError(''); setDeleteTarget(row); }} disabled={protectedRole}><Trash2 size={14} /></button>}
               </div>
             </article>;
           })}
@@ -618,7 +632,7 @@ export default function AdminDirectoryPage({ fixedDirectoryKey = null } = {}) {
               <tr className={`${insurerExpanded ? 'admin-insurer-selected-row' : ''}${userExpanded ? ' admin-user-selected-row' : ''}`}>
                 {registry.columns.map((column) => {
                   const value = column.value ? column.value(row) : row[column.key];
-                  if (registry.system === 'insurers' && column.key === 'Ase_nombre') return <td key={column.label}><button type="button" className="admin-insurer-select" onClick={() => toggleInsurerDetails(row)} aria-expanded={insurerExpanded}>{value || '—'}<ChevronDown size={14} className={insurerExpanded ? 'is-open' : ''} /></button></td>;
+                  if (registry.system === 'insurers' && column.key === 'Ase_nombre') return <td key={column.label}>{canViewResponsibles ? <button type="button" className="admin-insurer-select" onClick={() => toggleInsurerDetails(row)} aria-expanded={insurerExpanded}>{value || '—'}<ChevronDown size={14} className={insurerExpanded ? 'is-open' : ''} /></button> : (value || '—')}</td>;
                   if (registry.system === 'users' && column.key === '_assignedRolesText') {
                     const assignmentLabel = row._assignedRolesText === 'No disponible' ? 'No disponible' : userAssignments.length ? `${userAssignments.length} ${userAssignments.length === 1 ? 'asignación' : 'asignaciones'}` : 'Sin asignaciones';
                     return <td key={column.label}><button type="button" className={`admin-user-assignment-toggle${userExpanded ? ' is-open' : ''}`} onClick={() => toggleUserAssignments(row)} aria-expanded={userExpanded} aria-label={`${userExpanded ? 'Ocultar' : 'Ver'} empresas y roles de ${[row.Usu_nombres, row.Usu_ap_paterno, row.Usu_ap_materno].filter(Boolean).join(' ')}`}><span>{userExpanded ? 'Ocultar asignaciones' : `Ver asignaciones · ${assignmentLabel}`}</span><ChevronDown size={14} className={userExpanded ? 'is-open' : ''} /></button></td>;
@@ -626,11 +640,11 @@ export default function AdminDirectoryPage({ fixedDirectoryKey = null } = {}) {
                   return <td key={column.label}>{column.badge ? <span className={`registry-status ${value === 'ACTIVO' ? '' : 'is-inactive'}`}>{value || '—'}</span> : value == null || value === '' ? '—' : String(value)}</td>;
                 })}
                 <td><div className="admin-row-actions">
-                  {registry.system === 'insurers' && <button type="button" className={`admin-icon-action${insurerExpanded ? ' is-selected' : ''}`} title={insurerExpanded ? 'Ocultar responsables' : 'Ver responsables'} aria-label={insurerExpanded ? 'Ocultar responsables' : 'Ver responsables'} onClick={() => toggleInsurerDetails(row)}><ChevronDown size={15} className={insurerExpanded ? 'is-open' : ''} /></button>}
-                  <button type="button" className="admin-icon-action" title="Editar" aria-label={`Editar ${singular}`} onClick={() => openEdit(row)} disabled={protectedRole}><Edit3 size={14} /></button>
+                  {registry.system === 'insurers' && canViewResponsibles && <button type="button" className={`admin-icon-action${insurerExpanded ? ' is-selected' : ''}`} title={insurerExpanded ? 'Ocultar responsables' : 'Ver responsables'} aria-label={insurerExpanded ? 'Ocultar responsables' : 'Ver responsables'} onClick={() => toggleInsurerDetails(row)}><ChevronDown size={15} className={insurerExpanded ? 'is-open' : ''} /></button>}
+                  {canEditRecord && <button type="button" className="admin-icon-action" title="Editar" aria-label={`Editar ${singular}`} onClick={() => openEdit(row)} disabled={protectedRole}><Edit3 size={14} /></button>}
                   {registry.system === 'users' ? (
                     <button type="button" className={`admin-icon-action${row.Usu_status === 'ACTIVO' ? ' is-danger' : ' is-success'}`} title={row.Usu_status === 'ACTIVO' ? 'Desactivar cuenta' : 'Reactivar cuenta'} aria-label={row.Usu_status === 'ACTIVO' ? 'Desactivar usuario' : 'Reactivar usuario'} onClick={() => changeUserStatus(row)} disabled={busy || isCurrentUser(row)}>{row.Usu_status === 'ACTIVO' ? <Trash2 size={14} /> : <RefreshCw size={14} />}</button>
-                  ) : <button type="button" className="admin-icon-action is-danger" title="Eliminar" aria-label={`Eliminar ${singular}`} onClick={() => { setOperationError(''); setDeleteTarget(row); }} disabled={protectedRole}><Trash2 size={14} /></button>}
+                  ) : canDeleteRecord && <button type="button" className="admin-icon-action is-danger" title="Eliminar" aria-label={`Eliminar ${singular}`} onClick={() => { setOperationError(''); setDeleteTarget(row); }} disabled={protectedRole}><Trash2 size={14} /></button>}
                 </div></td>
               </tr>
               {registry.system === 'users' && userExpanded && <tr className="admin-user-detail-row"><td colSpan={registry.columns.length + 1}>
@@ -639,10 +653,10 @@ export default function AdminDirectoryPage({ fixedDirectoryKey = null } = {}) {
                   {row._assignedRolesText === 'No disponible' ? <div className="admin-inline-empty">{assignmentLoadError || 'No se pudieron consultar las asignaciones de este usuario.'}</div> : userAssignments.length ? <div className="admin-user-role-list">{userAssignments.map((pair) => <span className="admin-user-role-chip" key={`${pair.company}-${pair.role}`} title={`${pair.company}: ${pair.role}`}><strong>{pair.company}</strong><small>{pair.role}</small></span>)}</div> : <div className="admin-inline-empty">Este usuario todavía no tiene empresas asignadas.</div>}
                 </section>
               </td></tr>}
-              {registry.system === 'insurers' && insurerExpanded && <tr className="admin-insurer-detail-row"><td colSpan={registry.columns.length + 1}>
+              {registry.system === 'insurers' && canViewResponsibles && insurerExpanded && <tr className="admin-insurer-detail-row"><td colSpan={registry.columns.length + 1}>
                 <section className="admin-insurer-responsibles">
-                  <header className="admin-insurer-responsibles-heading"><div><Users size={17} /><strong>Responsables de {row.Ase_nombre}</strong><span>{responsiblesLoading[String(insurerId)] ? 'Consultando…' : `${responsibleRows.length} ${responsibleRows.length === 1 ? 'responsable' : 'responsables'}`}</span></div><button type="button" className="admin-secondary-button" onClick={() => openResponsibleCreate(row)}><Plus size={14} /> Añadir responsable</button></header>
-                  {responsiblesLoading[String(insurerId)] ? <div className="admin-inline-loading">Cargando responsables…</div> : responsibleRows.length === 0 ? <div className="admin-inline-empty">Esta aseguradora todavía no tiene responsables. Usa “Añadir responsable” para registrar uno.</div> : <div className="registry-table-wrap"><table className="registry-table admin-responsible-table"><thead><tr><th>Responsable</th><th>Puesto</th><th>Teléfono</th><th>Empresa relacionada</th><th className="admin-actions-heading">Acciones</th></tr></thead><tbody>{responsibleRows.map((responsible) => <tr key={responsible.RA_id}><td>{responsible.RA_responsable || '—'}</td><td>{responsible.RA_puesto_responsable || '—'}</td><td>{responsible.RA_telefono || '—'}</td><td>{responsible.empresa_nombre || '—'}</td><td><div className="admin-row-actions"><button type="button" className="admin-icon-action" title="Editar responsable" aria-label="Editar responsable" onClick={() => openResponsibleEdit(row, responsible)}><Edit3 size={14} /></button><button type="button" className="admin-icon-action is-danger" title="Eliminar responsable" aria-label="Eliminar responsable" disabled={responsibleBusy} onClick={() => deleteResponsible(row, responsible)}><Trash2 size={14} /></button></div></td></tr>)}</tbody></table></div>}
+                  <header className="admin-insurer-responsibles-heading"><div><Users size={17} /><strong>Responsables de {row.Ase_nombre}</strong><span>{responsiblesLoading[String(insurerId)] ? 'Consultando…' : `${responsibleRows.length} ${responsibleRows.length === 1 ? 'responsable' : 'responsables'}`}</span></div>{canCreateResponsible && <button type="button" className="admin-secondary-button" onClick={() => openResponsibleCreate(row)}><Plus size={14} /> Añadir responsable</button>}</header>
+                  {responsiblesLoading[String(insurerId)] ? <div className="admin-inline-loading">Cargando responsables…</div> : responsibleRows.length === 0 ? <div className="admin-inline-empty">Esta aseguradora todavía no tiene responsables. Usa “Añadir responsable” para registrar uno.</div> : <div className="registry-table-wrap"><table className="registry-table admin-responsible-table"><thead><tr><th>Responsable</th><th>Puesto</th><th>Teléfono</th><th>Empresa relacionada</th>{(canEditResponsible || canDeleteResponsible) && <th className="admin-actions-heading">Acciones</th>}</tr></thead><tbody>{responsibleRows.map((responsible) => <tr key={responsible.RA_id}><td>{responsible.RA_responsable || '—'}</td><td>{responsible.RA_puesto_responsable || '—'}</td><td>{responsible.RA_telefono || '—'}</td><td>{responsible.empresa_nombre || '—'}</td>{(canEditResponsible || canDeleteResponsible) && <td><div className="admin-row-actions">{canEditResponsible && <button type="button" className="admin-icon-action" title="Editar responsable" aria-label="Editar responsable" onClick={() => openResponsibleEdit(row, responsible)}><Edit3 size={14} /></button>}{canDeleteResponsible && <button type="button" className="admin-icon-action is-danger" title="Eliminar responsable" aria-label="Eliminar responsable" disabled={responsibleBusy} onClick={() => deleteResponsible(row, responsible)}><Trash2 size={14} /></button>}</div></td>}</tr>)}</tbody></table></div>}
                 </section>
               </td></tr>}
             </Fragment>;
@@ -652,7 +666,7 @@ export default function AdminDirectoryPage({ fixedDirectoryKey = null } = {}) {
       </div>
       <p className="registry-muted-note">{registry.system === 'users' ? 'Desde cada usuario puedes administrar todas sus empresas y roles, sin duplicar el directorio de usuarios en otra pantalla.' : registry.system === 'insurers' ? 'Selecciona una aseguradora para desplegar, agregar, editar o eliminar sus responsables asociados.' : isCatalogStyle ? 'Los roles y permisos usan un diseño de catálogo. Las relaciones entre ambos se administran desde el módulo “Roles y permisos”.' : 'Los cambios se realizan mediante la API. Las restricciones de sistema siguen aplicándose en el backend.'}</p>
       {toast && <div className="catalog-toast" role="status"><Check size={16} /><span>{toast}</span><button type="button" aria-label="Cerrar aviso" onClick={() => setToast('')}><X size={15} /></button></div>}
-      {editor && <RegistryEditor registry={registryForEditor} editor={editor} setEditor={setEditor} companies={companies} roles={roles} busy={busy} error={operationError || editor.assignmentsError || ''} onClose={() => { if (!busy) { setEditor(null); setOperationError(''); } }} onSubmit={saveEditor} />}
+      {editor && <RegistryEditor registry={registryForEditor} editor={editor} setEditor={setEditor} companies={companies} roles={roles} busy={busy} error={operationError || editor.assignmentsError || ''} canCreateResponsible={canCreateResponsible} onClose={() => { if (!busy) { setEditor(null); setOperationError(''); } }} onSubmit={saveEditor} />}
       <DeleteConfirmation registry={registryForEditor} item={deleteTarget} busy={busy} error={operationError} onClose={() => { if (!busy) { setDeleteTarget(null); setOperationError(''); } }} onConfirm={deleteRecord} />
       {responsibleEditor && <ResponsibleEditorModal editor={responsibleEditor} setEditor={setResponsibleEditor} companies={companies} busy={responsibleBusy} error={responsibleError} onClose={() => { if (!responsibleBusy) { setResponsibleEditor(null); setResponsibleError(''); } }} onSubmit={saveResponsible} />}
     </WorkspaceLayout>
