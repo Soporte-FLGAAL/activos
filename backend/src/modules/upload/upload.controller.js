@@ -43,10 +43,20 @@ exports.subir = async (req, res, next) => {
 
   if (tipo === 'Polizas') {
     const { polizaId, endosoId, incisoId } = req.body;
-    if (!polizaId) return error(res, 'Falta polizaId', 400);
-    nombreBase = `poliza_${polizaId}`;
-    if (endosoId) nombreBase += `_endoso_${endosoId}`;
-    if (incisoId) nombreBase += `_inciso_${incisoId}`;
+    const crypto = require('crypto');
+    const identificador = crypto.randomUUID();
+
+    // Los archivos pueden subirse antes de crear la póliza/endoso/inciso,
+    // por lo que los IDs son opcionales durante el alta inicial.
+    if (tipoSolicitado.toLowerCase() === 'endoso') {
+      nombreBase = endosoId ? `endoso_${endosoId}` : `endoso_${identificador}`;
+    } else if (tipoSolicitado.toLowerCase() === 'inciso') {
+      nombreBase = incisoId ? `inciso_${incisoId}` : `inciso_${identificador}`;
+    } else {
+      nombreBase = polizaId ? `poliza_${polizaId}` : `poliza_${identificador}`;
+      if (endosoId) nombreBase += `_endoso_${endosoId}`;
+      if (incisoId) nombreBase += `_inciso_${incisoId}`;
+    }
   } else if (tipo === 'Verificaciones') {
     const { noEconomico, verificacionTipo } = req.body;
     if (!noEconomico) return error(res, 'Falta noEconomico', 400);
