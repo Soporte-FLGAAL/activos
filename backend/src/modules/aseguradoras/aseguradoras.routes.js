@@ -6,10 +6,7 @@ const rbac = require('../../middlewares/rbac');
 const validate = require('../../middlewares/validate');
 const schemas = require('./aseguradoras.schema');
 
-const setEmpresa = require('../../middlewares/setEmpresa');
-
 router.use(auth);
-router.use(setEmpresa);
 
 router.get('/', rbac('aseguradoras:ver'), controller.listar);
 router.get('/:id', rbac('aseguradoras:ver'), validate({ params: schemas.paramsIdSchema }), controller.obtener);
