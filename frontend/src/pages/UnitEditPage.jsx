@@ -231,6 +231,82 @@ export default function UnitEditPage() {
     return () => { cancelled = true; controller.abort(); };
   }, [companyOptions]);
 
+  useEffect(() => {
+    if (!activeCompany?.id && !isAdminGlobal) return undefined;
+    const controller = new AbortController();
+    let cancelled = false;
+
+    async function loadRelatedRecords() {
+      setLoadingRelated(true);
+      setRelatedError('');
+      const warnings = [];
+      const getRows = async (endpoint, filters, permission) => {
+        if (!isAdminGlobal && !can(permission)) return [];
+        try {
+          const result = await listRecords(endpoint, { limit: 200, ...filters }, { signal: controller.signal });
+          return result.items;
+        } catch (requestError) {
+          if (requestError.name !== 'AbortError') warnings.push(`${endpoint}: ${requestError.message}`);
+          return [];
+        }
+      };
+
+      try {
+        const [cards, policies, doublePermits, sictPermits] = await Promise.all([
+          getRows('/tarjetas', { unidadId: id }, 'tarjetas:ver'),
+          getRows('/polizas', { unidadId: id }, 'polizas:ver'),
+          getRows('/doble-articulado', { unidadId: id }, 'permisos_especiales:ver'),
+          getRows('/sict', { unidadId: id }, 'sict:ver'),
+        ]);
+        if (cancelled) return;
+
+        const plateIds = [...new Set(cards.map((row) => Number(row.TC_placas_id)).filter((value) => Number.isSafeInteger(value) && value > 0))];
+        let plates = [];
+        let movements = [];
+        if (plateIds.length && (isAdminGlobal || can('placas:ver'))) {
+          const allPlates = await getRows('/placas', {}, 'placas:ver');
+          plates = allPlates.filter((plate) => plateIds.includes(Number(plate.Pla_id)));
+          if (isAdminGlobal || can('detalle_placas:ver')) {
+            const movementGroups = await Promise.all(plates.map(async (plate) => getRows('/detalle-placas', { placasId: plate.Pla_id }, 'detalle_placas:ver')));
+            movements = movementGroups.flat();
+          }
+        }
+
+        const policiesWithEndosos = await Promise.all(policies.map(async (policy) => {
+          if (!isAdminGlobal && !can('endosos:ver')) return { ...policy, endosos: [] };
+          const endosos = await getRows('/endosos', { polizaId: policy.Pol_id }, 'endosos:ver');
+          const endososWithIncisos = await Promise.all(endosos.map(async (endorsement) => {
+            if (!isAdminGlobal && !can('incisos:ver')) return { ...endorsement, incisos: [] };
+            const incisos = await getRows('/incisos', { endosoId: endorsement.End_id }, 'incisos:ver');
+            return { ...endorsement, incisos };
+          }));
+          return { ...policy, endosos: endososWithIncisos };
+        }));
+
+        if (!cancelled) {
+          setRelated({ plates, movements, cards, policies: policiesWithEndosos, doublePermits, sictPermits });
+          if (warnings.length) setRelatedError(`Algunos registros relacionados no se pudieron consultar: ${warnings.join(' · ')}`);
+        }
+      } catch (requestError) {
+        if (!cancelled && requestError.name !== 'AbortError') setRelatedError(requestError.message || 'No fue posible consultar los registros relacionados.');
+      } finally {
+        if (!cancelled) setLoadingRelated(false);
+      }
+    }
+
+    loadRelatedRecords();
+    return () => { cancelled = true; controller.abort(); };
+  }, [id, activeCompany?.id, isAdminGlobal, can, relatedRefresh]);
+
+  async function saveRelatedRecord(endpoint, recordId, payload) {
+    await apiRequest(`${endpoint}/${encodeURIComponent(recordId)}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+    setRelatedRefresh((current) => current + 1);
+    setSuccess('Registro relacionado actualizado correctamente.');
+  }
+
   async function uploadReplacement(file, type, metadata) {
     if (!file) return null;
     return uploadDocument(file, type, activeCompany?.id ?? unit?.Uni_empresa_actual, { metadata });
