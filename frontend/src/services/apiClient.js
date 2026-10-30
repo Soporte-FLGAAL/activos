@@ -121,6 +121,47 @@ async function performApiRequest(path, options = {}) {
     : payload;
 }
 
+/**
+ * Descarga una respuesta binaria usando la misma sesión y empresa activa que apiRequest.
+ * Se usa para archivos protegidos que no pueden abrirse mediante un enlace HTML normal,
+ * porque el navegador no adjunta el encabezado Bearer automáticamente.
+ */
+export async function apiRequestBlob(path, options = {}) {
+  const {
+    auth = true,
+    company = true,
+    retryAuth = true,
+    headers: suppliedHeaders,
+    ...fetchOptions
+  } = options;
+
+  const makeRequest = async () => {
+    const headers = new Headers(suppliedHeaders || {});
+    const session = getAuthSession();
+    if (auth && session?.accessToken) {
+      headers.set('Authorization', `Bearer ${session.accessToken}`);
+    }
+    const activeCompany = company ? getActiveCompany() : null;
+    if (activeCompany?.id != null && !headers.has('X-Empresa-Id')) {
+      headers.set('X-Empresa-Id', String(activeCompany.id));
+    }
+    return fetch(`${API_BASE_URL}${path}`, { ...fetchOptions, headers });
+  };
+
+  let response = await makeRequest();
+  if (response.status === 401 && auth && retryAuth && path !== '/auth/refresh') {
+    await refreshAccessToken();
+    response = await makeRequest();
+  }
+
+  if (!response.ok) {
+    const payload = await readResponse(response);
+    throw new ApiError(payload?.message || `Error HTTP ${response.status}`, response.status, payload);
+  }
+
+  return response.blob();
+}
+
 
 // The API limiter is shared by all /api routes (100 requests / 15 minutes per IP).
 // Deduplicate concurrent GETs and briefly cache successful reads so React StrictMode,
