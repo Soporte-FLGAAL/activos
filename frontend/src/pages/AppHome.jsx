@@ -106,7 +106,7 @@ function CompanyCard({ company, index, active, count, countStatus, onOpen, onInf
 
 export default function AppHome() {
   const navigate = useNavigate();
-  const { companies, activeCompany, selectCompany, isAdminGlobal, patchCompany, removeCompany, addCompany } = useAuth();
+  const { companies, activeCompany, selectCompany, isAdminGlobal, patchCompany, removeCompany, addCompany, can } = useAuth();
   const [counts, setCounts] = useState({});
   const [viewMode, setViewMode] = useState('grid');
   const [notice, setNotice] = useState(null);
@@ -122,6 +122,9 @@ export default function AppHome() {
   const [companyInfoErrors, setCompanyInfoErrors] = useState({});
 
   const realCompanies = useMemo(() => companies.filter((company) => company.scope !== 'global' && company.id != null), [companies]);
+  // El permiso puede estar asignado en cualquiera de las empresas del usuario;
+  // al abrir el módulo se usará la empresa seleccionada para la validación RBAC.
+  const canAccessModule = (permission) => isAdminGlobal || can(permission) || companies.some((company) => company.permissions?.includes(permission));
 
   useEffect(() => {
     let cancelled = false;
@@ -246,8 +249,9 @@ export default function AppHome() {
           return <CompanyCard key={company.id} company={company} index={index} active={String(activeCompany?.id) === String(company.id)} count={currentCount.value} countStatus={currentCount.status} onOpen={() => openCompany(company)} onInfo={() => toggleCompanyInfo(company)} onEdit={() => beginEdit(company)} onDelete={() => { setOperationError(''); setDeletingCompany(company); }} showManagementActions={isAdminGlobal} expanded={expandedCompanyId === key} companyDetails={companyDetails[key]} infoStatus={companyInfoStatus[key]} infoError={companyInfoErrors[key]} />;
         })}
         {isAdminGlobal && <button type="button" className="dashboard-shortcut-card add-company-card" onClick={beginCreateCompany}><span className="dashboard-shortcut-cover tone-red"><Plus size={34} strokeWidth={1.9} /><strong>Añadir empresa</strong></span><span className="dashboard-shortcut-body"><span><Building2 size={15} /> Nueva empresa</span><strong>Crear <ArrowUpRight size={15} /></strong></span></button>}
-        <button type="button" className="dashboard-shortcut-card" onClick={() => navigate('/catalogos')}><span className="dashboard-shortcut-cover tone-wine"><Database size={33} strokeWidth={1.7} /><strong>Catálogos</strong></span><span className="dashboard-shortcut-body"><span><Activity size={15} /> Tipos de datos</span><strong>Explorar <ArrowUpRight size={15} /></strong></span></button>
-        <button type="button" className="dashboard-shortcut-card" onClick={() => navigate('/administracion')}><span className="dashboard-shortcut-cover tone-gray"><Settings size={33} strokeWidth={1.9} /><strong>Administración</strong></span><span className="dashboard-shortcut-body"><span><Settings size={15} /> Configuración</span><strong>Acceder <ArrowUpRight size={15} /></strong></span></button>
+        {canAccessModule('catalogos:ver') && <button type="button" className="dashboard-shortcut-card" onClick={() => navigate('/catalogos')}><span className="dashboard-shortcut-cover tone-wine"><Database size={33} strokeWidth={1.7} /><strong>Catálogos</strong></span><span className="dashboard-shortcut-body"><span><Activity size={15} /> Datos compartidos</span><strong>Explorar <ArrowUpRight size={15} /></strong></span></button>}
+        {canAccessModule('aseguradoras:ver') && <button type="button" className="dashboard-shortcut-card" onClick={() => navigate('/aseguradoras')}><span className="dashboard-shortcut-cover tone-charcoal"><Building2 size={33} strokeWidth={1.7} /><strong>Aseguradoras</strong></span><span className="dashboard-shortcut-body"><span><Activity size={15} /> Directorio compartido</span><strong>Consultar <ArrowUpRight size={15} /></strong></span></button>}
+        {isAdminGlobal && <button type="button" className="dashboard-shortcut-card" onClick={() => navigate('/administracion')}><span className="dashboard-shortcut-cover tone-gray"><Settings size={33} strokeWidth={1.9} /><strong>Administración</strong></span><span className="dashboard-shortcut-body"><span><Settings size={15} /> Configuración</span><strong>Acceder <ArrowUpRight size={15} /></strong></span></button>}
       </div>
       <p className="dashboard-footnote">Los indicadores se consultan en el backend. Un guion indica que la API no permitió obtener el dato para esa empresa.</p>
       <NoticeDialog notice={notice} onClose={() => setNotice(null)} />
