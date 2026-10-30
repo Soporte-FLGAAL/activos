@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, BadgeCheck, CheckCircle2, CircleAlert, ClipboardList, FileUp, FileText, Save, ShieldCheck, Truck, X } from 'lucide-react';
+import { ArrowLeft, BadgeCheck, CheckCircle2, CircleAlert, ClipboardList, FileText, Save, ShieldCheck, Truck, X } from 'lucide-react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import WorkspaceLayout from '../components/WorkspaceLayout';
 import { useAuth } from '../context/AuthContext';
@@ -78,7 +78,7 @@ function absoluteFileUrl(uploaded) {
   return uploaded?.url || null;
 }
 
-function RelatedRecordEditor({ record, recordId, title, fields, canEdit, onSave, refreshKey }) {
+function RelatedRecordEditor({ record, title, fields, canEdit, onSave }) {
   const [editing, setEditing] = useState(false);
   const [values, setValues] = useState(() => Object.fromEntries(fields.map((field) => [
     field.key,
@@ -395,7 +395,6 @@ export default function UnitEditPage() {
     <RelatedRecordEditor
       key={`${endpoint}-${recordId}-${relatedRefresh}`}
       record={record}
-      recordId={recordId}
       title={title}
       fields={fields}
       canEdit={forceGlobal ? isAdminGlobal : hasReadPermission(permission)}
