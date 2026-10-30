@@ -19,10 +19,13 @@ class AuthRepository {
         e.Emp_nombre,
         e.Emp_nombre_corto,
         r.Rol_id,
-        r.Rol_nombre
+        r.Rol_nombre,
+        p.PerM_nombre AS permiso
       FROM Usuario_Empresas ue
       JOIN Empresas e ON ue.UE_empresa = e.Emp_id
       JOIN Roles r ON ue.UE_rol = r.Rol_id
+      LEFT JOIN Rol_Permisos rp ON r.Rol_id = rp.RP_rol
+      LEFT JOIN Permisos p ON rp.RP_permiso = p.PerM_id
       WHERE ue.UE_usuario = ?
       ORDER BY e.Emp_nombre`,
       [usuarioId]

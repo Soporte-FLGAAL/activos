@@ -10,6 +10,33 @@ class AuthService {
     return error;
   }
 
+    /**
+   * Agrupa las filas devueltas por la BD en un arreglo de empresas con sus permisos.
+   */
+  _formatearEmpresas(rows) {
+    const empresasMap = new Map();
+
+    for (const row of rows) {
+      if (!empresasMap.has(row.Emp_id)) {
+        empresasMap.set(row.Emp_id, {
+          id: row.Emp_id,
+          nombre: row.Emp_nombre,
+          nombreCorto: row.Emp_nombre_corto,
+          rolId: row.Rol_id,
+          rolNombre: row.Rol_nombre,
+          permisos: [], // Aquí guardaremos los strings
+        });
+      }
+      
+      // Si la fila trae un permiso, lo agregamos
+      if (row.permiso) {
+        empresasMap.get(row.Emp_id).permisos.push(row.permiso);
+      }
+    }
+
+    return Array.from(empresasMap.values());
+  }
+
   async login(email, password) {
     const user = await authRepository.findByEmail(email);
     if (!user) throw this._noAutorizado('Credenciales inválidas');
@@ -29,13 +56,7 @@ class AuthService {
 
     // *** Nuevo: empresas y roles ***
     const empresasRaw = await authRepository.findEmpresasByUsuario(user.Usu_id);
-    const empresas = empresasRaw.map(e => ({
-      id: e.Emp_id,
-      nombre: e.Emp_nombre,
-      nombreCorto: e.Emp_nombre_corto,
-      rolId: e.Rol_id,
-      rolNombre: e.Rol_nombre,
-    }));
+    const empresas = this._formatearEmpresas(empresasRaw);
     const esAdminGlobal = empresas.some(e => e.rolNombre === 'ADMIN_GLOBAL');
 
     return {
@@ -45,7 +66,7 @@ class AuthService {
         nombres: `${user.Usu_nombres} ${user.Usu_ap_paterno}`,
         esAdminGlobal,
       },
-      empresas,          // <-- lista de empresas + rol por empresa
+      empresas, 
       accessToken,
       refreshToken,
     };
@@ -60,13 +81,7 @@ class AuthService {
     }
 
     const empresasRaw = await authRepository.findEmpresasByUsuario(usuarioId);
-    const empresas = empresasRaw.map(e => ({
-      id: e.Emp_id,
-      nombre: e.Emp_nombre,
-      nombreCorto: e.Emp_nombre_corto,
-      rolId: e.Rol_id,
-      rolNombre: e.Rol_nombre,
-    }));
+    const empresas = this._formatearEmpresas(empresasRaw);
     const esAdminGlobal = empresas.some(e => e.rolNombre === 'ADMIN_GLOBAL');
 
     return {
