@@ -3,6 +3,7 @@ import { AlertCircle, ArrowLeft, CalendarDays, CarFront, ChevronDown, ChevronUp,
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import WorkspaceLayout from '../components/WorkspaceLayout';
 import { useAuth } from '../context/AuthContext';
+import { apiRequestBlob } from '../services/apiClient';
 import {
   getCirculationCards,
   getCotejos,
@@ -39,8 +40,53 @@ function ValueCard({ label, value, variant = '' }) {
 }
 
 function DocumentLink({ href, children = 'Ver documento' }) {
+  const [opening, setOpening] = useState(false);
+  const [openError, setOpenError] = useState('');
+
   if (!href) return <span className="registry-muted">Sin archivo adjunto</span>;
-  return <a className="unit-document-link" href={href} target="_blank" rel="noreferrer noopener">{children}</a>;
+
+  async function handleOpen(event) {
+    // Los archivos administrados por /upload requieren el token Bearer y el
+    // encabezado X-Empresa-Id; un enlace HTML normal no envía esos encabezados.
+    const match = String(href).match(/\/upload\/([^/?#]+)/i);
+    if (!match) return;
+
+    event.preventDefault();
+    if (opening) return;
+    setOpening(true);
+    setOpenError('');
+
+    // Abrir la ventana dentro del gesto del usuario para evitar el bloqueo
+    // de ventanas emergentes mientras termina la descarga autenticada.
+    const popup = window.open('about:blank', '_blank');
+    if (!popup) {
+      setOpenError('Permite las ventanas emergentes para abrir el documento.');
+      setOpening(false);
+      return;
+    }
+    popup.opener = null;
+
+    try {
+      const blob = await apiRequestBlob(`/upload/${encodeURIComponent(match[1])}`);
+      const objectUrl = URL.createObjectURL(blob);
+      popup.location.href = objectUrl;
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 5 * 60 * 1000);
+    } catch (error) {
+      popup.close();
+      setOpenError(error.message || 'No se pudo abrir el documento.');
+    } finally {
+      setOpening(false);
+    }
+  }
+
+  return (
+    <span className="unit-document-link-wrap">
+      <a className="unit-document-link" href={href} target="_blank" rel="noreferrer noopener" onClick={handleOpen}>
+        {opening ? 'Abriendo…' : children}
+      </a>
+      {openError && <small className="unit-document-link-error" role="alert">{openError}</small>}
+    </span>
+  );
 }
 
 function DocumentRow({ title, subtitle, meta, href, children }) {
@@ -84,13 +130,22 @@ function GeneralSection({ unit, cards }) {
   );
 }
 
-function DocumentsSection({ documents, warnings }) {
+function DocumentsSection({ documents, warnings, unit }) {
   const { cards, policies, doublePermits, sictPermits, cotejosByCard } = documents;
-  const hasAny = cards.length || policies.length || doublePermits.length || sictPermits.length;
+  const unitFiles = [
+    { key: 'factura', title: 'Factura de la unidad', href: unit?.Uni_factura_url },
+    { key: 'mecanica', title: 'Verificación mecánica', href: unit?.Uni_url_verificacion_mecanica, meta: `Fecha: ${dateText(unit?.Uni_fecha_verificacion_mecanica)} · Costo: ${moneyText(unit?.Uni_costo_verificacion_mecanica)}` },
+    { key: 'contaminantes', title: 'Verificación de contaminantes', href: unit?.Uni_url_verificacion_contaminantes, meta: `Fecha: ${dateText(unit?.Uni_fecha_verificacion_contaminantes)} · Costo: ${moneyText(unit?.Uni_costo_verificacion_contaminantes)}` },
+  ].filter((file) => Boolean(file.href));
+  const hasAny = cards.length || policies.length || doublePermits.length || sictPermits.length || unitFiles.length;
   return (
     <div className="unit-detail-section-body">
       {warnings.length > 0 && <div className="workspace-error unit-detail-warning"><AlertCircle size={18} /><span>Algunos documentos no se pudieron consultar por permisos o errores del endpoint. Los apartados disponibles sí se muestran.</span></div>}
       {!hasAny ? <div className="workspace-empty-state unit-document-empty"><FileText size={27} /><h2>Sin documentos disponibles</h2><p>No se encontraron documentos asociados o el usuario no tiene permisos para consultarlos.</p></div> : <div className="unit-document-groups">
+        {unitFiles.length > 0 && <section className="unit-document-group">
+          <div className="unit-detail-subhead-row"><h3>Documentos y verificaciones de la unidad</h3><span>{unitFiles.length}</span></div>
+          {unitFiles.map((file) => <DocumentRow key={file.key} title={file.title} meta={file.meta} href={file.href} />)}
+        </section>}
         <section className="unit-document-group">
           <div className="unit-detail-subhead-row"><h3>Tarjetas de circulación</h3><span>{cards.length}</span></div>
           {cards.length === 0 ? <p className="registry-muted">No hay tarjetas de circulación registradas para esta unidad.</p> : cards.map((card) => (
@@ -245,7 +300,7 @@ export default function UnitDetailPage() {
   function renderSection(sectionId) {
     if (!unit) return null;
     if (sectionId === 'general') return <GeneralSection unit={unit} cards={documents.cards} />;
-    if (sectionId === 'documents') return <DocumentsSection documents={documents} warnings={warnings} />;
+    if (sectionId === 'documents') return <DocumentsSection documents={documents} warnings={warnings} unit={unit} />;
     return <MaintenanceSection unit={unit} />;
   }
 
