@@ -118,10 +118,10 @@ function RegistryInner({ kind, registryKey, navigate }) {
 
   if (!config) return <Navigate to={adminMode ? '/administracion' : '/catalogos'} replace />;
   if (adminMode && !isAdminGlobal) return <Navigate to="/app" replace />;
-  if (!adminMode && !can('catalogos:ver')) return <Navigate to="/catalogos" replace />;
   if (!adminMode && !activeCompany?.id && !isAdminGlobal) {
     return <Navigate to="/seleccionar-empresa" replace state={{ from: `/catalogos/${registryKey}` }} />;
   }
+  if (!adminMode && !can('catalogos:ver')) return <Navigate to="/catalogos" replace />;
 
   return (
     <WorkspaceLayout activeNav={adminMode ? (config.activeNav || 'settings') : 'catalogs'}>
