@@ -106,6 +106,84 @@ exports.subir = async (req, res, next) => {
   }
 };
 
+exports.descargarDeUnidad = async (req, res, next) => {
+  try {
+    const unidadId = Number(req.params.unidadId);
+    const tipoDocumento = String(req.params.tipo || '').toLowerCase();
+    const columnas = {
+      factura: 'Uni_factura_url',
+      mecanica: 'Uni_url_verificacion_mecanica',
+      contaminantes: 'Uni_url_verificacion_contaminantes',
+    };
+    const columna = columnas[tipoDocumento];
+
+    if (!Number.isSafeInteger(unidadId) || unidadId <= 0 || !columna) {
+      return error(res, 'La unidad o el tipo de documento no son válidos', 400);
+    }
+
+    const db = require('../../config/database');
+    const [unidades] = await db.query(
+      `SELECT Uni_id, Uni_empresa_actual, ${columna} AS documento
+       FROM Unidades
+       WHERE Uni_id = ?
+       LIMIT 1`,
+      [unidadId]
+    );
+    const unidad = unidades[0];
+    if (!unidad) return error(res, 'Unidad no encontrada', 404);
+
+    if (!req.esAdminGlobal && Number(unidad.Uni_empresa_actual) !== Number(req.empresaId)) {
+      return error(res, 'No tiene acceso a los documentos de esta unidad', 403);
+    }
+
+    const rutaGuardada = String(unidad.documento || '').trim();
+    if (!rutaGuardada) return error(res, 'La unidad no tiene una ruta guardada para este documento', 404);
+
+    // Compatibilidad con archivos que ya están registrados mediante UUID.
+    const uuidMatch = rutaGuardada.match(/\/upload\/([^/?#]+)/i);
+    if (uuidMatch) {
+      const archivo = await uploadService.obtenerPorUuid(uuidMatch[1]);
+      if (!archivo) return error(res, 'Archivo no encontrado en el registro de archivos', 404);
+      if (!req.esAdminGlobal && Number(archivo.Arc_empresa) !== Number(unidad.Uni_empresa_actual)) {
+        return error(res, 'No tiene acceso a este archivo', 403);
+      }
+      const fullPath = uploadService.rutaAbsoluta(archivo);
+      if (!fullPath || !fs.existsSync(fullPath)) return error(res, 'Archivo no disponible en el almacenamiento', 404);
+      res.setHeader('Content-Type', archivo.Arc_mime || 'application/octet-stream');
+      res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(archivo.Arc_nombre_original || path.basename(fullPath))}"`);
+      return fs.createReadStream(fullPath).on('error', next).pipe(res);
+    }
+
+    // Compatibilidad con rutas relativas o absolutas guardadas históricamente
+    // directamente en las columnas de la unidad.
+    const storageRoot = path.resolve(env.STORAGE_PATH);
+    const fullPath = path.isAbsolute(rutaGuardada)
+      ? path.resolve(rutaGuardada)
+      : path.resolve(storageRoot, rutaGuardada.replace(/^[\\/]+/, ''));
+    const relativePath = path.relative(storageRoot, fullPath);
+
+    if (!relativePath || relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
+      return error(res, 'La ruta del documento está fuera del almacenamiento permitido', 400);
+    }
+    if (!fs.existsSync(fullPath) || !fs.statSync(fullPath).isFile()) {
+      return error(res, 'El archivo no existe en la carpeta compartida', 404);
+    }
+
+    const extension = path.extname(fullPath).toLowerCase();
+    const mimeByExtension = {
+      '.pdf': 'application/pdf',
+      '.jpg': 'image/jpeg',
+      '.jpeg': 'image/jpeg',
+      '.png': 'image/png',
+    };
+    res.setHeader('Content-Type', mimeByExtension[extension] || 'application/octet-stream');
+    res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(path.basename(fullPath))}"`);
+    return fs.createReadStream(fullPath).on('error', next).pipe(res);
+  } catch (err) {
+    next(err);
+  }
+};
+
 exports.descargar = async (req, res, next) => {
   try {
     const { uuid } = req.params;
