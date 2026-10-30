@@ -66,11 +66,16 @@ exports.subir = async (req, res, next) => {
     }
     const nombreSeguro = String(noEconomico).trim().replace(/[^a-zA-Z0-9_-]/g, '_');
     if (!nombreSeguro) return error(res, 'El número económico es inválido', 400);
-    nombreBase = `${nombreSeguro}_${tipoVerificacion}`;
+    nombreBase = `${nombreSeguro}_${tipoVerificacion}_${require('crypto').randomUUID()}`;
   } else {
     const { identificador } = req.body;
     const uuid = require('crypto').randomUUID();
-    nombreBase = identificador ? `${tipo.toLowerCase()}_${identificador}` : `${tipo.toLowerCase()}_${uuid}`;
+    const safeIdentifier = identificador
+      ? String(identificador).trim().replace(/[^a-zA-Z0-9_-]/g, '_')
+      : '';
+    nombreBase = safeIdentifier
+      ? `${tipo.toLowerCase()}_${safeIdentifier}_${uuid}`
+      : `${tipo.toLowerCase()}_${uuid}`;
   }
 
   const nombreArchivo = `${nombreBase}${ext}`;
