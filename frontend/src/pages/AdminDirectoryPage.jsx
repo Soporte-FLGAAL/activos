@@ -26,7 +26,7 @@ const REGISTRIES = {
     columns: [{ label: 'ID', key: 'Rol_id' }, { label: 'Nombre del rol', key: 'Rol_nombre' }],
   },
   aseguradoras: {
-    title: 'Aseguradoras', subtitle: 'Directorio de compañías aseguradoras.', endpoint: '/aseguradoras', activeNav: 'settings', idKey: 'Ase_id', system: 'insurers',
+    title: 'Aseguradoras', subtitle: 'Directorio compartido de compañías aseguradoras.', endpoint: '/aseguradoras', activeNav: 'insurers', idKey: 'Ase_id', system: 'insurers',
     columns: [
       { label: 'Aseguradora', key: 'Ase_nombre' }, { label: 'RFC', key: 'Ase_rfc' },
       { label: 'Teléfono', key: 'Ase_telefono' }, { label: 'Dirección', key: 'Ase_direccion' },
