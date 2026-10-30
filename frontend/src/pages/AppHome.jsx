@@ -124,7 +124,7 @@ export default function AppHome() {
   const realCompanies = useMemo(() => companies.filter((company) => company.scope !== 'global' && company.id != null), [companies]);
   // El permiso puede estar asignado en cualquiera de las empresas del usuario;
   // al abrir el módulo se usará la empresa seleccionada para la validación RBAC.
-  const canAccessModule = (permission) => isAdminGlobal || can(permission) || companies.some((company) => company.permissions?.includes(permission));
+  const canAccessModule = (permission) => isAdminGlobal || (activeCompany ? can(permission) : companies.some((company) => company.permissions?.includes(permission)));
 
   useEffect(() => {
     let cancelled = false;
