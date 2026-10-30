@@ -19,16 +19,21 @@ export async function listRecords(endpoint, filters = {}, options = {}) {
 
 export async function uploadDocument(file, type, companyId, options = {}) {
   if (!file) return null;
+  const { metadata = {}, ...requestOptions } = options;
   const form = new FormData();
-  // The existing backend's Multer destination reads `tipo` before it receives `archivo`.
+  // El backend decide la carpeta con "tipo"; los metadatos adicionales
+  // permiten nombrar y clasificar correctamente las constancias.
   form.append('tipo', type);
+  Object.entries(metadata).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') form.append(key, String(value));
+  });
   form.append('archivo', file, file.name);
 
   const result = await apiRequest('/upload', {
-    ...options,
+    ...requestOptions,
     method: 'POST',
     headers: {
-      ...(options.headers || {}),
+      ...(requestOptions.headers || {}),
       ...(companyId ? { 'X-Empresa-Id': String(companyId) } : {}),
     },
     body: form,
