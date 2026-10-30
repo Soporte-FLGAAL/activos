@@ -315,7 +315,7 @@ export default function UnitDetailPage() {
         <button type="button" className="unit-detail-back" onClick={() => navigate('/unidades')} aria-label="Volver al catálogo"><ArrowLeft size={19} /></button>
         <div className="unit-detail-title-group"><div className="unit-detail-title-row"><h1>Unidad {unitName}</h1>{unit?.tipo_nombre && <span className="unit-type-pill">{unit.tipo_nombre}</span>}</div><p className="workspace-subtitle">Detalles y administración del vehículo{activeCompany ? ` · ${activeCompany.name}` : isAdminGlobal ? ' · Vista global' : ''}</p></div>
         <div className="unit-detail-heading-actions">
-          {(isAdminGlobal || can('unidades:editar')) && <button type="button" className="workspace-primary-button unit-edit-button" onClick={() => navigate(`/unidades/${id}/editar')}><Pencil size={15} /> Editar unidad</button>}
+          {(isAdminGlobal || can('unidades:editar')) && <button type="button" className="workspace-primary-button unit-edit-button" onClick={() => navigate(`/unidades/${id}/editar`)}><Pencil size={15} /> Editar unidad</button>}
           <div className="unit-detail-mode-toggle" aria-label="Modo de presentación">
             <button type="button" className={layoutMode === 'accordion' ? 'is-selected' : ''} onClick={() => setLayoutMode('accordion')}><LayoutList size={15} /> Acordeón</button>
             <button type="button" className={layoutMode === 'tabs' ? 'is-selected' : ''} onClick={() => setLayoutMode('tabs')}><CarFront size={15} /> Pestañas</button>
