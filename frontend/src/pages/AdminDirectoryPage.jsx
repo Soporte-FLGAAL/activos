@@ -569,8 +569,8 @@ export default function AdminDirectoryPage({ fixedDirectoryKey = null } = {}) {
 
   if (!registry) return <Navigate to="/administracion" replace />;
   if (!isAdminGlobal && registry.system !== 'insurers') return <Navigate to="/app" replace />;
-  if (registry.system === 'insurers' && !can('aseguradoras:ver')) return <Navigate to="/app" replace />;
   if (registry.system === 'insurers' && !activeCompany?.id && !isAdminGlobal) return <Navigate to="/seleccionar-empresa" replace state={{ from: '/aseguradoras' }} />;
+  if (registry.system === 'insurers' && !can('aseguradoras:ver')) return <Navigate to="/app" replace />;
   const singular = registryKey === 'usuarios' ? 'usuario'
     : registryKey === 'roles' ? 'rol'
       : registryKey === 'permisos' ? 'permiso' : 'aseguradora';
