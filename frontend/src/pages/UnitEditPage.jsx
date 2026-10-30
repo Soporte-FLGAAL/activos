@@ -199,12 +199,28 @@ export default function UnitEditPage() {
           listRecords('/catalogos/periodos', {}, { ...companyOptions, signal: controller.signal }),
         ]);
         if (cancelled) return;
-        setLookups({
+        setLookups((current) => ({
+          ...current,
           types: types.items.map((row) => ({ value: String(row.TpU_id), label: row.TpU_nombre })),
           states: states.items.map((row) => ({ value: String(row.EsU_id), label: row.EsU_estado })),
           fuels: fuels.items.map((row) => ({ value: String(row.Com_id), label: row.Com_nombre })),
           periods: periods.items.map((row) => ({ value: String(row.Per_id), label: row.Per_nombre })),
-        });
+        }));
+
+        const optionalLookups = await Promise.allSettled([
+          listRecords('/catalogos/tipo-movimiento-placa', {}, { ...companyOptions, signal: controller.signal }),
+          listRecords('/catalogos/tipo-tarjeta', {}, { ...companyOptions, signal: controller.signal }),
+          listRecords('/catalogos/tipo-poliza', {}, { ...companyOptions, signal: controller.signal }),
+          listRecords('/aseguradoras', {}, { ...companyOptions, signal: controller.signal }),
+        ]);
+        if (cancelled) return;
+        setLookups((current) => ({
+          ...current,
+          movementTypes: optionalLookups[0].status === 'fulfilled' ? optionalLookups[0].value.items.map((row) => ({ value: String(row.TpMP_id), label: row.TpMP_nombre })) : [],
+          cardTypes: optionalLookups[1].status === 'fulfilled' ? optionalLookups[1].value.items.map((row) => ({ value: String(row.TpT_id), label: row.TpT_nombre })) : [],
+          policyTypes: optionalLookups[2].status === 'fulfilled' ? optionalLookups[2].value.items.map((row) => ({ value: String(row.TpP_id), label: row.TpP_nombre })) : [],
+          insurers: optionalLookups[3].status === 'fulfilled' ? optionalLookups[3].value.items.map((row) => ({ value: String(row.Ase_id), label: row.Ase_nombre })) : [],
+        }));
       } catch (requestError) {
         if (!cancelled && requestError.name !== 'AbortError') setLookupError(requestError.message || 'No fue posible cargar los catálogos.');
       } finally {
