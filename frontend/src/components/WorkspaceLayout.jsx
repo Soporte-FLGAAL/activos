@@ -10,7 +10,7 @@ function initials(user) {
 export default function WorkspaceLayout({ children, activeNav = 'home' }) {
   const navigate = useNavigate();
   const { user, activeCompany, companies, isAdminGlobal, logout, clearCompanySelection, can } = useAuth();
-  const canAccessModule = (permission) => isAdminGlobal || can(permission) || companies.some((company) => company.permissions?.includes(permission));
+  const canAccessModule = (permission) => isAdminGlobal || (activeCompany ? can(permission) : companies.some((company) => company.permissions?.includes(permission)));
 
   async function handleLogout() {
     await logout();
