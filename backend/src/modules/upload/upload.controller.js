@@ -157,9 +157,15 @@ exports.descargarDeUnidad = async (req, res, next) => {
     // Compatibilidad con rutas relativas o absolutas guardadas históricamente
     // directamente en las columnas de la unidad.
     const storageRoot = path.resolve(env.STORAGE_PATH);
+    const rutaNormalizada = rutaGuardada.replace(/\\/g, '/').replace(/^\/+/, '');
+    const esSoloNombre = !rutaNormalizada.includes('/');
+    const carpetaDocumento = tipoDocumento === 'factura' ? 'Facturas' : 'Verificaciones';
+    const rutaRelativa = esSoloNombre
+      ? path.join(carpetaDocumento, rutaNormalizada)
+      : rutaNormalizada;
     const fullPath = path.isAbsolute(rutaGuardada)
       ? path.resolve(rutaGuardada)
-      : path.resolve(storageRoot, rutaGuardada.replace(/^[\\/]+/, ''));
+      : path.resolve(storageRoot, rutaRelativa);
     const relativePath = path.relative(storageRoot, fullPath);
 
     if (!relativePath || relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
