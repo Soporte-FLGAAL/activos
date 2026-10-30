@@ -390,6 +390,21 @@ export default function UnitEditPage() {
     }
   }
 
+  const hasReadPermission = (permission) => isAdminGlobal || can(permission);
+  const editorFor = (record, endpoint, recordId, title, fields, permission, forceGlobal = false) => (
+    <RelatedRecordEditor
+      key={`${endpoint}-${recordId}-${relatedRefresh}`}
+      record={record}
+      recordId={recordId}
+      title={title}
+      fields={fields}
+      canEdit={forceGlobal ? isAdminGlobal : hasReadPermission(permission)}
+      onSave={(payload) => saveRelatedRecord(endpoint, recordId, payload)}
+    />
+  );
+
+  const plateOptions = related.plates.map((plate) => ({ value: String(plate.Pla_id), label: plate.Pla_placas || `Placa ${plate.Pla_id}` }));
+
   if (!activeCompany?.id && !isAdminGlobal) {
     return <Navigate to="/seleccionar-empresa" replace state={{ from: `/unidades/${id}/editar` }} />;
   }
@@ -413,7 +428,13 @@ export default function UnitEditPage() {
       {lookupError && <div className="create-alert is-warning" role="alert"><CircleAlert size={18} /><p>{lookupError}</p></div>}
       {success && <div className="create-alert is-success" role="status"><CheckCircle2 size={18} /><p>{success}</p></div>}
 
-      {!loading && unit && form && (
+      <nav className="create-record-tabs unit-edit-tabs" aria-label="Secciones de edición">
+        {EDIT_TABS.map(({ id: tabId, label, icon: Icon }) => <button key={tabId} type="button" className={activeEditTab === tabId ? 'is-active' : ''} onClick={() => setActiveEditTab(tabId)}><Icon size={17} /><span>{label}</span></button>)}
+      </nav>
+      {relatedError && <div className="create-alert is-warning" role="alert"><CircleAlert size={18} /><p>{relatedError}</p></div>}
+      {loadingRelated && activeEditTab !== 'unidad' && <div className="create-inline-status">Consultando registros relacionados…</div>}
+
+      {!loading && unit && form && activeEditTab === 'unidad' && (
         <form className="create-record-form" onSubmit={handleSubmit}>
           <SectionTitle icon={Truck} title="Datos de la unidad" subtitle="Los campos marcados son obligatorios. Serie, motor, ViaPass y valor de factura son opcionales." />
           {loadingLookups && <div className="create-inline-status">Consultando catálogos…</div>}
@@ -460,6 +481,84 @@ export default function UnitEditPage() {
           </div>
         </form>
       )}
+
+      {!loadingRelated && activeEditTab === 'placas' && <section className="create-record-form">
+        <SectionTitle icon={BadgeCheck} title="Placas relacionadas" subtitle="Se muestran las placas vinculadas mediante las tarjetas de circulación de esta unidad." />
+        {!hasReadPermission('placas:ver') ? <p className="registry-muted-note">Tu rol no tiene permiso para consultar placas.</p> : related.plates.length === 0 ? <p className="registry-muted-note">No hay placas relacionadas con esta unidad.</p> : related.plates.map((plate) => editorFor(plate, '/placas', plate.Pla_id, `Placa ${plate.Pla_placas || plate.Pla_id}`, [
+          { key: 'placas', source: 'Pla_placas', label: 'Número de placas', required: true, maxLength: 10 },
+          { key: 'status', source: 'Pla_status', label: 'Estatus', required: true, maxLength: 20 },
+        ], 'placas:editar'))}
+
+        <SectionTitle icon={ClipboardList} title="Movimientos de placas" subtitle="Actualiza el costo, la fecha y el tipo de movimiento de cada registro existente." />
+        {!hasReadPermission('detalle_placas:ver') ? <p className="registry-muted-note">Tu rol no tiene permiso para consultar movimientos de placas.</p> : related.movements.length === 0 ? <p className="registry-muted-note">No hay movimientos registrados para las placas vinculadas.</p> : related.movements.map((movement) => editorFor(movement, '/detalle-placas', movement.DP_id, `Movimiento · ${movement.Pla_placas || movement.DP_id}`, [
+          { key: 'tipoMovimientoId', source: 'DP_tipo_movimiento', label: 'Tipo de movimiento', type: 'select', options: lookups.movementTypes, required: true, serialize: 'number' },
+          { key: 'costo', source: 'DP_costo', label: 'Costo', type: 'number', required: true, min: 0, step: '0.01', serialize: 'number' },
+          { key: 'fecha', source: 'DP_fecha', label: 'Fecha', type: 'date', required: true },
+        ], 'detalle_placas:editar'))}
+      </section>}
+
+      {!loadingRelated && activeEditTab === 'tarjetas' && <section className="create-record-form">
+        <SectionTitle icon={ClipboardList} title="Tarjetas de circulación" subtitle="Edita las tarjetas ya asociadas a esta unidad; no se crean tarjetas nuevas desde esta pantalla." />
+        {!hasReadPermission('tarjetas:ver') ? <p className="registry-muted-note">Tu rol no tiene permiso para consultar tarjetas de circulación.</p> : related.cards.length === 0 ? <p className="registry-muted-note">No hay tarjetas de circulación relacionadas con esta unidad.</p> : <>
+          {!isAdminGlobal && <div className="create-alert is-warning"><CircleAlert size={18} /><p>La edición de tarjetas de circulación está reservada a ADMIN_GLOBAL en el backend.</p></div>}
+          {related.cards.map((card) => editorFor(card, '/tarjetas', card.TC_id, `Tarjeta ${card.TC_tarjeta || card.TC_id}`, [
+            { key: 'tarjeta', source: 'TC_tarjeta', label: 'Número de tarjeta', required: true, maxLength: 50 },
+            { key: 'costo', source: 'TC_costo', label: 'Costo', type: 'number', min: 0, step: '0.01', required: true, serialize: 'number' },
+            { key: 'tipoId', source: 'TC_tipo', label: 'Tipo de tarjeta', type: 'select', options: lookups.cardTypes, required: true, serialize: 'number' },
+            { key: 'status', source: 'TC_status', label: 'Estatus', required: true, maxLength: 20 },
+            { key: 'noOriginal', source: 'TC_no_original', label: 'Número original', nullable: true, serialize: 'nullable', maxLength: 50 },
+            { key: 'placasId', source: 'TC_placas_id', label: 'Placas', type: 'select', options: plateOptions, required: true, serialize: 'number' },
+            { key: 'fechaObtencion', source: 'TC_fecha_obtencion', label: 'Fecha de obtención', type: 'date', required: true },
+            { key: 'fechaVencimiento', source: 'TC_fecha_vencimiento', label: 'Fecha de vencimiento', type: 'date', nullable: true },
+            { key: 'fechaReposicion', source: 'TC_fecha_reposicion', label: 'Fecha de reposición', type: 'date', nullable: true },
+            { key: 'costoReposicion', source: 'TC_costo_reposicion', label: 'Costo de reposición', type: 'number', min: 0, step: '0.01', serialize: 'number' },
+          ], 'tarjetas:editar', true))}
+        </>}
+      </section>}
+
+      {!loadingRelated && activeEditTab === 'polizas' && <section className="create-record-form">
+        <SectionTitle icon={FileText} title="Pólizas, endosos e incisos" subtitle="Los documentos se editan sobre sus registros actuales, conservando sus relaciones con la unidad." />
+        {!hasReadPermission('polizas:ver') ? <p className="registry-muted-note">Tu rol no tiene permiso para consultar pólizas.</p> : related.policies.length === 0 ? <p className="registry-muted-note">No hay pólizas relacionadas con esta unidad.</p> : related.policies.map((policy) => (
+          <div className="unit-related-group" key={`policy-${policy.Pol_id}`}>
+            {editorFor(policy, '/polizas', policy.Pol_id, `Póliza ${policy.Pol_poliza || policy.Pol_id}`, [
+              { key: 'poliza', source: 'Pol_poliza', label: 'Número de póliza', required: true, maxLength: 15 },
+              { key: 'aseguradoraId', source: 'Pol_aseguradora', label: 'Aseguradora', type: 'select', options: lookups.insurers, required: true, serialize: 'number' },
+              { key: 'tipoPolizaId', source: 'Pol_tipo_poliza', label: 'Tipo de póliza', type: 'select', options: lookups.policyTypes, required: true, serialize: 'number' },
+              { key: 'fechaInicio', source: 'Pol_fecha_inicio', label: 'Fecha de inicio', type: 'date', required: true },
+              { key: 'fechaFin', source: 'Pol_fecha_fin', label: 'Fecha de fin', type: 'date', required: true },
+              { key: 'costo', source: 'Pol_costo', label: 'Costo', type: 'number', min: 0, step: '0.01', required: true, serialize: 'number' },
+            ], 'polizas:editar')}
+            {!hasReadPermission('endosos:ver') ? <p className="registry-muted-note">No tienes permiso para consultar endosos.</p> : (policy.endosos || []).map((endorsement) => (
+              <div className="unit-related-nested" key={`endorsement-${endorsement.End_id}`}>
+                {editorFor(endorsement, '/endosos', endorsement.End_id, `Endoso ${endorsement.End_endoso}`, [
+                  { key: 'endoso', source: 'End_endoso', label: 'Número de endoso', required: true, maxLength: 6 },
+                ], 'endosos:editar')}
+                {!hasReadPermission('incisos:ver') ? <p className="registry-muted-note">No tienes permiso para consultar incisos.</p> : (endorsement.incisos || []).map((inciso) => editorFor(inciso, '/incisos', inciso.Inc_id, `Inciso ${inciso.Inc_inciso}`, [
+                  { key: 'inciso', source: 'Inc_inciso', label: 'Número de inciso', required: true, maxLength: 6 },
+                ], 'incisos:editar'))}
+              </div>
+            ))}
+          </div>
+        ))}
+      </section>}
+
+      {!loadingRelated && activeEditTab === 'doble' && <section className="create-record-form">
+        <SectionTitle icon={Truck} title="Permisos de doble articulado" subtitle="Edita los permisos existentes asociados a esta unidad." />
+        {!hasReadPermission('permisos_especiales:ver') ? <p className="registry-muted-note">Tu rol no tiene permiso para consultar permisos especiales.</p> : related.doublePermits.length === 0 ? <p className="registry-muted-note">No hay permisos de doble articulado asociados.</p> : related.doublePermits.map((permit) => editorFor(permit, '/doble-articulado', permit.PDA_id, `Permiso ${permit.PDA_permiso}`, [
+          { key: 'permiso', source: 'PDA_permiso', label: 'Número de permiso', required: true, maxLength: 30 },
+          { key: 'fechaObtencion', source: 'PDA_fecha_obtencion', label: 'Fecha de obtención', type: 'date', required: true },
+          { key: 'fechaVencimiento', source: 'PDA_fecha_vencimiento', label: 'Fecha de vencimiento', type: 'date', required: true },
+        ], 'permisos_especiales:editar'))}
+      </section>}
+
+      {!loadingRelated && activeEditTab === 'sict' && <section className="create-record-form">
+        <SectionTitle icon={ShieldCheck} title="Permisos SICT" subtitle="Edita los permisos SICT existentes asociados a esta unidad." />
+        {!hasReadPermission('sict:ver') ? <p className="registry-muted-note">Tu rol no tiene permiso para consultar permisos SICT.</p> : related.sictPermits.length === 0 ? <p className="registry-muted-note">No hay permisos SICT asociados.</p> : related.sictPermits.map((permit) => editorFor(permit, '/sict', permit.SICT_id, `Permiso ${permit.SICT_permiso}`, [
+          { key: 'permiso', source: 'SICT_permiso', label: 'Número de permiso', required: true, maxLength: 30 },
+          { key: 'fechaObtencion', source: 'SICT_fecha_obtencion', label: 'Fecha de obtención', type: 'date', required: true },
+          { key: 'fechaVencimiento', source: 'SICT_fecha_vencimiento', label: 'Fecha de vencimiento', type: 'date', required: true },
+        ], 'sict:editar'))}
+      </section>}
     </WorkspaceLayout>
   );
 }
