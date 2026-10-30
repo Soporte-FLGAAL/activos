@@ -79,11 +79,12 @@ function absoluteFileUrl(uploaded) {
 }
 
 function RelatedRecordEditor({ record, title, fields, canEdit, onSave }) {
-  const [editing, setEditing] = useState(false);
-  const [values, setValues] = useState(() => Object.fromEntries(fields.map((field) => [
+  const initialValues = () => Object.fromEntries(fields.map((field) => [
     field.key,
     field.type === 'date' ? todayValue(record?.[field.source]) : (record?.[field.source] == null ? '' : String(record[field.source])),
-  ])));
+  ]));
+  const [editing, setEditing] = useState(false);
+  const [values, setValues] = useState(initialValues);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -120,13 +121,13 @@ function RelatedRecordEditor({ record, title, fields, canEdit, onSave }) {
           <div className="create-form-grid unit-related-fields">
             {fields.map((field) => <Field key={field.key} label={field.label} required={field.required}>
               {field.options
-                ? <SelectInput value={values[field.key]} onChange={(value) => setValues((current) => ({ ...current, [field.key]: value }))} options={field.options} required={field.required} />
+                ? <SelectInput value={values[field.key]} onChange={(value) => setValues((current) => ({ ...current, [field.key]: value }))} options={values[field.key] && !field.options.some((option) => String(option.value) === String(values[field.key])) ? [{ value: String(values[field.key]), label: `Actual (${values[field.key]})` }, ...field.options] : field.options} required={field.required} />
                 : <TextInput type={field.type || 'text'} value={values[field.key]} onChange={(value) => setValues((current) => ({ ...current, [field.key]: value }))} required={field.required} min={field.min} max={field.max} maxLength={field.maxLength} step={field.step} />}
             </Field>)}
           </div>
           {error && <div className="create-alert is-error" role="alert"><CircleAlert size={16} /><p>{error}</p></div>}
           <div className="create-form-actions unit-related-actions">
-            <button type="button" className="workspace-secondary-button" onClick={() => { setEditing(false); setError(''); }} disabled={saving}>Cancelar</button>
+            <button type="button" className="workspace-secondary-button" onClick={() => { setValues(initialValues()); setEditing(false); setError(''); }} disabled={saving}>Cancelar</button>
             <button type="submit" className="workspace-primary-button" disabled={saving}>{saving ? 'Guardando…' : 'Guardar cambios'}</button>
           </div>
         </form>
