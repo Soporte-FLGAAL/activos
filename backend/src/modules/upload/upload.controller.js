@@ -14,8 +14,23 @@ exports.subir = async (req, res, next) => {
   }
 
   // 1. Determinar carpeta (Ahora req.body.tipo YA ESTÁ DISPONIBLE)
-  const tipoSolicitado = req.body.tipo;
-  const tipo = CARPETAS_PERMITIDAS.has(tipoSolicitado) ? tipoSolicitado : 'Polizas';
+  const tipoSolicitado = String(req.body.tipo || '').trim();
+  const aliasCarpetas = {
+    factura: 'Facturas',
+    verificacion_mecanica: 'Verificaciones',
+    verificacion_contaminantes: 'Verificaciones',
+    detalle_placa: 'Placas',
+    tarjeta: 'Tarjetas',
+    tarjeta_reposicion: 'Tarjetas',
+    doble_articulado: 'Doble_articulado',
+    sict: 'SICT',
+    poliza: 'Polizas',
+    endoso: 'Polizas',
+    inciso: 'Polizas',
+  };
+  const tipo = CARPETAS_PERMITIDAS.has(tipoSolicitado)
+    ? tipoSolicitado
+    : (aliasCarpetas[tipoSolicitado.toLowerCase()] || 'Polizas');
   
   const dir = path.join(env.STORAGE_PATH, tipo);
   if (!fs.existsSync(dir)) {
@@ -35,7 +50,13 @@ exports.subir = async (req, res, next) => {
   } else if (tipo === 'Verificaciones') {
     const { noEconomico, verificacionTipo } = req.body;
     if (!noEconomico) return error(res, 'Falta noEconomico', 400);
-    nombreBase = `${noEconomico}_${verificacionTipo || 'mecanica'}`;
+    const tipoVerificacion = String(verificacionTipo || 'mecanica').trim().toLowerCase();
+    if (!['mecanica', 'contaminantes'].includes(tipoVerificacion)) {
+      return error(res, 'El tipo de verificación debe ser mecanica o contaminantes', 400);
+    }
+    const nombreSeguro = String(noEconomico).trim().replace(/[^a-zA-Z0-9_-]/g, '_');
+    if (!nombreSeguro) return error(res, 'El número económico es inválido', 400);
+    nombreBase = `${nombreSeguro}_${tipoVerificacion}`;
   } else {
     const { identificador } = req.body;
     const uuid = require('crypto').randomUUID();
