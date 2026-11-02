@@ -107,7 +107,8 @@ function GeneralSection({ unit, cards }) {
     ['NO TC', firstCard?.TC_tarjeta],
     ['PROPIETARIO', unit.propietario_nombre],
     ['MARCA', unit.Uni_marca],
-    ['MODELO', unit.Uni_anio_modelo || unit.Uni_modelo],
+    ['MODELO', unit.Uni_modelo],
+    ['AÑO MODELO', unit.Uni_anio_modelo],
   ];
   const extra = [
     ['No. económico', unit.Uni_no_economico],
