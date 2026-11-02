@@ -23,7 +23,8 @@ function UnitCard({ unit, card, onOpen, onEdit, onDelete, canEdit, canDelete, de
         <div className="unit-card-field"><span><ClipboardList size={14} /> No. T.C.</span><strong>{card?.TC_tarjeta || '—'}</strong></div>
         <div className="unit-card-field"><span><Shield size={14} /> Propietario</span><strong title={unit.propietario_nombre || ''}>{unit.propietario_nombre || '—'}</strong></div>
         <div className="unit-card-field"><span><Box size={14} /> Marca</span><strong>{unit.Uni_marca || '—'}</strong></div>
-        <div className="unit-card-field"><span><Box size={14} /> Modelo</span><strong>{unit.Uni_anio_modelo || unit.Uni_modelo || '—'}</strong></div>
+        <div className="unit-card-field"><span><Box size={14} /> Modelo</span><strong>{unit.Uni_modelo || '—'}</strong></div>
+        <div className="unit-card-field"><span><Box size={14} /> Año modelo</span><strong>{unit.Uni_anio_modelo || '—'}</strong></div>
         {unitStatus(unit) && <div className={`unit-status ${unitStatus(unit) === 'ALTA' ? 'is-active' : 'is-inactive'}`}>{unitStatus(unit) === 'ALTA' ? 'Activa' : 'Baja'}</div>}
       </button>
       {(canEdit || canDelete) && <div className="unit-card-actions">
