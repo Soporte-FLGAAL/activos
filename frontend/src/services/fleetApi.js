@@ -29,6 +29,8 @@ async function getList(path, filters = {}, options = {}) {
 }
 export function getCirculationCards(filters = {}, options = {}) { return getList('/tarjetas', filters, options); }
 export function getPlates(filters = {}, options = {}) { return getList('/placas', filters, options); }
+export async function getPlatePage(filters = {}, options = {}) { return normalizePage(await apiRequest(`/placas?${toQuery({ page: 1, limit: 20, ...filters })}`, options), Number(filters.limit || 20)); }
+export async function getCardPage(filters = {}, options = {}) { return normalizePage(await apiRequest(`/tarjetas?${toQuery({ page: 1, limit: 20, ...filters })}`, options), Number(filters.limit || 20)); }
 export function getPlateMovements(filters = {}, options = {}) { return getList('/detalle-placas', filters, options); }
 export function getPlateMovementTypes(options = {}) { return getList('/catalogos/tipo-movimiento-placa', {}, options); }
 export function getCardTypes(options = {}) { return getList('/catalogos/tipo-tarjeta', {}, options); }

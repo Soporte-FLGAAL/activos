@@ -6,7 +6,7 @@ import ProtectedDocumentLink from '../components/ProtectedDocumentLink';
 import { useAuth } from '../context/AuthContext';
 import { uploadDocument } from '../services/creationApi';
 import { apiRequest } from '../services/apiClient';
-import { createCard, createPlate, createPlateMovement, deleteCard, deletePlate, getCardTypes, getCirculationCards, getPlateMovementTypes, getPlateMovements, getPlates, getUnits, updateCard, updatePlate } from '../services/fleetApi';
+import { createCard, createPlate, createPlateMovement, deleteCard, deletePlate, getCardTypes, getCirculationCards, getPlateMovementTypes, getPlateMovements, getPlatePage, getCardPage, getUnits, updateCard, updatePlate } from '../services/fleetApi';
 import '../styles/create-record.css';
 
 const emptyPlate = { placas: '', status: 'ACTIVA', propietarioId: '' };
@@ -55,7 +55,7 @@ function CardRecord({ card, canEdit, canDelete, onEdit, onDelete }) {
 export default function PlatesCardsPage() {
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
-  const { activeCompany, isAdminGlobal, can } = useAuth();
+  const { activeCompany, companies, isAdminGlobal, can } = useAuth();
   const [tab, setTab] = useState(params.get('tipo') === 'tarjetas' ? 'tarjetas' : 'placas');
   const [plates, setPlates] = useState([]);
   const [cards, setCards] = useState([]);
@@ -96,8 +96,8 @@ export default function PlatesCardsPage() {
     try {
       const filters = { page, limit: 20, ...(search.trim() ? { search: search.trim() } : {}), ...(status ? { status } : {}) };
       const [result, moveResult] = tab === 'placas'
-        ? await Promise.all([getPlates(filters, { signal }), getPlateMovements({ page: 1, limit: 1000 }, { signal })])
-        : [await getCirculationCards(filters, { signal }), null];
+        ? await Promise.all([getPlatePage(filters, { signal }), getPlateMovements({ page: 1, limit: 1000 }, { signal })])
+        : [await getCardPage(filters, { signal }), null];
       if (tab === 'placas') {
         setPlates(result.items); setPagination(result.pagination); setMovements(moveResult.items);
       } else { setCards(result.items); setPagination(result.pagination); }
@@ -147,12 +147,15 @@ export default function PlatesCardsPage() {
     try {
       if (editor.type === 'placas') {
         const payload = { placas: form.placas.trim(), status: form.status.trim(), propietarioId: form.propietarioId ? Number(form.propietarioId) : null, empresaActualId: Number(activeCompany?.id || form.empresaActualId) };
+        if (!payload.empresaActualId) throw new Error('Selecciona la empresa actual de la placa.');
         if (editor.id) await updatePlate(editor.id, payload);
         else await createPlate(payload);
       } else {
         let doc = null; let replacement = null;
-        if (cardFile) { doc = await uploadDocument(cardFile, 'tarjeta', activeCompany?.id); uploaded.push(doc); }
-        if (replacementFile) { replacement = await uploadDocument(replacementFile, 'tarjeta_reposicion', activeCompany?.id); uploaded.push(replacement); }
+        const selectedUnit = units.find((u) => Number(u.Uni_id) === Number(form.unidadId));
+        const uploadCompanyId = selectedUnit?.Uni_empresa_actual || activeCompany?.id;
+        if (cardFile) { doc = await uploadDocument(cardFile, 'tarjeta', uploadCompanyId); uploaded.push(doc); }
+        if (replacementFile) { replacement = await uploadDocument(replacementFile, 'tarjeta_reposicion', uploadCompanyId); uploaded.push(replacement); }
         const payload = {
           tarjeta: form.tarjeta.trim(), unidadId: Number(form.unidadId), costo: Number(form.costo), tipoId: Number(form.tipoId),
           status: form.status, noOriginal: form.noOriginal.trim() || null, placasId: Number(form.placasId),
@@ -161,6 +164,7 @@ export default function PlatesCardsPage() {
           ...(doc ? { url: doc.url } : {}), ...(replacement ? { urlReposicion: replacement.url } : {}),
         };
         if (!editor.id && !doc) throw new Error('Adjunta el documento de la tarjeta de circulación.');
+        if (!uploadCompanyId) throw new Error('No se pudo determinar la empresa de la unidad seleccionada.');
         if (editor.id) await updateCard(editor.id, payload); else await createCard(payload);
       }
       setEditor(null); setSuccess(editor.id ? 'Registro actualizado correctamente.' : 'Registro creado correctamente.');
@@ -229,6 +233,7 @@ export default function PlatesCardsPage() {
       <button className="workspace-modal-close" type="button" onClick={() => setEditor(null)}><X size={18}/></button>
       <h2>{editor.id ? 'Editar' : 'Crear'} {editor.type === 'placas' ? 'placa' : 'tarjeta de circulación'}</h2>
       {editor.type === 'placas' ? <>
+        {isAdminGlobal && !activeCompany?.id && <Field label="Empresa actual" required><select required value={form.empresaActualId || ''} onChange={(e) => setForm((v) => ({...v, empresaActualId:e.target.value}))}><option value="">Selecciona empresa</option>{companies.map((c)=><option key={c.id} value={c.id}>{c.name}</option>)}</select></Field>}
         <Field label="Número de placas" required><input value={form.placas || ''} maxLength={10} required onChange={(e) => setForm((v) => ({...v, placas:e.target.value}))}/></Field>
         <Field label="Estatus" required><input value={form.status || ''} maxLength={20} required onChange={(e) => setForm((v) => ({...v,status:e.target.value}))}/></Field>
         {isAdminGlobal && <Field label="Propietario"><select value={form.propietarioId || ''} onChange={(e) => setForm((v) => ({...v,propietarioId:e.target.value}))}><option value="">Sin propietario</option>{(activeCompany ? [{id:activeCompany.id,name:activeCompany.name}] : []).map((c)=><option key={c.id} value={c.id}>{c.name}</option>)}</select></Field>}
