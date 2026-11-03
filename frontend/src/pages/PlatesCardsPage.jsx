@@ -5,7 +5,7 @@ import WorkspaceLayout from '../components/WorkspaceLayout';
 import ProtectedDocumentLink from '../components/ProtectedDocumentLink';
 import { useAuth } from '../context/AuthContext';
 import { deleteUploadedDocument, uploadDocument } from '../services/creationApi';
-import { createCard, createPlate, createPlateMovement, deleteCard, deletePlate, getCardTypes, getPlateMovementTypes, getPlateMovements, getPlatePage, getCardPage, getUnits, updateCard, updatePlate } from '../services/fleetApi';
+import { createCard, createPlate, createPlateMovement, deleteCard, deletePlate, getCardTypes, getPlateMovementTypes, getPlateMovements, getPlatePage, getCardPage, getPlates, getUnits, updateCard, updatePlate } from '../services/fleetApi';
 import '../styles/create-record.css';
 
 const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
@@ -132,7 +132,7 @@ export default function PlatesCardsPage() {
   function changeTab(next) { if ((next === 'placas' && !canReadPlates) || (next === 'tarjetas' && !canReadCards)) return; setTab(next); setParams({ tipo: next }); setPage(1); setSearch(''); setStatus(''); setEditor(null); setSuccess(''); setError(''); }
   function beginCreate() {
     setError(''); setSuccess('');
-    setForm(tab === 'placas' ? { ...emptyPlate(), empresaActualId: activeCompany?.id || '' } : { ...emptyCard() });
+    setForm(tab === 'placas' ? { ...emptyPlate, empresaActualId: activeCompany?.id || '' } : { ...emptyCard() });
     setEditor({ type: tab, id: null });
     setCardFile(null); setReplacementFile(null); setMovementFile(null);
   }
