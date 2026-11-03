@@ -5,7 +5,7 @@ import WorkspaceLayout from '../components/WorkspaceLayout';
 import ProtectedDocumentLink from '../components/ProtectedDocumentLink';
 import { useAuth } from '../context/AuthContext';
 import { deleteUploadedDocument, uploadDocument } from '../services/creationApi';
-import { createCard, createPlate, createPlateMovement, deleteCard, deletePlate, getCardTypes, getPlateMovementTypes, getPlateMovements, getPlatePage, getCardPage, getUnits, updateCard, updatePlate } from '../services/fleetApi';
+import { createCard, createPlate, createPlateMovement, deleteCard, deletePlate, getCardTypes, getPlateMovementTypes, getPlateMovements, getPlatePage, getCardPage, getPlates, getUnits, updateCard, updatePlate } from '../services/fleetApi';
 import '../styles/create-record.css';
 
 const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
