@@ -3,8 +3,9 @@ import { ArrowLeft, BadgeCheck, CheckCircle2, CircleAlert, ClipboardList, FileTe
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import WorkspaceLayout from '../components/WorkspaceLayout';
 import { useAuth } from '../context/AuthContext';
-import { listRecords, uploadDocument } from '../services/creationApi';
+import { deleteUploadedDocument, listRecords, uploadDocument } from '../services/creationApi';
 import { apiRequest } from '../services/apiClient';
+import ProtectedDocumentLink from '../components/ProtectedDocumentLink';
 import { getUnitById, updateUnit } from '../services/fleetApi';
 import '../styles/create-record.css';
 
@@ -69,9 +70,26 @@ function SectionTitle({ icon: Icon = ClipboardList, title, subtitle }) {
 }
 
 function ExistingFile({ label, url, file, onChange }) {
-  return <Field label={label} hint={file?.name || (url ? 'Ya existe un documento asociado. Déjalo vacío para conservarlo.' : 'No hay un documento asociado.')}>
-    <input className="create-file-input" type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" onChange={(event) => onChange(event.target.files?.[0] || null)} />
-  </Field>;
+  return (
+    <Field
+      label={`Reemplazar ${label.toLowerCase()}`}
+      hint={file?.name || (url
+        ? 'Selecciona otro archivo para reemplazarlo; si no seleccionas uno, se conserva el actual.'
+        : 'No hay documento actual. Selecciona un archivo para adjuntarlo.')}
+    >
+      <div className="unit-file-input-control">
+        {url
+          ? <ProtectedDocumentLink href={url}>Ver documento actual</ProtectedDocumentLink>
+          : <span className="unit-file-no-document">Sin documento actual</span>}
+        <input
+          className="create-file-input"
+          type="file"
+          accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
+          onChange={(event) => onChange(event.target.files?.[0] || null)}
+        />
+      </div>
+    </Field>
+  );
 }
 
 function absoluteFileUrl(uploaded) {
@@ -94,6 +112,9 @@ function RelatedRecordEditor({ record, title, fields, canEdit, onSave, companyId
     setSaving(true);
     setError('');
     const payload = {};
+    const uploadedFiles = [];
+    const replacedDocumentUrls = [];
+
     fields.filter((field) => field.type !== 'file').forEach((field) => {
       const value = values[field.key] ?? '';
       if (field.serialize === 'number') payload[field.key] = value === '' ? null : Number(value);
@@ -106,15 +127,30 @@ function RelatedRecordEditor({ record, title, fields, canEdit, onSave, companyId
       for (const field of fields.filter((item) => item.type === 'file')) {
         const selectedFile = files[field.key];
         if (!selectedFile) continue;
+
         const uploaded = await uploadDocument(selectedFile, field.uploadType, companyId, {
           metadata: field.metadata || {},
         });
+        uploadedFiles.push(uploaded);
         payload[field.key] = absoluteFileUrl(uploaded);
+
+        const previousUrl = record?.[field.source];
+        if (previousUrl && previousUrl !== uploaded.url) replacedDocumentUrls.push(previousUrl);
       }
+
       await onSave(payload);
       setEditing(false);
       setFiles({});
+
+      // The server removes an old file only when no other record references it.
+      await Promise.allSettled(
+        replacedDocumentUrls.map((url) => deleteUploadedDocument(url, companyId))
+      );
     } catch (requestError) {
+      // A failed save must not leave newly uploaded, unreferenced files behind.
+      await Promise.allSettled(
+        uploadedFiles.map((uploaded) => deleteUploadedDocument(uploaded.url, companyId))
+      );
       setError(requestError.message || 'No se pudo actualizar el registro.');
     } finally {
       setSaving(false);
@@ -130,9 +166,23 @@ function RelatedRecordEditor({ record, title, fields, canEdit, onSave, companyId
       {editing ? (
         <form onSubmit={submit}>
           <div className="create-form-grid unit-related-fields">
-            {fields.map((field) => <Field key={field.key} label={field.label} required={field.required} hint={field.type === 'file' ? (files[field.key]?.name || (record?.[field.source] ? 'Documento existente. Déjalo vacío para conservarlo.' : 'No hay documento adjunto.')) : undefined}>
+            {fields.map((field) => <Field
+              key={field.key}
+              label={field.type === 'file' ? 'Documento' : field.label}
+              required={field.required}
+              hint={field.type === 'file'
+                ? (files[field.key]?.name || (record?.[field.source]
+                  ? 'El documento actual se conserva si no seleccionas otro archivo.'
+                  : 'No hay documento actual; selecciona uno para adjuntarlo.'))
+                : undefined}
+            >
               {field.type === 'file'
-                ? <input className="create-file-input" type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" onChange={(event) => setFiles((current) => ({ ...current, [field.key]: event.target.files?.[0] || null }))} />
+                ? <div className="unit-file-input-control">
+                    {record?.[field.source]
+                      ? <ProtectedDocumentLink href={record[field.source]}>Ver documento actual</ProtectedDocumentLink>
+                      : <span className="unit-file-no-document">Sin documento actual</span>}
+                    <input className="create-file-input" type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" onChange={(event) => setFiles((current) => ({ ...current, [field.key]: event.target.files?.[0] || null }))} />
+                  </div>
                 : field.options
                   ? <SelectInput value={values[field.key]} onChange={(value) => setValues((current) => ({ ...current, [field.key]: value }))} options={values[field.key] && !field.options.some((option) => String(option.value) === String(values[field.key])) ? [{ value: String(values[field.key]), label: `Actual (${values[field.key]})` }, ...field.options] : field.options} required={field.required} />
                   : <TextInput type={field.type || 'text'} value={values[field.key]} onChange={(value) => setValues((current) => ({ ...current, [field.key]: value }))} required={field.required} min={field.min} max={field.max} maxLength={field.maxLength} step={field.step} />}
@@ -146,7 +196,9 @@ function RelatedRecordEditor({ record, title, fields, canEdit, onSave, companyId
         </form>
       ) : (
         <dl className="unit-related-summary">
-          {fields.map((field) => <div key={field.key}><dt>{field.label}</dt><dd>{field.type === 'file' ? (record?.[field.source] ? 'Documento adjunto' : 'Sin documento') : record?.[field.source] == null || record?.[field.source] === '' ? '—' : (field.type === 'date' ? todayValue(record[field.source]) : String(record[field.source]))}</dd></div>)}
+          {fields.map((field) => <div key={field.key}><dt>{field.label}</dt><dd>{field.type === 'file'
+                  ? (record?.[field.source] ? <ProtectedDocumentLink href={record[field.source]}>Ver documento actual</ProtectedDocumentLink> : 'Sin documento')
+                  : record?.[field.source] == null || record?.[field.source] === '' ? '—' : (field.type === 'date' ? todayValue(record[field.source]) : String(record[field.source]))}</dd></div>)}
         </dl>
       )}
     </article>
@@ -332,13 +384,38 @@ export default function UnitEditPage() {
     setSuccess('');
     if (!form || !unit) return;
     setSubmitting(true);
+
+    const companyId = activeCompany?.id ?? unit?.Uni_empresa_actual;
+    const uploadedFiles = [];
+    const replacedDocumentUrls = [];
+
     try {
       const noEconomico = form.noEconomico.trim();
-      const [invoice, mechanical, contaminants] = await Promise.all([
-        uploadReplacement(files.invoice, 'factura', { identificador: noEconomico }),
-        uploadReplacement(files.mechanical, 'verificacion_mecanica', { noEconomico, verificacionTipo: 'mecanica' }),
-        uploadReplacement(files.contaminants, 'verificacion_contaminantes', { noEconomico, verificacionTipo: 'contaminantes' }),
-      ]);
+
+      // Sequential uploads let us clean every file successfully uploaded before a later failure.
+      const invoice = files.invoice
+        ? await uploadReplacement(files.invoice, 'factura', { identificador: noEconomico })
+        : null;
+      if (invoice) {
+        uploadedFiles.push(invoice);
+        if (unit.Uni_factura_url) replacedDocumentUrls.push(unit.Uni_factura_url);
+      }
+
+      const mechanical = files.mechanical
+        ? await uploadReplacement(files.mechanical, 'verificacion_mecanica', { noEconomico, verificacionTipo: 'mecanica' })
+        : null;
+      if (mechanical) {
+        uploadedFiles.push(mechanical);
+        if (unit.Uni_url_verificacion_mecanica) replacedDocumentUrls.push(unit.Uni_url_verificacion_mecanica);
+      }
+
+      const contaminants = files.contaminants
+        ? await uploadReplacement(files.contaminants, 'verificacion_contaminantes', { noEconomico, verificacionTipo: 'contaminantes' })
+        : null;
+      if (contaminants) {
+        uploadedFiles.push(contaminants);
+        if (unit.Uni_url_verificacion_contaminantes) replacedDocumentUrls.push(unit.Uni_url_verificacion_contaminantes);
+      }
 
       const payload = {
         noEconomico,
@@ -397,7 +474,16 @@ export default function UnitEditPage() {
         ...(contaminants ? { Uni_url_verificacion_contaminantes: payload.urlVerificacionContaminantes } : {}),
       }));
       setFiles({ invoice: null, mechanical: null, contaminants: null });
+
+      // A shared file remains untouched while any unit, card, policy or permit refers to it.
+      await Promise.allSettled(
+        replacedDocumentUrls.map((url) => deleteUploadedDocument(url, companyId))
+      );
     } catch (requestError) {
+      // Remove only the uploads from this failed operation; the server checks references first.
+      await Promise.allSettled(
+        uploadedFiles.map((uploaded) => deleteUploadedDocument(uploaded.url, companyId))
+      );
       setError(requestError.message || 'No fue posible actualizar la unidad.');
     } finally {
       setSubmitting(false);
