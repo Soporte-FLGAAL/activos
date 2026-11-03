@@ -1,5 +1,5 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
-import { AuthProvider, useAuth } from './context/AuthContext';
+import { AuthProvider } from './context/AuthContext';
 import { RequireAuth } from './routes/RequireAuth';
 import { RequireGlobalAdmin } from './routes/RequireGlobalAdmin';
 import LoginPage from './pages/LoginPage';
@@ -16,6 +16,7 @@ import UsersAdminPage from './pages/UsersAdminPage';
 import RolesAdminPage from './pages/RolesAdminPage';
 import InsurersAdminPage from './pages/InsurersAdminPage';
 import RolePermissionsAdminPage from './pages/RolePermissionsAdminPage';
+import PlatesCardsPage from './pages/PlatesCardsPage';
 import { CatalogRegistryPage } from './pages/DataRegistryPage';
 import NoCompaniesPage from './pages/NoCompaniesPage';
 import './styles/auth.css';
@@ -27,45 +28,36 @@ function StartRedirect() {
   if (!companies.length) return <Navigate to="/sin-empresas" replace />;
   return <Navigate to="/app" replace />;
 }
-
 function AppRoutes() {
-  return (
-    <Routes>
-      <Route path="/" element={<StartRedirect />} />
-      <Route path="/login" element={<LoginPage />} />
-      <Route element={<RequireAuth needsCompany={false} />}>
-        <Route path="/app" element={<AppHome />} />
-        <Route path="/seleccionar-empresa" element={<CompanySelectorPage />} />
-        <Route path="/sin-empresas" element={<NoCompaniesPage />} />
-        <Route path="/catalogos" element={<CatalogsPage />} />
-        <Route path="/catalogos/:catalogKey" element={<CatalogRegistryPage />} />
-      </Route>
-      <Route element={<RequireGlobalAdmin />}>
-        <Route path="/administracion" element={<AdministrationPage />} />
-        <Route path="/administracion/usuarios" element={<UsersAdminPage />} />
-        <Route path="/administracion/roles" element={<RolesAdminPage />} />
-        <Route path="/administracion/aseguradoras" element={<InsurersAdminPage />} />
-        <Route path="/administracion/rol-permisos" element={<RolePermissionsAdminPage />} />
-        <Route path="/administracion/:directoryKey" element={<AdminDirectoryPage />} />
-      </Route>
-      <Route element={<RequireAuth needsCompany /> }>
-        <Route path="/aseguradoras" element={<InsurersAdminPage />} />
-        <Route path="/unidades" element={<UnitsPage />} />
-        <Route path="/unidades/alta" element={<CreateRecordPage />} />
-        <Route path="/unidades/:id/editar" element={<UnitEditPage />} />
-        <Route path="/unidades/:id" element={<UnitDetailPage />} />
-      </Route>
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
-  );
+  return <Routes>
+    <Route path="/" element={<StartRedirect />} />
+    <Route path="/login" element={<LoginPage />} />
+    <Route element={<RequireAuth needsCompany={false} />}>
+      <Route path="/app" element={<AppHome />} />
+      <Route path="/seleccionar-empresa" element={<CompanySelectorPage />} />
+      <Route path="/sin-empresas" element={<NoCompaniesPage />} />
+      <Route path="/catalogos" element={<CatalogsPage />} />
+      <Route path="/catalogos/:catalogKey" element={<CatalogRegistryPage />} />
+    </Route>
+    <Route element={<RequireGlobalAdmin />}>
+      <Route path="/administracion" element={<AdministrationPage />} />
+      <Route path="/administracion/usuarios" element={<UsersAdminPage />} />
+      <Route path="/administracion/roles" element={<RolesAdminPage />} />
+      <Route path="/administracion/aseguradoras" element={<InsurersAdminPage />} />
+      <Route path="/administracion/rol-permisos" element={<RolePermissionsAdminPage />} />
+      <Route path="/administracion/:directoryKey" element={<AdminDirectoryPage />} />
+    </Route>
+    <Route element={<RequireAuth needsCompany />}>
+      <Route path="/aseguradoras" element={<InsurersAdminPage />} />
+      <Route path="/unidades" element={<UnitsPage />} />
+      <Route path="/unidades/alta" element={<CreateRecordPage />} />
+      <Route path="/unidades/:id/editar" element={<UnitEditPage />} />
+      <Route path="/unidades/:id" element={<UnitDetailPage />} />
+      <Route path="/placas-tarjetas" element={<PlatesCardsPage />} />
+    </Route>
+    <Route path="*" element={<Navigate to="/" replace />} />
+  </Routes>;
 }
-
 export default function App() {
-  return (
-    <BrowserRouter>
-      <AuthProvider>
-        <AppRoutes />
-      </AuthProvider>
-    </BrowserRouter>
-  );
+  return <BrowserRouter><AuthProvider><AppRoutes /></AuthProvider></BrowserRouter>;
 }

@@ -4,8 +4,11 @@ const { paginate } = require('../../utils/pagination');
 
 exports.listar = async (req, res, next) => {
   try {
+    const q = req.validatedQuery || {};
     const filtros = {
-      empresaId: req.empresaId || null,
+      empresaId: req.esAdminGlobal ? (q.empresaId || null) : req.empresaId,
+      status: q.status || null,
+      search: q.search || null,
     };
     const resultado = await paginate(
       (f) => placasService.listar(f),
@@ -21,7 +24,8 @@ exports.listar = async (req, res, next) => {
 
 exports.obtener = async (req, res, next) => {
   try {
-    const placa = await placasService.obtener(req.params.id, req.empresaId);
+    const empresaId = req.esAdminGlobal ? null : req.empresaId;
+    const placa = await placasService.obtener(req.params.id, empresaId);
     return success(res, placa, 'Placa encontrada');
   } catch (err) {
     next(err);
@@ -30,8 +34,6 @@ exports.obtener = async (req, res, next) => {
 
 exports.crear = async (req, res, next) => {
   try {
-    // En creación, se asume que empresaActualId viene en el body
-    // Podríamos forzar que sea req.empresaId si queremos restringir
     const nueva = await placasService.crear(req.body, req.user.userId, req.empresaId, req.esAdminGlobal);
     return success(res, nueva, 'Placa creada', 201);
   } catch (err) {
@@ -73,7 +75,7 @@ exports.actualizar = async (req, res, next) => {
       req.params.id,
       req.body,
       req.user.userId,
-      empresaId 
+      empresaId
     );
     return success(res, actualizada, 'Placa actualizada');
   } catch (err) {
@@ -84,11 +86,7 @@ exports.actualizar = async (req, res, next) => {
 exports.eliminar = async (req, res, next) => {
   try {
     const empresaId = req.esAdminGlobal ? null : req.empresaId;
-    await placasService.eliminar(
-      req.params.id,
-      req.user.userId,
-      empresaId
-    );
+    await placasService.eliminar(req.params.id, req.user.userId, empresaId);
     return success(res, null, 'Placa eliminada');
   } catch (err) {
     next(err);
