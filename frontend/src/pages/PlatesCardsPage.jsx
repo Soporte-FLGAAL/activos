@@ -91,6 +91,7 @@ export default function PlatesCardsPage() {
   const canCreateCards = isAdminGlobal || can('tarjetas:crear');
   const canCreateMovement = isAdminGlobal || can('detalle_placas:crear');
   const canReadMovements = isAdminGlobal || can('detalle_placas:ver');
+  const canReadUnits = isAdminGlobal || can('unidades:ver');
 
   const load = useCallback(async (signal) => {
     setLoading(true); setError('');
@@ -109,7 +110,7 @@ export default function PlatesCardsPage() {
   useEffect(() => { const controller = new AbortController(); load(controller.signal); return () => controller.abort(); }, [load]);
   useEffect(() => {
     const controller = new AbortController();
-    Promise.all([getUnits({ page: 1, limit: 1000, ...(isAdminGlobal && activeCompany?.id ? { empresaId: activeCompany.id } : {}) }, { signal: controller.signal }), getPlates({ page: 1, limit: 1000, ...(isAdminGlobal && activeCompany?.id ? { empresaId: activeCompany.id } : {}) }, { signal: controller.signal }), (canCreateMovement || canReadMovements) ? getPlateMovementTypes({ signal: controller.signal }) : Promise.resolve([]), (canReadCards || canCreateCards || canEditCards) ? getCardTypes({ signal: controller.signal }) : Promise.resolve([])])
+    Promise.all([canReadUnits ? getUnits({ page: 1, limit: 1000, ...(isAdminGlobal && activeCompany?.id ? { empresaId: activeCompany.id } : {}) }, { signal: controller.signal }) : Promise.resolve({ items: [] }), canReadPlates ? getPlates({ page: 1, limit: 1000, ...(isAdminGlobal && activeCompany?.id ? { empresaId: activeCompany.id } : {}) }, { signal: controller.signal }) : Promise.resolve([]), (canCreateMovement || canReadMovements) ? getPlateMovementTypes({ signal: controller.signal }) : Promise.resolve([]), (canReadCards || canCreateCards || canEditCards) ? getCardTypes({ signal: controller.signal }) : Promise.resolve([])])
       .then(([unitResult, allPlateRows, moveOptions, cardOptions]) => {
         setUnits(unitResult.items);
         setAllPlates(allPlateRows);
@@ -118,7 +119,7 @@ export default function PlatesCardsPage() {
       })
       .catch((err) => { if (err.name !== 'AbortError') setLookupError(err.message || 'No se pudieron cargar catálogos.'); });
     return () => controller.abort();
-  }, [activeCompany?.id, isAdminGlobal, canCreateMovement, canReadMovements, canReadCards, canCreateCards, canEditCards]);
+  }, [activeCompany?.id, isAdminGlobal, canCreateMovement, canReadMovements, canReadCards, canCreateCards, canEditCards, canReadUnits, canReadPlates]);
 
   const plateOptions = useMemo(() => allPlates.map((p) => ({ value: String(p.Pla_id), label: p.Pla_placas })), [plates]);
   const unitOptions = useMemo(() => units.map((u) => ({ value: String(u.Uni_id), label: `${u.Uni_no_economico} · ${u.Uni_marca || ''} ${u.Uni_modelo || ''}` })), [units]);
