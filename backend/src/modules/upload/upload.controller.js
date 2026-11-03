@@ -235,8 +235,8 @@ exports.eliminar = async (req, res, next) => {
     const permisosPorTipo = {
       Facturas: ['unidades:crear', 'unidades:editar'],
       Verificaciones: ['unidades:crear', 'unidades:editar'],
-      Placas: ['detalle_placas:crear', 'detalle_placas:editar'],
-      Tarjetas: ['tarjetas:crear', 'tarjetas:editar'],
+      Placas: ['detalle_placas:crear', 'detalle_placas:editar', 'unidades:editar'],
+      Tarjetas: ['tarjetas:crear', 'tarjetas:editar', 'unidades:editar'],
       Polizas: ['polizas:editar', 'endosos:editar', 'incisos:editar'],
       Doble_articulado: ['permisos_especiales:editar'],
       SICT: ['sict:editar'],

@@ -313,7 +313,7 @@ export default function UnitEditPage() {
       setRelatedError('');
       const warnings = [];
       const getRows = async (endpoint, filters, permission) => {
-        if (!isAdminGlobal && !can(permission)) return [];
+        if (!isAdminGlobal && !can(permission) && !(permissionFallbacks[permission] && can(permissionFallbacks[permission]))) return [];
         try {
           const result = await listRecords(endpoint, { limit: 200, ...filters }, { signal: controller.signal });
           return result.items;
@@ -335,10 +335,10 @@ export default function UnitEditPage() {
         const plateIds = [...new Set(cards.map((row) => Number(row.TC_placas_id)).filter((value) => Number.isSafeInteger(value) && value > 0))];
         let plates = [];
         let movements = [];
-        if (plateIds.length && (isAdminGlobal || can('placas:ver'))) {
+        if (plateIds.length && (isAdminGlobal || can('placas:ver') || can('unidades:ver'))) {
           const allPlates = await getRows('/placas', {}, 'placas:ver');
           plates = allPlates.filter((plate) => plateIds.includes(Number(plate.Pla_id)));
-          if (isAdminGlobal || can('detalle_placas:ver')) {
+          if (isAdminGlobal || can('detalle_placas:ver') || can('unidades:ver')) {
             const movementGroups = await Promise.all(plates.map(async (plate) => getRows('/detalle-placas', { placasId: plate.Pla_id }, 'detalle_placas:ver')));
             movements = movementGroups.flat();
           }
@@ -528,7 +528,8 @@ export default function UnitEditPage() {
     }
   }
 
-  const hasReadPermission = (permission) => isAdminGlobal || can(permission);
+  const permissionFallbacks = { 'placas:ver': 'unidades:ver', 'tarjetas:ver': 'unidades:ver', 'detalle_placas:ver': 'unidades:ver', 'placas:editar': 'unidades:editar', 'tarjetas:editar': 'unidades:editar', 'detalle_placas:crear': 'unidades:editar', 'detalle_placas:editar': 'unidades:editar' };
+  const hasReadPermission = (permission) => isAdminGlobal || can(permission) || Boolean(permissionFallbacks[permission] && can(permissionFallbacks[permission]));
   const editorFor = (record, endpoint, recordId, title, fields, permission, forceGlobal = false) => (
     <RelatedRecordEditor
       key={`${endpoint}-${recordId}-${relatedRefresh}`}
@@ -627,7 +628,7 @@ export default function UnitEditPage() {
             { key: 'placas', source: 'Pla_placas', label: 'Número de placas', required: true, maxLength: 10 },
             { key: 'status', source: 'Pla_status', label: 'Estatus', required: true, maxLength: 20 },
           ], 'placas:editar')}
-          {(isAdminGlobal || can('detalle_placas:crear')) && <button type="button" className="workspace-secondary-button" onClick={() => { setNewMovementPlate(plate); setNewMovementForm({ tipoMovimientoId: '', costo: '0', fecha: todayValue(new Date()) }); setNewMovementFile(null); }}>Agregar movimiento a esta placa</button>}
+          {hasReadPermission('detalle_placas:crear') && <button type="button" className="workspace-secondary-button" onClick={() => { setNewMovementPlate(plate); setNewMovementForm({ tipoMovimientoId: '', costo: '0', fecha: todayValue(new Date()) }); setNewMovementFile(null); }}>Agregar movimiento a esta placa</button>}
         </div>)}
 
         {newMovementPlate && <form className="unit-related-record" onSubmit={saveNewPlateMovement}>
