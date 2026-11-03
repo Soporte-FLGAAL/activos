@@ -220,3 +220,76 @@ exports.descargar = async (req, res, next) => {
     fs.createReadStream(fullPath).pipe(res);
   } catch (err) { next(err); }
 };
+
+exports.eliminar = async (req, res, next) => {
+  try {
+    const uuid = String(req.params.uuid || '').trim().toLowerCase();
+    const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+    if (!uuidPattern.test(uuid)) {
+      return error(res, 'El identificador del archivo no es válido', 400);
+    }
+
+    const archivo = await uploadService.obtenerPorUuid(uuid);
+    if (!archivo) return error(res, 'Archivo no encontrado', 404);
+
+    const permisosPorTipo = {
+      Facturas: ['unidades:editar'],
+      Verificaciones: ['unidades:editar'],
+      Placas: ['detalle_placas:editar'],
+      Tarjetas: ['tarjetas:editar'],
+      Polizas: ['polizas:editar', 'endosos:editar', 'incisos:editar'],
+      Doble_articulado: ['permisos_especiales:editar'],
+      SICT: ['sict:editar'],
+    };
+    const permisosRequeridos = permisosPorTipo[archivo.Arc_tipo] || [];
+
+    if (!req.esAdminGlobal) {
+      if (!req.empresaId || Number(archivo.Arc_empresa) !== Number(req.empresaId)) {
+        return error(res, 'No tiene acceso a este archivo', 403);
+      }
+      if (permisosRequeridos.length === 0) {
+        return error(res, 'No hay permisos de edición configurados para este tipo de documento', 403);
+      }
+
+      const placeholders = permisosRequeridos.map(() => '?').join(', ');
+      const db = require('../../config/database');
+      const [permissions] = await db.query(
+        `SELECT LOWER(TRIM(p.PerM_nombre)) AS permiso
+         FROM Usuario_Empresas ue
+         JOIN Rol_Permisos rp ON ue.UE_rol = rp.RP_rol
+         JOIN Permisos p ON rp.RP_permiso = p.PerM_id
+         WHERE ue.UE_usuario = ? AND ue.UE_empresa = ?
+           AND LOWER(TRIM(p.PerM_nombre)) IN (${placeholders})`,
+        [req.user.userId, req.empresaId, ...permisosRequeridos]
+      );
+      if (permissions.length === 0) {
+        return error(res, 'No tienes permisos para reemplazar este documento', 403);
+      }
+    }
+
+    const result = await uploadService.eliminarSiNoReferenciado(
+      uuid,
+      req.empresaId,
+      req.esAdminGlobal,
+      req.user.userId
+    );
+
+    if (result.reason === 'not_found') return error(res, 'Archivo no encontrado', 404);
+    if (result.reason === 'forbidden') return error(res, 'No tiene acceso a este archivo', 403);
+    if (result.reason === 'referenced') {
+      return success(
+        res,
+        { deleted: false, referenced: true },
+        'El documento todavía está asociado a uno o más registros; se conservó.'
+      );
+    }
+
+    return success(
+      res,
+      { deleted: true, cleanupPending: Boolean(result.cleanupPending) },
+      'Archivo sin referencias eliminado'
+    );
+  } catch (err) {
+    next(err);
+  }
+};
