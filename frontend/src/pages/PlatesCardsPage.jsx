@@ -90,25 +90,26 @@ export default function PlatesCardsPage() {
   const canDeleteCards = isAdminGlobal || can('tarjetas:eliminar');
   const canCreateCards = isAdminGlobal || can('tarjetas:crear');
   const canCreateMovement = isAdminGlobal || can('detalle_placas:crear');
+  const canReadMovements = isAdminGlobal || can('detalle_placas:ver');
 
   const load = useCallback(async (signal) => {
     setLoading(true); setError('');
     try {
       const filters = { page, limit: 20, ...(isAdminGlobal && activeCompany?.id ? { empresaId: activeCompany.id } : {}), ...(search.trim() ? { search: search.trim() } : {}), ...(status ? { status } : {}) };
       const [result, moveResult] = tab === 'placas'
-        ? await Promise.all([getPlatePage(filters, { signal }), getPlateMovements({ page: 1, limit: 1000, ...(isAdminGlobal && activeCompany?.id ? { empresaId: activeCompany.id } : {}) }, { signal })])
+        ? await Promise.all([getPlatePage(filters, { signal }), canReadMovements ? getPlateMovements({ page: 1, limit: 1000, ...(isAdminGlobal && activeCompany?.id ? { empresaId: activeCompany.id } : {}) }, { signal }) : Promise.resolve({ items: [] })])
         : [await getCardPage(filters, { signal }), null];
       if (tab === 'placas') {
-        setPlates(result.items); setPagination(result.pagination); setMovements(moveResult.items);
+        setPlates(result.items); setPagination(result.pagination); setMovements(moveResult?.items || []);
       } else { setCards(result.items); setPagination(result.pagination); }
     } catch (err) { if (err.name !== 'AbortError') setError(err.message || 'No se pudieron cargar los registros.'); }
     finally { if (!signal?.aborted) setLoading(false); }
-  }, [tab, page, search, status, activeCompany?.id, isAdminGlobal]);
+  }, [tab, page, search, status, activeCompany?.id, isAdminGlobal, canReadMovements]);
 
   useEffect(() => { const controller = new AbortController(); load(controller.signal); return () => controller.abort(); }, [load]);
   useEffect(() => {
     const controller = new AbortController();
-    Promise.all([getUnits({ page: 1, limit: 1000, ...(isAdminGlobal && activeCompany?.id ? { empresaId: activeCompany.id } : {}) }, { signal: controller.signal }), getPlates({ page: 1, limit: 1000, ...(isAdminGlobal && activeCompany?.id ? { empresaId: activeCompany.id } : {}) }, { signal: controller.signal }), getPlateMovementTypes({ signal: controller.signal }), getCardTypes({ signal: controller.signal })])
+    Promise.all([getUnits({ page: 1, limit: 1000, ...(isAdminGlobal && activeCompany?.id ? { empresaId: activeCompany.id } : {}) }, { signal: controller.signal }), getPlates({ page: 1, limit: 1000, ...(isAdminGlobal && activeCompany?.id ? { empresaId: activeCompany.id } : {}) }, { signal: controller.signal }), (canCreateMovement || canReadMovements) ? getPlateMovementTypes({ signal: controller.signal }) : Promise.resolve([]), (canReadCards || canCreateCards || canEditCards) ? getCardTypes({ signal: controller.signal }) : Promise.resolve([])])
       .then(([unitResult, allPlateRows, moveOptions, cardOptions]) => {
         setUnits(unitResult.items);
         setAllPlates(allPlateRows);
@@ -117,7 +118,7 @@ export default function PlatesCardsPage() {
       })
       .catch((err) => { if (err.name !== 'AbortError') setLookupError(err.message || 'No se pudieron cargar catálogos.'); });
     return () => controller.abort();
-  }, [activeCompany?.id, isAdminGlobal]);
+  }, [activeCompany?.id, isAdminGlobal, canCreateMovement, canReadMovements, canReadCards, canCreateCards, canEditCards]);
 
   const plateOptions = useMemo(() => allPlates.map((p) => ({ value: String(p.Pla_id), label: p.Pla_placas })), [plates]);
   const unitOptions = useMemo(() => units.map((u) => ({ value: String(u.Uni_id), label: `${u.Uni_no_economico} · ${u.Uni_marca || ''} ${u.Uni_modelo || ''}` })), [units]);
