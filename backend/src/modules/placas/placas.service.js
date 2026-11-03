@@ -70,7 +70,19 @@ class PlacasService {
 
   async actualizarPlacaConMovimiento(idPlaca, dataPlaca, dataMovimiento, usuarioId, empresaId = null, esAdminGlobal = false) {
     const placaActual = await this.obtener(idPlaca, empresaId);
-    
+    if (dataPlaca?.propietarioId !== undefined) {
+      if (!esAdminGlobal) {
+        const error = new Error('Solo un administrador global puede cambiar el propietario de una placa');
+        error.status = 403;
+        throw error;
+      }
+      if (dataPlaca.propietarioId != null && !(await existeRegistro('Empresas', 'Emp_id', dataPlaca.propietarioId))) {
+        const error = new Error('El propietario no existe');
+        error.status = 422;
+        throw error;
+      }
+    }
+
     // Validar FK del movimiento
     if (!(await existeRegistro('Tipo_movimiento_placa', 'TpMP_id', dataMovimiento.tipoMovimientoId))) {
       const error = new Error('El tipo de movimiento no existe');
