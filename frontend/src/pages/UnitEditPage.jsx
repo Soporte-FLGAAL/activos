@@ -168,7 +168,7 @@ function RelatedRecordEditor({ record, title, fields, canEdit, onSave, companyId
           <div className="create-form-grid unit-related-fields">
             {fields.map((field) => <Field
               key={field.key}
-              label={field.type === 'file' ? 'Documento' : field.label}
+              label={field.type === 'file' ? 'Reemplazar documento' : field.label}
               required={field.required}
               hint={field.type === 'file'
                 ? (files[field.key]?.name || (record?.[field.source]
