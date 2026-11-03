@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, BadgeCheck, Building2, CheckCircle2, CircleAlert, ClipboardList, FileUp, Plus, ShieldAlert, ShieldCheck, Truck, X } from 'lucide-react';
+import { ArrowLeft, BadgeCheck, Building2, CheckCircle2, CircleAlert, ClipboardList, FileUp, Plus, ShieldCheck, Truck, X } from 'lucide-react';
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import WorkspaceLayout from '../components/WorkspaceLayout';
 import { useAuth } from '../context/AuthContext';
@@ -48,7 +48,7 @@ function FileField({ label, file, onChange, required = false, hint }) {
 export default function CreateRecordPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { activeCompany, companies, isAdminGlobal } = useAuth();
+  const { activeCompany, companies, isAdminGlobal, can } = useAuth();
   const tabs = useMemo(() => [
     { id: 'unidad', label: 'Unidad', icon: Truck },
     { id: 'placa', label: 'Placas', icon: BadgeCheck },
@@ -335,7 +335,6 @@ export default function CreateRecordPage() {
   async function handleCreateCard(event) {
     const formElement = event.currentTarget;
     event.preventDefault(); setPageError(''); setSuccessMessage('');
-    if (!isAdminGlobal) { setPageError('El backend actual permite crear tarjetas de circulación únicamente a ADMIN_GLOBAL.'); return; }
     if (!targetCompanyId) { setPageError('Selecciona la empresa de la unidad.'); return; }
     setSubmitting(true);
     try {
@@ -402,7 +401,7 @@ export default function CreateRecordPage() {
     finally { setSubmitting(false); }
   }
 
-  const canSubmitCard = isAdminGlobal && Boolean(targetCompanyId);
+  const canSubmitCard = (isAdminGlobal || can('tarjetas:crear')) && Boolean(targetCompanyId);
   const unitsOptions = useMemo(() => {
     const items = [...lookups.units];
     if (lastCreatedUnit && !items.some((item) => item.value === String(lastCreatedUnit.id))) items.unshift({ value: String(lastCreatedUnit.id), label: lastCreatedUnit.label });
@@ -522,7 +521,6 @@ export default function CreateRecordPage() {
 
       {activeTab === 'tarjeta' && <form className="create-record-form" onSubmit={handleCreateCard}>
         <SectionTitle icon={ClipboardList} title="Tarjeta de circulación" subtitle="Se vincula obligatoriamente a una unidad y una placa existentes." />
-        {!isAdminGlobal && <div className="create-alert is-warning"><ShieldAlert size={18} /><p>El backend actual permite crear y modificar tarjetas de circulación únicamente a ADMIN_GLOBAL. Puedes revisar esta sección, pero no enviar el formulario con otro rol.</p></div>}
         <div className="create-form-grid">
           <Field label="Unidad" required><SelectInput value={cardForm.unidadId} onChange={updateCard('unidadId')} required options={unitsOptions} disabled={loadingLookups || !targetCompanyId} /></Field>
           <Field label="Placas" required><SelectInput value={cardForm.placasId} onChange={updateCard('placasId')} required options={plateOptions} disabled={loadingLookups || !targetCompanyId} /></Field>

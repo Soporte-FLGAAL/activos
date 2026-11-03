@@ -233,10 +233,10 @@ exports.eliminar = async (req, res, next) => {
     if (!archivo) return error(res, 'Archivo no encontrado', 404);
 
     const permisosPorTipo = {
-      Facturas: ['unidades:editar'],
-      Verificaciones: ['unidades:editar'],
-      Placas: ['detalle_placas:editar'],
-      Tarjetas: ['tarjetas:editar'],
+      Facturas: ['unidades:crear', 'unidades:editar'],
+      Verificaciones: ['unidades:crear', 'unidades:editar'],
+      Placas: ['detalle_placas:crear', 'detalle_placas:editar'],
+      Tarjetas: ['tarjetas:crear', 'tarjetas:editar'],
       Polizas: ['polizas:editar', 'endosos:editar', 'incisos:editar'],
       Doble_articulado: ['permisos_especiales:editar'],
       SICT: ['sict:editar'],

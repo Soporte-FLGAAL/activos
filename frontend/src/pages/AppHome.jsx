@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Activity, ArrowUpRight, Building2, Database, Grid2X2, Info, List, Pencil, Plus, Settings, Trash2, TrendingUp, X } from 'lucide-react';
+import { Activity, ArrowUpRight, BadgeCheck, Building2, Database, Grid2X2, Info, List, Pencil, Plus, Settings, Trash2, TrendingUp, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import WorkspaceLayout from '../components/WorkspaceLayout';
 import { useAuth } from '../context/AuthContext';
@@ -252,6 +252,7 @@ export default function AppHome() {
         })}
         {isAdminGlobal && <button type="button" className="dashboard-shortcut-card add-company-card" onClick={beginCreateCompany}><span className="dashboard-shortcut-cover tone-red"><Plus size={34} strokeWidth={1.9} /><strong>Añadir empresa</strong></span><span className="dashboard-shortcut-body"><span><Building2 size={15} /> Nueva empresa</span><strong>Crear <ArrowUpRight size={15} /></strong></span></button>}
         {canAccessModule('catalogos:ver') && <button type="button" className="dashboard-shortcut-card" onClick={() => navigate('/catalogos')}><span className="dashboard-shortcut-cover tone-wine"><Database size={33} strokeWidth={1.7} /><strong>Catálogos</strong></span><span className="dashboard-shortcut-body"><span><Activity size={15} /> Datos compartidos</span><strong>Explorar <ArrowUpRight size={15} /></strong></span></button>}
+        {(canAccessModule('placas:ver') || canAccessModule('tarjetas:ver')) && <button type="button" className="dashboard-shortcut-card" onClick={() => navigate('/placas-tarjetas')}><span className="dashboard-shortcut-cover tone-wine"><BadgeCheck size={33} strokeWidth={1.7} /><strong>Placas y tarjetas</strong></span><span className="dashboard-shortcut-body"><span><Activity size={15} /> Placas y circulación</span><strong>Administrar <ArrowUpRight size={15} /></strong></span></button>}
         {canAccessModule('aseguradoras:ver') && <button type="button" className="dashboard-shortcut-card" onClick={() => navigate('/aseguradoras')}><span className="dashboard-shortcut-cover tone-charcoal"><Building2 size={33} strokeWidth={1.7} /><strong>Aseguradoras</strong></span><span className="dashboard-shortcut-body"><span><Activity size={15} /> Directorio compartido</span><strong>Consultar <ArrowUpRight size={15} /></strong></span></button>}
         {isAdminGlobal && <button type="button" className="dashboard-shortcut-card" onClick={() => navigate('/administracion')}><span className="dashboard-shortcut-cover tone-gray"><Settings size={33} strokeWidth={1.9} /><strong>Administración</strong></span><span className="dashboard-shortcut-body"><span><Settings size={15} /> Configuración</span><strong>Acceder <ArrowUpRight size={15} /></strong></span></button>}
       </div>

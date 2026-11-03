@@ -3,7 +3,7 @@ import { ArrowLeft, BadgeCheck, CheckCircle2, CircleAlert, ClipboardList, FileTe
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import WorkspaceLayout from '../components/WorkspaceLayout';
 import { useAuth } from '../context/AuthContext';
-import { deleteUploadedDocument, listRecords, uploadDocument } from '../services/creationApi';
+import { createPlateDetail, deleteUploadedDocument, listRecords, uploadDocument } from '../services/creationApi';
 import { apiRequest } from '../services/apiClient';
 import ProtectedDocumentLink from '../components/ProtectedDocumentLink';
 import { getUnitById, updateUnit } from '../services/fleetApi';
@@ -17,6 +17,8 @@ const EDIT_TABS = [
   { id: 'doble', label: 'Doble articulado', icon: Truck },
   { id: 'sict', label: 'SICT', icon: ShieldCheck },
 ];
+
+function currentDateValue() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
 
 function todayValue(value) {
   if (!value) return '';
@@ -224,6 +226,10 @@ export default function UnitEditPage() {
   const [loadingRelated, setLoadingRelated] = useState(true);
   const [relatedError, setRelatedError] = useState('');
   const [relatedRefresh, setRelatedRefresh] = useState(0);
+  const [newMovementPlate, setNewMovementPlate] = useState(null);
+  const [newMovementForm, setNewMovementForm] = useState({ tipoMovimientoId: '', costo: '0', fecha: currentDateValue() });
+  const [newMovementFile, setNewMovementFile] = useState(null);
+  const [savingMovement, setSavingMovement] = useState(false);
 
   const update = (key) => (value) => setForm((current) => ({ ...current, [key]: value }));
   const setFile = (key) => (file) => setFiles((current) => ({ ...current, [key]: file }));
@@ -363,6 +369,38 @@ export default function UnitEditPage() {
     loadRelatedRecords();
     return () => { cancelled = true; controller.abort(); };
   }, [id, activeCompany?.id, isAdminGlobal, can, relatedRefresh]);
+
+  async function saveNewPlateMovement(event) {
+    event.preventDefault();
+    if (!newMovementPlate || !newMovementFile) {
+      setRelatedError('Selecciona el comprobante del movimiento.');
+      return;
+    }
+    setSavingMovement(true);
+    setRelatedError('');
+    let uploaded = null;
+    try {
+      const companyId = activeCompany?.id ?? unit?.Uni_empresa_actual;
+      uploaded = await uploadDocument(newMovementFile, 'detalle_placa', companyId);
+      await createPlateDetail({
+        placasId: Number(newMovementPlate.Pla_id),
+        tipoMovimientoId: Number(newMovementForm.tipoMovimientoId),
+        costo: Number(newMovementForm.costo),
+        fecha: newMovementForm.fecha,
+        url: uploaded.url,
+      }, companyId);
+      setNewMovementPlate(null);
+      setNewMovementFile(null);
+      setNewMovementForm({ tipoMovimientoId: '', costo: '0', fecha: todayValue(new Date()) });
+      setRelatedRefresh((current) => current + 1);
+      setSuccess('Movimiento de placa agregado correctamente.');
+    } catch (requestError) {
+      if (uploaded?.url) await deleteUploadedDocument(uploaded.url, activeCompany?.id ?? unit?.Uni_empresa_actual).catch(() => {});
+      setRelatedError(requestError.message || 'No fue posible agregar el movimiento.');
+    } finally {
+      setSavingMovement(false);
+    }
+  }
 
   async function saveRelatedRecord(endpoint, recordId, payload) {
     await apiRequest(`${endpoint}/${encodeURIComponent(recordId)}`, {
@@ -584,12 +622,26 @@ export default function UnitEditPage() {
 
       {!loadingRelated && activeEditTab === 'placas' && <section className="create-record-form">
         <SectionTitle icon={BadgeCheck} title="Placas relacionadas" subtitle="Se muestran las placas vinculadas mediante las tarjetas de circulación de esta unidad." />
-        {!hasReadPermission('placas:ver') ? <p className="registry-muted-note">Tu rol no tiene permiso para consultar placas.</p> : related.plates.length === 0 ? <p className="registry-muted-note">No hay placas relacionadas con esta unidad.</p> : related.plates.map((plate) => editorFor(plate, '/placas', plate.Pla_id, `Placa ${plate.Pla_placas || plate.Pla_id}`, [
-          { key: 'placas', source: 'Pla_placas', label: 'Número de placas', required: true, maxLength: 10 },
-          { key: 'status', source: 'Pla_status', label: 'Estatus', required: true, maxLength: 20 },
-        ], 'placas:editar'))}
+        {!hasReadPermission('placas:ver') ? <p className="registry-muted-note">Tu rol no tiene permiso para consultar placas.</p> : related.plates.length === 0 ? <p className="registry-muted-note">No hay placas relacionadas con esta unidad.</p> : related.plates.map((plate) => <div className="unit-related-group" key={plate.Pla_id}>
+          {editorFor(plate, '/placas', plate.Pla_id, `Placa ${plate.Pla_placas || plate.Pla_id}`, [
+            { key: 'placas', source: 'Pla_placas', label: 'Número de placas', required: true, maxLength: 10 },
+            { key: 'status', source: 'Pla_status', label: 'Estatus', required: true, maxLength: 20 },
+          ], 'placas:editar')}
+          {(isAdminGlobal || can('detalle_placas:crear')) && <button type="button" className="workspace-secondary-button" onClick={() => { setNewMovementPlate(plate); setNewMovementForm({ tipoMovimientoId: '', costo: '0', fecha: todayValue(new Date()) }); setNewMovementFile(null); }}>Agregar movimiento a esta placa</button>}
+        </div>)}
 
-        <SectionTitle icon={ClipboardList} title="Movimientos de placas" subtitle="Actualiza el costo, la fecha y el tipo de movimiento de cada registro existente." />
+        {newMovementPlate && <form className="unit-related-record" onSubmit={saveNewPlateMovement}>
+          <strong>Nuevo movimiento · {newMovementPlate.Pla_placas}</strong>
+          <div className="create-form-grid unit-related-fields">
+            <Field label="Tipo de movimiento" required><SelectInput value={newMovementForm.tipoMovimientoId} onChange={(value) => setNewMovementForm((current) => ({ ...current, tipoMovimientoId: value }))} options={lookups.movementTypes} required /></Field>
+            <Field label="Costo" required><TextInput type="number" min="0" step="0.01" value={newMovementForm.costo} onChange={(value) => setNewMovementForm((current) => ({ ...current, costo: value }))} required /></Field>
+            <Field label="Fecha" required><TextInput type="date" value={newMovementForm.fecha} onChange={(value) => setNewMovementForm((current) => ({ ...current, fecha: value }))} required /></Field>
+            <Field label="Comprobante" required><input className="create-file-input" type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" required onChange={(event) => setNewMovementFile(event.target.files?.[0] || null)} /></Field>
+          </div>
+          <div className="create-form-actions"><button type="button" className="workspace-secondary-button" disabled={savingMovement} onClick={() => setNewMovementPlate(null)}>Cancelar</button><button type="submit" className="workspace-primary-button" disabled={savingMovement || !lookups.movementTypes.length}>{savingMovement ? 'Guardando…' : 'Guardar movimiento'}</button></div>
+        </form>}
+
+        <SectionTitle icon={ClipboardList} title="Movimientos de placas" subtitle="Consulta y edita los movimientos registrados." />
         {!hasReadPermission('detalle_placas:ver') ? <p className="registry-muted-note">Tu rol no tiene permiso para consultar movimientos de placas.</p> : related.movements.length === 0 ? <p className="registry-muted-note">No hay movimientos registrados para las placas vinculadas.</p> : related.movements.map((movement) => editorFor(movement, '/detalle-placas', movement.DP_id, `Movimiento · ${movement.Pla_placas || movement.DP_id}`, [
           { key: 'tipoMovimientoId', source: 'DP_tipo_movimiento', label: 'Tipo de movimiento', type: 'select', options: lookups.movementTypes, required: true, serialize: 'number' },
           { key: 'costo', source: 'DP_costo', label: 'Costo', type: 'number', required: true, min: 0, step: '0.01', serialize: 'number' },
@@ -601,7 +653,6 @@ export default function UnitEditPage() {
       {!loadingRelated && activeEditTab === 'tarjetas' && <section className="create-record-form">
         <SectionTitle icon={ClipboardList} title="Tarjetas de circulación" subtitle="Edita las tarjetas ya asociadas a esta unidad; no se crean tarjetas nuevas desde esta pantalla." />
         {!hasReadPermission('tarjetas:ver') ? <p className="registry-muted-note">Tu rol no tiene permiso para consultar tarjetas de circulación.</p> : related.cards.length === 0 ? <p className="registry-muted-note">No hay tarjetas de circulación relacionadas con esta unidad.</p> : <>
-          {!isAdminGlobal && <div className="create-alert is-warning"><CircleAlert size={18} /><p>La edición de tarjetas de circulación está reservada a ADMIN_GLOBAL en el backend.</p></div>}
           {related.cards.map((card) => editorFor(card, '/tarjetas', card.TC_id, `Tarjeta ${card.TC_tarjeta || card.TC_id}`, [
             { key: 'tarjeta', source: 'TC_tarjeta', label: 'Número de tarjeta', required: true, maxLength: 50 },
             { key: 'costo', source: 'TC_costo', label: 'Costo', type: 'number', min: 0, step: '0.01', required: true, serialize: 'number' },
@@ -615,7 +666,7 @@ export default function UnitEditPage() {
             { key: 'costoReposicion', source: 'TC_costo_reposicion', label: 'Costo de reposición', type: 'number', min: 0, step: '0.01', serialize: 'number' },
             { key: 'url', source: 'TC_url', label: 'Documento de tarjeta', type: 'file', uploadType: 'tarjeta' },
             { key: 'urlReposicion', source: 'TC_url_reposicion', label: 'Documento de reposición', type: 'file', uploadType: 'tarjeta_reposicion' },
-          ], 'tarjetas:editar', true))}
+          ], 'tarjetas:editar'))}
         </>}
       </section>}
 

@@ -1,12 +1,11 @@
 const { z } = require('zod');
 
-// Esquema principal para crear una tarjeta
 const crearTarjetaSchema = z.object({
-  tarjeta: z.string().max(50),
+  tarjeta: z.string().trim().min(1).max(50),
   unidadId: z.number().int().positive(),
   costo: z.number().nonnegative(),
   tipoId: z.number().int().positive(),
-  status: z.string().max(20),
+  status: z.string().trim().min(1).max(20),
   noOriginal: z.string().max(50).optional().nullable(),
   placasId: z.number().int().positive(),
   fechaObtencion: z.string().date(),
@@ -16,39 +15,19 @@ const crearTarjetaSchema = z.object({
   url: z.string().url(),
   urlReposicion: z.string().url().optional().nullable(),
 });
-
 const actualizarTarjetaSchema = crearTarjetaSchema.partial();
-
-const actualizarUrlSchema = z.object({
-  url: z.string().url(),
-});
-
-// Esquema para crear tarjeta + cotejos (transaccional)
-const cotejoItemSchema = z.object({
-  tarjetaCotejo: z.string().max(50),
-  fecha: z.string().date(),
-});
-
+const actualizarUrlSchema = z.object({ url: z.string().url() });
+const cotejoItemSchema = z.object({ tarjetaCotejo: z.string().max(50), fecha: z.string().date() });
 const crearTarjetaConCotejosSchema = z.object({
   tarjeta: crearTarjetaSchema,
   cotejos: z.array(cotejoItemSchema).optional().default([]),
 });
-
-const paramsIdSchema = z.object({
-  id: z.string().regex(/^\d+$/).transform(Number),
-});
+const paramsIdSchema = z.object({ id: z.string().regex(/^\d+$/).transform(Number) });
 const filtrosTarjetasSchema = z.object({
   empresaId: z.string().regex(/^\d+$/).transform(Number).optional(),
   unidadId: z.string().regex(/^\d+$/).transform(Number).optional(),
   status: z.string().max(20).optional(),
   vencida: z.enum(['true', 'false']).optional(),
+  search: z.string().trim().max(100).optional(),
 });
-
-module.exports = {
-  crearTarjetaSchema,
-  actualizarTarjetaSchema,
-  actualizarUrlSchema,
-  crearTarjetaConCotejosSchema,
-  paramsIdSchema,
-  filtrosTarjetasSchema
-};
+module.exports = { crearTarjetaSchema, actualizarTarjetaSchema, actualizarUrlSchema, crearTarjetaConCotejosSchema, paramsIdSchema, filtrosTarjetasSchema };

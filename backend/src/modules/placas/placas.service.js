@@ -36,6 +36,11 @@ class PlacasService {
     }
 
     if (!esAdminGlobal) {
+      if (data.propietarioId != null && Number(data.propietarioId) !== Number(empresaId)) {
+        const error = new Error('No tiene permisos para asignar propietarios externos');
+        error.status = 403;
+        throw error;
+      }
       if (!empresaId) {
         const error = new Error('No se pudo determinar la empresa del usuario');
         error.status = 400;
@@ -65,7 +70,19 @@ class PlacasService {
 
   async actualizarPlacaConMovimiento(idPlaca, dataPlaca, dataMovimiento, usuarioId, empresaId = null, esAdminGlobal = false) {
     const placaActual = await this.obtener(idPlaca, empresaId);
-    
+    if (dataPlaca?.propietarioId !== undefined) {
+      if (!esAdminGlobal) {
+        const error = new Error('Solo un administrador global puede cambiar el propietario de una placa');
+        error.status = 403;
+        throw error;
+      }
+      if (dataPlaca.propietarioId != null && !(await existeRegistro('Empresas', 'Emp_id', dataPlaca.propietarioId))) {
+        const error = new Error('El propietario no existe');
+        error.status = 422;
+        throw error;
+      }
+    }
+
     // Validar FK del movimiento
     if (!(await existeRegistro('Tipo_movimiento_placa', 'TpMP_id', dataMovimiento.tipoMovimientoId))) {
       const error = new Error('El tipo de movimiento no existe');
@@ -148,8 +165,20 @@ class PlacasService {
     }).then(() => this.obtener(idPlaca, esAdminGlobal ? null : empresaId));
   }
 
-  async actualizar(id, data, usuarioId, empresaId = null) {
+  async actualizar(id, data, usuarioId, empresaId = null, esAdminGlobal = false) {
     await this.obtener(id, empresaId);
+    if (data.propietarioId !== undefined) {
+      if (!esAdminGlobal) {
+        const error = new Error('Solo un administrador global puede cambiar el propietario de una placa');
+        error.status = 403;
+        throw error;
+      }
+      if (data.propietarioId != null && !(await existeRegistro('Empresas', 'Emp_id', data.propietarioId))) {
+        const error = new Error('El propietario no existe');
+        error.status = 422;
+        throw error;
+      }
+    }
 
     const map = {
       placas: 'Pla_placas',
