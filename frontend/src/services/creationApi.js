@@ -45,7 +45,7 @@ export async function uploadDocument(file, type, companyId, options = {}) {
 
 export async function deleteUploadedDocument(fileUrl, companyId, options = {}) {
   const value = String(fileUrl || '').trim();
-  const match = value.match(/\\/upload\\/([0-9a-f-]{36})(?:[/?#]|$)/i);
+  const match = value.match(/\/upload\/([0-9a-f-]{36})(?:[/?#]|$)/i);
   if (!match) return { deleted: false, skipped: true };
 
   return apiRequest(`/upload/${encodeURIComponent(match[1])}`, {
