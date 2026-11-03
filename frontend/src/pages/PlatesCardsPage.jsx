@@ -175,6 +175,7 @@ export default function PlatesCardsPage() {
       }
       setEditor(null); setSuccess(editor.id ? 'Registro actualizado correctamente.' : 'Registro creado correctamente.');
       await load();
+      if (editor.type === 'placas') setAllPlates(await getPlates({ page: 1, limit: 1000, ...(isAdminGlobal && activeCompany?.id ? { empresaId: activeCompany.id } : {}) }));
     } catch (err) {
       await Promise.allSettled(uploaded.map((file) => deleteUploadedDocument(file.url, activeCompany?.id)));
       setError(err.message || 'No se pudo guardar el registro.');
@@ -202,6 +203,7 @@ export default function PlatesCardsPage() {
     try {
       if (isPlate) await deletePlate(record.Pla_id); else await deleteCard(record.TC_id);
       setSuccess('Registro eliminado correctamente.'); await load();
+      if (isPlate) setAllPlates(await getPlates({ page: 1, limit: 1000, ...(isAdminGlobal && activeCompany?.id ? { empresaId: activeCompany.id } : {}) }));
     } catch (err) { setError(err.message || 'No se pudo eliminar el registro.'); }
     finally { setBusy(false); }
   }

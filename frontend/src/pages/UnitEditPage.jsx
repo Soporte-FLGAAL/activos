@@ -18,6 +18,8 @@ const EDIT_TABS = [
   { id: 'sict', label: 'SICT', icon: ShieldCheck },
 ];
 
+function currentDateValue() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+
 function todayValue(value) {
   if (!value) return '';
   const raw = String(value);
@@ -225,7 +227,7 @@ export default function UnitEditPage() {
   const [relatedError, setRelatedError] = useState('');
   const [relatedRefresh, setRelatedRefresh] = useState(0);
   const [newMovementPlate, setNewMovementPlate] = useState(null);
-  const [newMovementForm, setNewMovementForm] = useState({ tipoMovimientoId: '', costo: '0', fecha: todayValue(new Date()) });
+  const [newMovementForm, setNewMovementForm] = useState({ tipoMovimientoId: '', costo: '0', fecha: currentDateValue() });
   const [newMovementFile, setNewMovementFile] = useState(null);
   const [savingMovement, setSavingMovement] = useState(false);
 

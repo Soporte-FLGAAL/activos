@@ -41,7 +41,7 @@ class TarjetasRepository {
       FROM Tarjeta_circulacion tc
       JOIN Unidades u ON tc.TC_unidad_id = u.Uni_id
       JOIN Tipo_tarjeta tt ON tc.TC_tipo = tt.TpT_id
-      JOIN Placas p ON tc.TC_placas_id = p.Pla_id
+      JOIN Placas p ON tc.TC_placas_id = p.Pla_id AND p.Pla_empresa_actual = u.Uni_empresa_actual
       JOIN Empresas e ON u.Uni_empresa_actual = e.Emp_id
       ${where}
       ORDER BY tc.TC_id DESC
