@@ -146,9 +146,11 @@ export default function PlatesCardsPage() {
     const uploaded = [];
     try {
       if (editor.type === 'placas') {
-        const payload = { placas: form.placas.trim(), status: form.status.trim(), propietarioId: form.propietarioId ? Number(form.propietarioId) : null };
+        const payload = { placas: form.placas.trim(), status: form.status.trim() };
+        if (isAdminGlobal) payload.propietarioId = form.propietarioId ? Number(form.propietarioId) : null;
         if (editor.id) await updatePlate(editor.id, payload);
         else {
+          if (!isAdminGlobal && activeCompany?.id) payload.propietarioId = Number(activeCompany.id);
           payload.empresaActualId = Number(activeCompany?.id || form.empresaActualId);
           if (!payload.empresaActualId) throw new Error('Selecciona la empresa actual de la placa.');
           await createPlate(payload);

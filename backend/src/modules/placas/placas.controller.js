@@ -75,7 +75,8 @@ exports.actualizar = async (req, res, next) => {
       req.params.id,
       req.body,
       req.user.userId,
-      empresaId
+      empresaId,
+      req.esAdminGlobal
     );
     return success(res, actualizada, 'Placa actualizada');
   } catch (err) {
