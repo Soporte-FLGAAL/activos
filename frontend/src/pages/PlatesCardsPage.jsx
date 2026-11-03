@@ -5,12 +5,12 @@ import WorkspaceLayout from '../components/WorkspaceLayout';
 import ProtectedDocumentLink from '../components/ProtectedDocumentLink';
 import { useAuth } from '../context/AuthContext';
 import { deleteUploadedDocument, uploadDocument } from '../services/creationApi';
-import { apiRequest } from '../services/apiClient';
 import { createCard, createPlate, createPlateMovement, deleteCard, deletePlate, getCardTypes, getPlateMovementTypes, getPlateMovements, getPlatePage, getCardPage, getUnits, updateCard, updatePlate } from '../services/fleetApi';
 import '../styles/create-record.css';
 
+const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
 const emptyPlate = { placas: '', status: 'ACTIVA', propietarioId: '' };
-const emptyMovement = { tipoMovimientoId: '', costo: '0', fecha: new Date().toISOString().slice(0, 10) };
+const emptyMovement = { tipoMovimientoId: '', costo: '0', fecha: today() };
 const emptyCard = { tarjeta: '', unidadId: '', costo: '0', tipoId: '', status: 'ACTIVA', noOriginal: '', placasId: '', fechaObtencion: new Date().toISOString().slice(0, 10), fechaVencimiento: '', fechaReposicion: '', costoReposicion: '', };
 const idOf = (row, key) => Number(row?.[key] ?? row?.id);
 const dateValue = (value) => value ? String(value).slice(0, 10) : '';
@@ -91,6 +91,10 @@ export default function PlatesCardsPage() {
   const canCreateCards = isAdminGlobal || can('tarjetas:crear');
   const canCreateMovement = isAdminGlobal || can('detalle_placas:crear');
   const canReadMovements = isAdminGlobal || can('detalle_placas:ver');
+  useEffect(() => {
+    if (tab === 'placas' && !canReadPlates && canReadCards) setTab('tarjetas');
+    else if (tab === 'tarjetas' && !canReadCards && canReadPlates) setTab('placas');
+  }, [tab, canReadPlates, canReadCards]);
   const canReadUnits = isAdminGlobal || can('unidades:ver');
 
   const load = useCallback(async (signal) => {
@@ -125,7 +129,7 @@ export default function PlatesCardsPage() {
   const unitOptions = useMemo(() => units.map((u) => ({ value: String(u.Uni_id), label: `${u.Uni_no_economico} · ${u.Uni_marca || ''} ${u.Uni_modelo || ''}` })), [units]);
   const visible = tab === 'placas' ? plates : cards;
 
-  function changeTab(next) { setTab(next); setParams({ tipo: next }); setPage(1); setSearch(''); setStatus(''); setEditor(null); setSuccess(''); setError(''); }
+  function changeTab(next) { if ((next === 'placas' && !canReadPlates) || (next === 'tarjetas' && !canReadCards)) return; setTab(next); setParams({ tipo: next }); setPage(1); setSearch(''); setStatus(''); setEditor(null); setSuccess(''); setError(''); }
   function beginCreate() {
     setError(''); setSuccess('');
     setForm(tab === 'placas' ? { ...emptyPlate(), empresaActualId: activeCompany?.id || '' } : { ...emptyCard() });
@@ -190,12 +194,13 @@ export default function PlatesCardsPage() {
     let uploaded = null;
     try {
       if (!movementFile) throw new Error('Adjunta el comprobante del movimiento.');
-      uploaded = await uploadDocument(movementFile, 'detalle_placa', activeCompany?.id);
+      const movementCompanyId = activeCompany?.id ?? movementTarget.Pla_empresa_actual;
+      uploaded = await uploadDocument(movementFile, 'detalle_placa', movementCompanyId);
       await createPlateMovement({ placasId: Number(movementTarget.Pla_id), tipoMovimientoId: Number(movement.tipoMovimientoId), costo: Number(movement.costo), fecha: movement.fecha, url: uploaded.url });
       setMovementTarget(null); setMovement(emptyMovement); setMovementFile(null); setSuccess('Movimiento agregado a la placa.');
       await load();
     } catch (err) {
-      if (uploaded?.uuid) await apiRequest('/upload/' + uploaded.uuid, { method: 'DELETE' }).catch(() => {});
+      if (uploaded?.url) await deleteUploadedDocument(uploaded.url, activeCompany?.id ?? movementTarget?.Pla_empresa_actual).catch(() => {});
       setError(err.message || 'No se pudo agregar el movimiento.');
     } finally { setBusy(false); }
   }
@@ -228,8 +233,8 @@ export default function PlatesCardsPage() {
     </section>
     <div className="units-toolbar">
       <div className="unit-type-tabs" role="tablist" aria-label="Tipo de registro">
-        <button type="button" role="tab" aria-selected={tab === 'placas'} className={tab === 'placas' ? 'is-selected' : ''} onClick={() => changeTab('placas')}>Placas</button>
-        <button type="button" role="tab" aria-selected={tab === 'tarjetas'} className={tab === 'tarjetas' ? 'is-selected' : ''} onClick={() => changeTab('tarjetas')}>Tarjetas de circulación</button>
+        {canReadPlates && <button type="button" role="tab" aria-selected={tab === 'placas'} className={tab === 'placas' ? 'is-selected' : ''} onClick={() => changeTab('placas')}>Placas</button>}
+        {canReadCards && <button type="button" role="tab" aria-selected={tab === 'tarjetas'} className={tab === 'tarjetas' ? 'is-selected' : ''} onClick={() => changeTab('tarjetas')}>Tarjetas de circulación</button>}
       </div>
       <button type="button" className="units-filter-button" onClick={() => setStatus((s) => s ? '' : 'ACTIVA')}><Filter size={16}/> {status ? 'Quitar filtro' : 'Activas'}</button>
       <div className="units-view-switch" aria-label="Modo de visualización"><button type="button" className={view === 'grid' ? 'is-selected' : ''} onClick={() => setView('grid')} title="Cuadrícula">▦</button><button type="button" className={view === 'list' ? 'is-selected' : ''} onClick={() => setView('list')} title="Lista">☷</button></div>
