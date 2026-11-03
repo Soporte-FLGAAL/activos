@@ -220,3 +220,36 @@ exports.descargar = async (req, res, next) => {
     fs.createReadStream(fullPath).pipe(res);
   } catch (err) { next(err); }
 };
+
+exports.eliminar = async (req, res, next) => {
+  try {
+    const uuid = String(req.params.uuid || '').trim().toLowerCase();
+    const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+    if (!uuidPattern.test(uuid)) {
+      return error(res, 'El identificador del archivo no es válido', 400);
+    }
+
+    const result = await uploadService.eliminarSiNoReferenciado(
+      uuid,
+      req.empresaId,
+      req.esAdminGlobal,
+      req.user.userId
+    );
+
+    if (result.reason === 'not_found') return error(res, 'Archivo no encontrado', 404);
+    if (result.reason === 'forbidden') return error(res, 'No tiene acceso a este archivo', 403);
+    if (result.reason === 'referenced') {
+      return success(
+        { deleted: false, referenced: true },
+        'El documento todavía está asociado a uno o más registros; se conservó.'
+      );
+    }
+
+    return success(
+      { deleted: true, cleanupPending: Boolean(result.cleanupPending) },
+      'Archivo sin referencias eliminado'
+    );
+  } catch (err) {
+    next(err);
+  }
+};
