@@ -58,25 +58,74 @@ class UploadService {
     return uploadRepository.findById(nuevoId);
   }
 
-  async eliminar(id) {
-    const archivo = await uploadRepository.findById(id);
-    if (!archivo) return false;
+  async eliminarSiNoReferenciado(uuid, empresaId, esAdminGlobal, usuarioId) {
+    let originalPath = null;
+    let quarantinePath = null;
 
-    return withTransaction(async (connection) => {
-      await uploadRepository.delete(id, connection);
+    try {
+      const result = await withTransaction(async (connection) => {
+        const archivo = await uploadRepository.findByUuid(uuid, connection, true);
+        if (!archivo) return { deleted: false, reason: 'not_found' };
 
-      const fullPath = this.rutaAbsoluta(archivo);
-      if (fullPath && fs.existsSync(fullPath)) {
+        if (!esAdminGlobal && (
+          empresaId == null ||
+          Number(archivo.Arc_empresa) !== Number(empresaId)
+        )) {
+          return { deleted: false, reason: 'forbidden' };
+        }
+
+        const referenced = await uploadRepository.hasDocumentReference(uuid, connection);
+        if (referenced) return { deleted: false, reason: 'referenced' };
+
+        const fullPath = this.rutaAbsoluta(archivo);
+        if (!fullPath) throw new Error('La ruta del archivo está fuera del almacenamiento permitido.');
+
+        if (fs.existsSync(fullPath)) {
+          originalPath = fullPath;
+          quarantinePath = path.join(
+            path.dirname(fullPath),
+            `.${path.basename(fullPath)}.deleting-${crypto.randomUUID()}`
+          );
+          await fs.promises.rename(fullPath, quarantinePath);
+        }
+
+        await uploadRepository.delete(archivo.Arc_id, connection);
+        await registrarMovimiento(
+          'Archivos',
+          archivo.Arc_id,
+          'DELETE',
+          {
+            uuid,
+            tipo: archivo.Arc_tipo,
+            nombre: archivo.Arc_nombre_original,
+            ruta: archivo.Arc_ruta,
+          },
+          usuarioId,
+          connection
+        );
+
+        return { deleted: true };
+      });
+
+      if (result.deleted && quarantinePath) {
         try {
-          fs.unlinkSync(fullPath);
-        } catch (err) {
-          // Si falla la eliminación física, hacemos rollback de la BD
-          console.error('No se pudo eliminar el archivo físico:', err);
-          throw new Error('No se pudo eliminar el archivo físico');
+          await fs.promises.unlink(quarantinePath);
+        } catch (cleanupError) {
+          // La referencia y el registro ya se eliminaron; dejar constancia para limpieza operativa.
+          console.error('No se pudo retirar el archivo en cuarentena:', cleanupError);
+          result.cleanupPending = true;
         }
       }
-      return true;
-    });
+      return result;
+    } catch (error) {
+      // Si la transacción falla (incluido el COMMIT), devolver el archivo a su ruta original.
+      if (quarantinePath && originalPath && fs.existsSync(quarantinePath) && !fs.existsSync(originalPath)) {
+        await fs.promises.rename(quarantinePath, originalPath).catch((restoreError) => {
+          console.error('No se pudo restaurar el archivo después del rollback:', restoreError);
+        });
+      }
+      throw error;
+    }
   }
 }
 
