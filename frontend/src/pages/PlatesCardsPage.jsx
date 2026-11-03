@@ -6,7 +6,7 @@ import ProtectedDocumentLink from '../components/ProtectedDocumentLink';
 import { useAuth } from '../context/AuthContext';
 import { deleteUploadedDocument, uploadDocument } from '../services/creationApi';
 import { apiRequest } from '../services/apiClient';
-import { createCard, createPlate, createPlateMovement, deleteCard, deletePlate, getCardTypes, getCirculationCards, getPlateMovementTypes, getPlateMovements, getPlatePage, getCardPage, getUnits, updateCard, updatePlate } from '../services/fleetApi';
+import { createCard, createPlate, createPlateMovement, deleteCard, deletePlate, getCardTypes, getPlateMovementTypes, getPlateMovements, getPlatePage, getCardPage, getUnits, updateCard, updatePlate } from '../services/fleetApi';
 import '../styles/create-record.css';
 
 const emptyPlate = { placas: '', status: 'ACTIVA', propietarioId: '' };
@@ -62,7 +62,6 @@ export default function PlatesCardsPage() {
   const [cards, setCards] = useState([]);
   const [movements, setMovements] = useState([]);
   const [units, setUnits] = useState([]);
-  const [plateTypes, setPlateTypes] = useState([]);
   const [cardTypes, setCardTypes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [lookupError, setLookupError] = useState('');
@@ -109,12 +108,11 @@ export default function PlatesCardsPage() {
   useEffect(() => { const controller = new AbortController(); load(controller.signal); return () => controller.abort(); }, [load]);
   useEffect(() => {
     const controller = new AbortController();
-    Promise.all([getUnits({ page: 1, limit: 1000, ...(isAdminGlobal && activeCompany?.id ? { empresaId: activeCompany.id } : {}) }, { signal: controller.signal }), getPlates({ page: 1, limit: 1000, ...(isAdminGlobal && activeCompany?.id ? { empresaId: activeCompany.id } : {}) }, { signal: controller.signal }), getPlateMovementTypes({}, { signal: controller.signal }), getCardTypes({}, { signal: controller.signal })])
+    Promise.all([getUnits({ page: 1, limit: 1000, ...(isAdminGlobal && activeCompany?.id ? { empresaId: activeCompany.id } : {}) }, { signal: controller.signal }), getPlates({ page: 1, limit: 1000, ...(isAdminGlobal && activeCompany?.id ? { empresaId: activeCompany.id } : {}) }, { signal: controller.signal }), getPlateMovementTypes({ signal: controller.signal }), getCardTypes({ signal: controller.signal })])
       .then(([unitResult, allPlateRows, moveOptions, cardOptions]) => {
         setUnits(unitResult.items);
         setAllPlates(allPlateRows);
         setMovementTypes(moveOptions);
-        setPlateTypes(moveOptions);
         setCardTypes(cardOptions);
       })
       .catch((err) => { if (err.name !== 'AbortError') setLookupError(err.message || 'No se pudieron cargar catálogos.'); });
@@ -148,10 +146,13 @@ export default function PlatesCardsPage() {
     const uploaded = [];
     try {
       if (editor.type === 'placas') {
-        const payload = { placas: form.placas.trim(), status: form.status.trim(), propietarioId: form.propietarioId ? Number(form.propietarioId) : null, empresaActualId: Number(activeCompany?.id || form.empresaActualId) };
-        if (!payload.empresaActualId) throw new Error('Selecciona la empresa actual de la placa.');
+        const payload = { placas: form.placas.trim(), status: form.status.trim(), propietarioId: form.propietarioId ? Number(form.propietarioId) : null };
         if (editor.id) await updatePlate(editor.id, payload);
-        else await createPlate(payload);
+        else {
+          payload.empresaActualId = Number(activeCompany?.id || form.empresaActualId);
+          if (!payload.empresaActualId) throw new Error('Selecciona la empresa actual de la placa.');
+          await createPlate(payload);
+        }
       } else {
         let doc = null; let replacement = null;
         const selectedUnit = units.find((u) => Number(u.Uni_id) === Number(form.unidadId));
@@ -168,7 +169,6 @@ export default function PlatesCardsPage() {
         if (!editor.id && !doc) throw new Error('Adjunta el documento de la tarjeta de circulación.');
         if (!uploadCompanyId) throw new Error('No se pudo determinar la empresa de la unidad seleccionada.');
         const previous = editor.id ? cards.find((item) => Number(item.TC_id) === Number(editor.id)) : null;
-        if (!uploadCompanyId) throw new Error('No se pudo determinar la empresa de la unidad seleccionada.');
         if (editor.id) await updateCard(editor.id, payload); else await createCard(payload);
         if (previous?.TC_url && doc?.url) await deleteUploadedDocument(previous.TC_url, uploadCompanyId).catch(() => {});
         if (previous?.TC_url_reposicion && replacement?.url) await deleteUploadedDocument(previous.TC_url_reposicion, uploadCompanyId).catch(() => {});
