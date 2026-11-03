@@ -21,16 +21,9 @@ import { CatalogRegistryPage } from './pages/DataRegistryPage';
 import NoCompaniesPage from './pages/NoCompaniesPage';
 import './styles/auth.css';
 
-function StartRedirect() {
-  const { user, companies, loading } = useAuth();
-  if (loading) return <div className="route-loading">Cargando…</div>;
-  if (!user) return <Navigate to="/login" replace />;
-  if (!companies.length) return <Navigate to="/sin-empresas" replace />;
-  return <Navigate to="/app" replace />;
-}
 function AppRoutes() {
   return <Routes>
-    <Route path="/" element={<StartRedirect />} />
+    <Route path="/" element={<Navigate to="/login" replace />} />
     <Route path="/login" element={<LoginPage />} />
     <Route element={<RequireAuth needsCompany={false} />}>
       <Route path="/app" element={<AppHome />} />
