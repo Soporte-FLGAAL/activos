@@ -7,7 +7,7 @@ export default function ProtectedDocumentLink({ href, children = 'Ver documento'
 
   if (!href) return <span className="unit-file-no-document">Sin documento adjunto</span>;
 
-  const match = String(href).match(/\\/upload\\/([^/?#]+)/i);
+  const match = String(href).match(/\/upload\/([^/?#]+)/i);
   const requestPath = match ? `/upload/${encodeURIComponent(match[1])}` : null;
 
   async function handleOpen(event) {
