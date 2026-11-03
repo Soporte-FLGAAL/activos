@@ -4,7 +4,7 @@ import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import WorkspaceLayout from '../components/WorkspaceLayout';
 import ProtectedDocumentLink from '../components/ProtectedDocumentLink';
 import { useAuth } from '../context/AuthContext';
-import { uploadDocument } from '../services/creationApi';
+import { deleteUploadedDocument, uploadDocument } from '../services/creationApi';
 import { apiRequest } from '../services/apiClient';
 import { createCard, createPlate, createPlateMovement, deleteCard, deletePlate, getCardTypes, getCirculationCards, getPlateMovementTypes, getPlateMovements, getPlatePage, getCardPage, getUnits, updateCard, updatePlate } from '../services/fleetApi';
 import '../styles/create-record.css';
@@ -58,6 +58,7 @@ export default function PlatesCardsPage() {
   const { activeCompany, companies, isAdminGlobal, can } = useAuth();
   const [tab, setTab] = useState(params.get('tipo') === 'tarjetas' ? 'tarjetas' : 'placas');
   const [plates, setPlates] = useState([]);
+  const [allPlates, setAllPlates] = useState([]);
   const [cards, setCards] = useState([]);
   const [movements, setMovements] = useState([]);
   const [units, setUnits] = useState([]);
@@ -94,32 +95,33 @@ export default function PlatesCardsPage() {
   const load = useCallback(async (signal) => {
     setLoading(true); setError('');
     try {
-      const filters = { page, limit: 20, ...(search.trim() ? { search: search.trim() } : {}), ...(status ? { status } : {}) };
+      const filters = { page, limit: 20, ...(isAdminGlobal && activeCompany?.id ? { empresaId: activeCompany.id } : {}), ...(search.trim() ? { search: search.trim() } : {}), ...(status ? { status } : {}) };
       const [result, moveResult] = tab === 'placas'
-        ? await Promise.all([getPlatePage(filters, { signal }), getPlateMovements({ page: 1, limit: 1000 }, { signal })])
+        ? await Promise.all([getPlatePage(filters, { signal }), getPlateMovements({ page: 1, limit: 1000, ...(isAdminGlobal && activeCompany?.id ? { empresaId: activeCompany.id } : {}) }, { signal })])
         : [await getCardPage(filters, { signal }), null];
       if (tab === 'placas') {
         setPlates(result.items); setPagination(result.pagination); setMovements(moveResult.items);
       } else { setCards(result.items); setPagination(result.pagination); }
     } catch (err) { if (err.name !== 'AbortError') setError(err.message || 'No se pudieron cargar los registros.'); }
     finally { if (!signal?.aborted) setLoading(false); }
-  }, [tab, page, search, status]);
+  }, [tab, page, search, status, activeCompany?.id, isAdminGlobal]);
 
   useEffect(() => { const controller = new AbortController(); load(controller.signal); return () => controller.abort(); }, [load]);
   useEffect(() => {
     const controller = new AbortController();
-    Promise.all([getUnits({ page: 1, limit: 1000 }, { signal: controller.signal }), getPlateMovementTypes({ signal: controller.signal }), getCardTypes({ signal: controller.signal })])
-      .then(([unitResult, moveOptions, cardOptions]) => {
+    Promise.all([getUnits({ page: 1, limit: 1000, ...(isAdminGlobal && activeCompany?.id ? { empresaId: activeCompany.id } : {}) }, { signal: controller.signal }), getPlates({ page: 1, limit: 1000, ...(isAdminGlobal && activeCompany?.id ? { empresaId: activeCompany.id } : {}) }, { signal: controller.signal }), getPlateMovementTypes({}, { signal: controller.signal }), getCardTypes({}, { signal: controller.signal })])
+      .then(([unitResult, allPlateRows, moveOptions, cardOptions]) => {
         setUnits(unitResult.items);
+        setAllPlates(allPlateRows);
         setMovementTypes(moveOptions);
         setPlateTypes(moveOptions);
         setCardTypes(cardOptions);
       })
       .catch((err) => { if (err.name !== 'AbortError') setLookupError(err.message || 'No se pudieron cargar catálogos.'); });
     return () => controller.abort();
-  }, []);
+  }, [activeCompany?.id, isAdminGlobal]);
 
-  const plateOptions = useMemo(() => plates.map((p) => ({ value: String(p.Pla_id), label: p.Pla_placas })), [plates]);
+  const plateOptions = useMemo(() => allPlates.map((p) => ({ value: String(p.Pla_id), label: p.Pla_placas })), [plates]);
   const unitOptions = useMemo(() => units.map((u) => ({ value: String(u.Uni_id), label: `${u.Uni_no_economico} · ${u.Uni_marca || ''} ${u.Uni_modelo || ''}` })), [units]);
   const visible = tab === 'placas' ? plates : cards;
 
@@ -165,12 +167,16 @@ export default function PlatesCardsPage() {
         };
         if (!editor.id && !doc) throw new Error('Adjunta el documento de la tarjeta de circulación.');
         if (!uploadCompanyId) throw new Error('No se pudo determinar la empresa de la unidad seleccionada.');
+        const previous = editor.id ? cards.find((item) => Number(item.TC_id) === Number(editor.id)) : null;
+        if (!uploadCompanyId) throw new Error('No se pudo determinar la empresa de la unidad seleccionada.');
         if (editor.id) await updateCard(editor.id, payload); else await createCard(payload);
+        if (previous?.TC_url && doc?.url) await deleteUploadedDocument(previous.TC_url, uploadCompanyId).catch(() => {});
+        if (previous?.TC_url_reposicion && replacement?.url) await deleteUploadedDocument(previous.TC_url_reposicion, uploadCompanyId).catch(() => {});
       }
       setEditor(null); setSuccess(editor.id ? 'Registro actualizado correctamente.' : 'Registro creado correctamente.');
       await load();
     } catch (err) {
-      await Promise.allSettled(uploaded.map((file) => apiRequest('/upload/' + file.uuid, { method: 'DELETE' })));
+      await Promise.allSettled(uploaded.map((file) => deleteUploadedDocument(file.url, activeCompany?.id)));
       setError(err.message || 'No se pudo guardar el registro.');
     } finally { setBusy(false); }
   }
@@ -220,11 +226,12 @@ export default function PlatesCardsPage() {
         <button type="button" role="tab" aria-selected={tab === 'tarjetas'} className={tab === 'tarjetas' ? 'is-selected' : ''} onClick={() => changeTab('tarjetas')}>Tarjetas de circulación</button>
       </div>
       <button type="button" className="units-filter-button" onClick={() => setStatus((s) => s ? '' : 'ACTIVA')}><Filter size={16}/> {status ? 'Quitar filtro' : 'Activas'}</button>
+      <div className="units-view-switch" aria-label="Modo de visualización"><button type="button" className={view === 'grid' ? 'is-selected' : ''} onClick={() => setView('grid')} title="Cuadrícula">▦</button><button type="button" className={view === 'list' ? 'is-selected' : ''} onClick={() => setView('list')} title="Lista">☷</button></div>
     </div>
     {lookupError && <p className="registry-muted-note">{lookupError}</p>}
     {error && <div className="workspace-error"><AlertCircle size={18}/><span>{error}</span></div>}
     {success && <div className="create-alert is-success" role="status">{success}</div>}
-    {loading ? <div className="workspace-loading">Cargando registros…</div> : !items.length ? <div className="workspace-empty-state"><BadgeCheck size={30}/><h2>No se encontraron registros</h2><p>Prueba con otra búsqueda o agrega un registro nuevo.</p></div> : <div className="units-grid">
+    {loading ? <div className="workspace-loading">Cargando registros…</div> : !items.length ? <div className="workspace-empty-state"><BadgeCheck size={30}/><h2>No se encontraron registros</h2><p>Prueba con otra búsqueda o agrega un registro nuevo.</p></div> : <div className={`units-grid${view === 'list' ? ' is-list' : ''}`}>
       {tab === 'placas' ? plates.map((plate) => <PlateCard key={plate.Pla_id} plate={plate} movements={movements.filter((m) => Number(m.DP_placas_id) === Number(plate.Pla_id))} canEdit={canEditPlates} canDelete={canDeletePlates} canAddMovement={canCreateMovement} onEdit={() => beginEdit(plate)} onDelete={() => remove(plate)} onAddMovement={() => { setMovementTarget(plate); setMovement(emptyMovement); setMovementFile(null); }}/>) :
       cards.map((card) => <CardRecord key={card.TC_id} card={card} canEdit={canEditCards} canDelete={canDeleteCards} onEdit={() => beginEdit(card)} onDelete={() => remove(card)}/>)}
     </div>}
@@ -249,6 +256,7 @@ export default function PlatesCardsPage() {
         <Field label="Fecha de vencimiento"><input type="date" value={form.fechaVencimiento || ''} onChange={(e)=>setForm((v)=>({...v,fechaVencimiento:e.target.value}))}/></Field>
         <Field label="Fecha de reposición"><input type="date" value={form.fechaReposicion || ''} onChange={(e)=>setForm((v)=>({...v,fechaReposicion:e.target.value}))}/></Field>
         <Field label="Costo de reposición"><input type="number" min="0" step="0.01" value={form.costoReposicion ?? ''} onChange={(e)=>setForm((v)=>({...v,costoReposicion:e.target.value}))}/></Field>
+        {editor.id && cards.find((item) => Number(item.TC_id) === Number(editor.id))?.TC_url && <ProtectedDocumentLink href={cards.find((item) => Number(item.TC_id) === Number(editor.id)).TC_url}>Ver documento actual</ProtectedDocumentLink>}
         <Field label={editor.id ? 'Reemplazar documento de tarjeta' : 'Documento de tarjeta'} required={!editor.id}><input className="create-file-input" type="file" accept=".pdf,.jpg,.jpeg,.png" required={!editor.id && !cardFile} onChange={(e)=>setCardFile(e.target.files?.[0] || null)}/>{editor.id && <small>Deja vacío para conservar el documento actual.</small>}</Field>
         <Field label="Documento de reposición"><input className="create-file-input" type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(e)=>setReplacementFile(e.target.files?.[0] || null)}/></Field>
       </>}
