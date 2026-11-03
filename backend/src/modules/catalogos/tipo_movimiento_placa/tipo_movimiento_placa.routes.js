@@ -8,8 +8,8 @@ const schemas = require('./tipo_movimiento_placa.schema');
 
 router.use(auth);
 
-router.get('/', rbac('catalogos:ver'), controller.listar);
-router.get('/:id', rbac('catalogos:ver'), validate({ params: schemas.paramsIdSchema }), controller.obtener);
+router.get('/', rbac(['catalogos:ver', 'unidades:ver']), controller.listar);
+router.get('/:id', rbac(['catalogos:ver', 'unidades:ver']), validate({ params: schemas.paramsIdSchema }), controller.obtener);
 router.post('/', rbac('catalogos:crear'), validate({ body: schemas.crearTipoMovimientoPlacaSchema }), controller.crear);
 router.put('/:id', rbac('catalogos:editar'), validate({ params: schemas.paramsIdSchema, body: schemas.actualizarTipoMovimientoPlacaSchema }), controller.actualizar);
 router.delete('/:id', rbac('catalogos:eliminar'), validate({ params: schemas.paramsIdSchema }), controller.eliminar);

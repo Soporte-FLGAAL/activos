@@ -56,7 +56,7 @@ export default function PlatesCardsPage() {
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const { activeCompany, companies, isAdminGlobal, can } = useAuth();
-  const [tab, setTab] = useState(params.get('tipo') === 'tarjetas' ? 'tarjetas' : 'placas');
+  const [tab, setTab] = useState(() => (params.get('tipo') === 'tarjetas' && (isAdminGlobal || can('tarjetas:ver') || can('unidades:ver'))) || (!isAdminGlobal && !can('placas:ver') && !can('unidades:ver') && can('tarjetas:ver')) ? 'tarjetas' : 'placas');
   const [plates, setPlates] = useState([]);
   const [allPlates, setAllPlates] = useState([]);
   const [cards, setCards] = useState([]);
@@ -81,16 +81,16 @@ export default function PlatesCardsPage() {
   const [busy, setBusy] = useState(false);
   const [movementTarget, setMovementTarget] = useState(null);
   const [movementTypes, setMovementTypes] = useState([]);
-  const canReadPlates = isAdminGlobal || can('placas:ver');
-  const canReadCards = isAdminGlobal || can('tarjetas:ver');
-  const canEditPlates = isAdminGlobal || can('placas:editar');
-  const canDeletePlates = isAdminGlobal || can('placas:eliminar');
-  const canCreatePlates = isAdminGlobal || can('placas:crear');
-  const canEditCards = isAdminGlobal || can('tarjetas:editar');
-  const canDeleteCards = isAdminGlobal || can('tarjetas:eliminar');
-  const canCreateCards = isAdminGlobal || can('tarjetas:crear');
-  const canCreateMovement = isAdminGlobal || can('detalle_placas:crear');
-  const canReadMovements = isAdminGlobal || can('detalle_placas:ver');
+  const canReadPlates = isAdminGlobal || can('placas:ver') || can('unidades:ver');
+  const canReadCards = isAdminGlobal || can('tarjetas:ver') || can('unidades:ver');
+  const canEditPlates = isAdminGlobal || can('placas:editar') || can('unidades:editar');
+  const canDeletePlates = isAdminGlobal || can('placas:eliminar') || can('unidades:eliminar');
+  const canCreatePlates = isAdminGlobal || can('placas:crear') || can('unidades:crear');
+  const canEditCards = isAdminGlobal || can('tarjetas:editar') || can('unidades:editar');
+  const canDeleteCards = isAdminGlobal || can('tarjetas:eliminar') || can('unidades:eliminar');
+  const canCreateCards = isAdminGlobal || can('tarjetas:crear') || can('unidades:crear');
+  const canCreateMovement = isAdminGlobal || can('detalle_placas:crear') || can('unidades:editar');
+  const canReadMovements = isAdminGlobal || can('detalle_placas:ver') || can('unidades:ver');
   useEffect(() => {
     if (tab === 'placas' && !canReadPlates && canReadCards) setTab('tarjetas');
     else if (tab === 'tarjetas' && !canReadCards && canReadPlates) setTab('placas');
@@ -125,7 +125,7 @@ export default function PlatesCardsPage() {
     return () => controller.abort();
   }, [activeCompany?.id, isAdminGlobal, canCreateMovement, canReadMovements, canReadCards, canCreateCards, canEditCards, canReadUnits, canReadPlates]);
 
-  const plateOptions = useMemo(() => allPlates.map((p) => ({ value: String(p.Pla_id), label: p.Pla_placas })), [plates]);
+  const plateOptions = useMemo(() => allPlates.map((p) => ({ value: String(p.Pla_id), label: p.Pla_placas })), [allPlates]);
   const unitOptions = useMemo(() => units.map((u) => ({ value: String(u.Uni_id), label: `${u.Uni_no_economico} · ${u.Uni_marca || ''} ${u.Uni_modelo || ''}` })), [units]);
   const visible = tab === 'placas' ? plates : cards;
 

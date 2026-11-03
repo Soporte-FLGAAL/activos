@@ -16,7 +16,7 @@ export default function WorkspaceLayout({ children, activeNav = 'home' }) {
   const navItems = [
     { id: 'home', label: 'Panel principal', icon: Home, action: () => navigate('/app') },
     { id: 'units', label: 'Unidades', icon: Grid2X2, action: () => navigate(activeCompany || isAdminGlobal ? '/unidades' : '/app'), disabled: !activeCompany && !isAdminGlobal },
-    ...(canAccessModule('placas:ver') || canAccessModule('tarjetas:ver') ? [{ id: 'plates', label: 'Placas y tarjetas', icon: BadgeCheck, action: () => navigate(activeCompany || isAdminGlobal ? '/placas-tarjetas' : '/app'), disabled: !activeCompany && !isAdminGlobal }] : []),
+    ...(canAccessModule('unidades:ver') || canAccessModule('placas:ver') || canAccessModule('tarjetas:ver') ? [{ id: 'plates', label: 'Placas y tarjetas', icon: BadgeCheck, action: () => navigate(activeCompany || isAdminGlobal ? '/placas-tarjetas' : '/app'), disabled: !activeCompany && !isAdminGlobal }] : []),
     ...(canAccessModule('catalogos:ver') ? [{ id: 'catalogs', label: 'Catálogos', icon: FileText, action: () => navigate('/catalogos') }] : []),
     ...(canAccessModule('aseguradoras:ver') ? [{ id: 'insurers', label: 'Aseguradoras', icon: Building2, action: () => navigate('/aseguradoras') }] : []),
     ...(isAdminGlobal ? [{ id: 'users', label: 'Usuarios', icon: Users, action: () => navigate('/administracion') }, { id: 'settings', label: 'Administración', icon: Settings, action: () => navigate('/administracion') }] : []),

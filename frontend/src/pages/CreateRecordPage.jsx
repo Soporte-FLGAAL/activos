@@ -401,7 +401,7 @@ export default function CreateRecordPage() {
     finally { setSubmitting(false); }
   }
 
-  const canSubmitCard = (isAdminGlobal || can('tarjetas:crear')) && Boolean(targetCompanyId);
+  const canSubmitCard = (isAdminGlobal || can('tarjetas:crear') || can('unidades:crear')) && Boolean(targetCompanyId);
   const unitsOptions = useMemo(() => {
     const items = [...lookups.units];
     if (lastCreatedUnit && !items.some((item) => item.value === String(lastCreatedUnit.id))) items.unshift({ value: String(lastCreatedUnit.id), label: lastCreatedUnit.label });
