@@ -132,7 +132,7 @@ export default function PlatesCardsPage() {
   function changeTab(next) { if ((next === 'placas' && !canReadPlates) || (next === 'tarjetas' && !canReadCards)) return; setTab(next); setParams({ tipo: next }); setPage(1); setSearch(''); setStatus(''); setEditor(null); setSuccess(''); setError(''); }
   function beginCreate() {
     setError(''); setSuccess('');
-    setForm(tab === 'placas' ? { ...emptyPlate(), empresaActualId: activeCompany?.id || '' } : { ...emptyCard() });
+    setForm(tab === 'placas' ? { ...emptyPlate, empresaActualId: activeCompany?.id || '' } : { ...emptyCard() });
     setEditor({ type: tab, id: null });
     setCardFile(null); setReplacementFile(null); setMovementFile(null);
   }
