@@ -133,3 +133,21 @@ export function createPolicy(payload, companyId, withInitialEndorsement = true, 
     body: JSON.stringify(payload),
   });
 }
+
+export function createEndorsement(payload, companyId, options = {}) {
+  return apiRequest('/endosos', {
+    ...options,
+    method: 'POST',
+    headers: { ...(options.headers || {}), ...(companyId ? { 'X-Empresa-Id': String(companyId) } : {}) },
+    body: JSON.stringify(payload),
+  });
+}
+
+export function createInciso(payload, companyId, options = {}) {
+  return apiRequest('/incisos', {
+    ...options,
+    method: 'POST',
+    headers: { ...(options.headers || {}), ...(companyId ? { 'X-Empresa-Id': String(companyId) } : {}) },
+    body: JSON.stringify(payload),
+  });
+}
