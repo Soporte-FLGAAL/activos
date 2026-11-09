@@ -753,7 +753,7 @@ export default function UnitEditPage() {
       </section>}
 
       {!loadingRelated && activeEditTab === 'polizas' && <section className="create-record-form">
-        <SectionTitle icon={FileText} title="Pólizas, endosos e incisos" subtitle="Los documentos se editan sobre sus registros actuales, conservando sus relaciones con la unidad." />
+        <SectionTitle icon={FileText} title="Pólizas, endosos e incisos" subtitle="Edita los registros existentes y agrega endosos a pólizas o incisos a endosos sin duplicar la póliza." />
         {!hasReadPermission('polizas:ver') ? <p className="registry-muted-note">Tu rol no tiene permiso para consultar pólizas.</p> : related.policies.length === 0 ? <p className="registry-muted-note">No hay pólizas relacionadas con esta unidad.</p> : related.policies.map((policy) => (
           <div className="unit-related-group" key={`policy-${policy.Pol_id}`}>
             {editorFor(policy, '/polizas', policy.Pol_id, `Póliza ${policy.Pol_poliza || policy.Pol_id}`, [
