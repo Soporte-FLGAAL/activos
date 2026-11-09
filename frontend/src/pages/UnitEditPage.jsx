@@ -3,7 +3,7 @@ import { ArrowLeft, BadgeCheck, CheckCircle2, CircleAlert, ClipboardList, FileTe
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import WorkspaceLayout from '../components/WorkspaceLayout';
 import { useAuth } from '../context/AuthContext';
-import { createPlateDetail, deleteUploadedDocument, listRecords, uploadDocument } from '../services/creationApi';
+import { createEndorsement, createInciso, createPlateDetail, deleteUploadedDocument, listRecords, uploadDocument } from '../services/creationApi';
 import { apiRequest } from '../services/apiClient';
 import ProtectedDocumentLink from '../components/ProtectedDocumentLink';
 import { getUnitById, updateUnit } from '../services/fleetApi';
@@ -96,6 +96,87 @@ function ExistingFile({ label, url, file, onChange }) {
 
 function absoluteFileUrl(uploaded) {
   return uploaded?.url || null;
+}
+
+function RelatedRecordCreator({ buttonLabel, title, numberLabel, fieldName, uploadType, companyId, onCreate }) {
+  const [open, setOpen] = useState(false);
+  const [number, setNumber] = useState('');
+  const [file, setFile] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  async function submit(event) {
+    event.preventDefault();
+    if (!number.trim() || !file) {
+      setError('Captura el número y selecciona el documento correspondiente.');
+      return;
+    }
+
+    setSaving(true);
+    setError('');
+    let uploaded = null;
+    try {
+      uploaded = await uploadDocument(file, uploadType, companyId);
+      await onCreate({ [fieldName]: number.trim(), url: uploaded.url });
+      setNumber('');
+      setFile(null);
+      setOpen(false);
+    } catch (requestError) {
+      // Si falla el alta del registro, se elimina el archivo nuevo solo si quedó sin referencias.
+      if (uploaded?.url) {
+        await deleteUploadedDocument(uploaded.url, companyId).catch(() => {});
+      }
+      setError(requestError.message || 'No fue posible crear el registro.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="unit-related-create">
+      <button
+        type="button"
+        className="workspace-secondary-button"
+        onClick={() => { setOpen(true); setError(''); }}
+        disabled={open || saving}
+      >
+        {buttonLabel}
+      </button>
+      {open && (
+        <form className="unit-related-record" onSubmit={submit}>
+          <strong>{title}</strong>
+          <div className="create-form-grid unit-related-fields">
+            <Field label={numberLabel} required>
+              <TextInput value={number} onChange={setNumber} required maxLength={6} />
+            </Field>
+            <Field label="Documento" required>
+              <input
+                className="create-file-input"
+                type="file"
+                accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
+                required
+                onChange={(event) => setFile(event.target.files?.[0] || null)}
+              />
+            </Field>
+          </div>
+          {error && <div className="create-alert is-error" role="alert"><CircleAlert size={16} /><p>{error}</p></div>}
+          <div className="create-form-actions unit-related-actions">
+            <button
+              type="button"
+              className="workspace-secondary-button"
+              onClick={() => { setOpen(false); setNumber(''); setFile(null); setError(''); }}
+              disabled={saving}
+            >
+              Cancelar
+            </button>
+            <button type="submit" className="workspace-primary-button" disabled={saving || !number.trim() || !file}>
+              {saving ? 'Guardando…' : 'Guardar registro'}
+            </button>
+          </div>
+        </form>
+      )}
+    </div>
+  );
 }
 
 function RelatedRecordEditor({ record, title, fields, canEdit, onSave, companyId }) {
@@ -672,7 +753,7 @@ export default function UnitEditPage() {
       </section>}
 
       {!loadingRelated && activeEditTab === 'polizas' && <section className="create-record-form">
-        <SectionTitle icon={FileText} title="Pólizas, endosos e incisos" subtitle="Los documentos se editan sobre sus registros actuales, conservando sus relaciones con la unidad." />
+        <SectionTitle icon={FileText} title="Pólizas, endosos e incisos" subtitle="Edita los registros existentes y agrega endosos a pólizas o incisos a endosos sin duplicar la póliza." />
         {!hasReadPermission('polizas:ver') ? <p className="registry-muted-note">Tu rol no tiene permiso para consultar pólizas.</p> : related.policies.length === 0 ? <p className="registry-muted-note">No hay pólizas relacionadas con esta unidad.</p> : related.policies.map((policy) => (
           <div className="unit-related-group" key={`policy-${policy.Pol_id}`}>
             {editorFor(policy, '/polizas', policy.Pol_id, `Póliza ${policy.Pol_poliza || policy.Pol_id}`, [
@@ -684,12 +765,40 @@ export default function UnitEditPage() {
               { key: 'costo', source: 'Pol_costo', label: 'Costo', type: 'number', min: 0, step: '0.01', required: true, serialize: 'number' },
               { key: 'url', source: 'Pol_url', label: 'Documento de póliza', type: 'file', uploadType: 'poliza' },
             ], 'polizas:editar')}
+            {hasReadPermission('endosos:crear') && <RelatedRecordCreator
+              buttonLabel="Agregar endoso a esta póliza"
+              title={`Nuevo endoso · Póliza ${policy.Pol_poliza || policy.Pol_id}`}
+              numberLabel="Número de endoso"
+              fieldName="endoso"
+              uploadType="endoso"
+              companyId={activeCompany?.id ?? unit?.Uni_empresa_actual}
+              onCreate={async ({ endoso, url }) => {
+                const companyId = activeCompany?.id ?? unit?.Uni_empresa_actual;
+                await createEndorsement({ endoso, polizaId: Number(policy.Pol_id), url }, companyId);
+                setRelatedRefresh((current) => current + 1);
+                setSuccess('Endoso agregado correctamente.');
+              }}
+            />}
             {!hasReadPermission('endosos:ver') ? <p className="registry-muted-note">No tienes permiso para consultar endosos.</p> : (policy.endosos || []).map((endorsement) => (
               <div className="unit-related-nested" key={`endorsement-${endorsement.End_id}`}>
                 {editorFor(endorsement, '/endosos', endorsement.End_id, `Endoso ${endorsement.End_endoso}`, [
                   { key: 'endoso', source: 'End_endoso', label: 'Número de endoso', required: true, maxLength: 6 },
                   { key: 'url', source: 'End_url', label: 'Documento del endoso', type: 'file', uploadType: 'endoso' },
                 ], 'endosos:editar')}
+                {hasReadPermission('incisos:crear') && <RelatedRecordCreator
+                  buttonLabel="Agregar inciso a este endoso"
+                  title={`Nuevo inciso · Endoso ${endorsement.End_endoso}`}
+                  numberLabel="Número de inciso"
+                  fieldName="inciso"
+                  uploadType="inciso"
+                  companyId={activeCompany?.id ?? unit?.Uni_empresa_actual}
+                  onCreate={async ({ inciso, url }) => {
+                    const companyId = activeCompany?.id ?? unit?.Uni_empresa_actual;
+                    await createInciso({ inciso, endosoId: Number(endorsement.End_id), url }, companyId);
+                    setRelatedRefresh((current) => current + 1);
+                    setSuccess('Inciso agregado correctamente.');
+                  }}
+                />}
                 {!hasReadPermission('incisos:ver') ? <p className="registry-muted-note">No tienes permiso para consultar incisos.</p> : (endorsement.incisos || []).map((inciso) => editorFor(inciso, '/incisos', inciso.Inc_id, `Inciso ${inciso.Inc_inciso}`, [
                   { key: 'inciso', source: 'Inc_inciso', label: 'Número de inciso', required: true, maxLength: 6 },
                   { key: 'url', source: 'Inc_url', label: 'Documento del inciso', type: 'file', uploadType: 'inciso' },
