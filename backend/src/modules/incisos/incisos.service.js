@@ -1,4 +1,5 @@
 const incisosRepository = require('./incisos.repository');
+const { validarEmpresaActual } = require('../../utils/empresa');
 const { withTransaction } = require('../../utils/transaction');
 const { registrarMovimiento } = require('../../utils/audit');
 const { existeRegistro } = require('../../utils/validators');
@@ -52,7 +53,8 @@ class IncisosService {
   }
 
   async actualizar(id, data, usuarioId, empresaId = null) {
-    await this.obtener(id, empresaId);
+    const actual = await this.obtener(id, empresaId);
+    validarEmpresaActual(actual, empresaId, 'inciso');
     const map = { inciso: 'Inc_inciso', endosoId: 'Inc_endoso', url: 'Inc_url' };
     const dbData = {};
     for (const key in data) if (map[key]) dbData[map[key]] = data[key];
@@ -87,7 +89,8 @@ class IncisosService {
   }
 
   async eliminar(id, usuarioId, empresaId = null) {
-    await this.obtener(id, empresaId);
+    const actual = await this.obtener(id, empresaId);
+    validarEmpresaActual(actual, empresaId, 'inciso');
     return withTransaction(async (connection) => {
       const ok = await incisosRepository.delete(id, empresaId, connection);
       if (!ok) {
