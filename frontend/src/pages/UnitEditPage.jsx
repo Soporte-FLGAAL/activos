@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, BadgeCheck, CheckCircle2, CircleAlert, ClipboardList, FileText, Save, ShieldCheck, Truck, X } from 'lucide-react';
+import { ArrowLeft, BadgeCheck, Building2, CheckCircle2, CircleAlert, ClipboardList, FileText, Save, ShieldCheck, Truck, X } from 'lucide-react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import WorkspaceLayout from '../components/WorkspaceLayout';
 import { useAuth } from '../context/AuthContext';
 import { createEndorsement, createInciso, createPlateDetail, deleteUploadedDocument, listRecords, uploadDocument } from '../services/creationApi';
 import { apiRequest } from '../services/apiClient';
 import ProtectedDocumentLink from '../components/ProtectedDocumentLink';
-import { getUnitById, updateUnit } from '../services/fleetApi';
+import { changeUnitCompany, getUnitById, updateUnit } from '../services/fleetApi';
 import '../styles/create-record.css';
 
 const EDIT_TABS = [
@@ -291,7 +291,7 @@ function RelatedRecordEditor({ record, title, fields, canEdit, onSave, companyId
 export default function UnitEditPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { activeCompany, isAdminGlobal, can } = useAuth();
+  const { activeCompany, companies, isAdminGlobal, can } = useAuth();
   const [unit, setUnit] = useState(null);
   const [form, setForm] = useState(null);
   const [lookups, setLookups] = useState({ types: [], states: [], fuels: [], periods: [], movementTypes: [], cardTypes: [], policyTypes: [], insurers: [] });
@@ -311,6 +311,9 @@ export default function UnitEditPage() {
   const [newMovementForm, setNewMovementForm] = useState({ tipoMovimientoId: '', costo: '0', fecha: currentDateValue() });
   const [newMovementFile, setNewMovementFile] = useState(null);
   const [savingMovement, setSavingMovement] = useState(false);
+  const [destinationCompanyId, setDestinationCompanyId] = useState('');
+  const [transferringCompany, setTransferringCompany] = useState(false);
+  const [transferError, setTransferError] = useState('');
 
   const update = (key) => (value) => setForm((current) => ({ ...current, [key]: value }));
   const setFile = (key) => (file) => setFiles((current) => ({ ...current, [key]: file }));
@@ -461,7 +464,7 @@ export default function UnitEditPage() {
     setRelatedError('');
     let uploaded = null;
     try {
-      const companyId = activeCompany?.id ?? unit?.Uni_empresa_actual;
+      const companyId = unit?.Uni_empresa_actual ?? activeCompany?.id;
       uploaded = await uploadDocument(newMovementFile, 'detalle_placa', companyId);
       await createPlateDetail({
         placasId: Number(newMovementPlate.Pla_id),
@@ -476,7 +479,7 @@ export default function UnitEditPage() {
       setRelatedRefresh((current) => current + 1);
       setSuccess('Movimiento de placa agregado correctamente.');
     } catch (requestError) {
-      if (uploaded?.url) await deleteUploadedDocument(uploaded.url, activeCompany?.id ?? unit?.Uni_empresa_actual).catch(() => {});
+      if (uploaded?.url) await deleteUploadedDocument(uploaded.url, unit?.Uni_empresa_actual ?? activeCompany?.id).catch(() => {});
       setRelatedError(requestError.message || 'No fue posible agregar el movimiento.');
     } finally {
       setSavingMovement(false);
@@ -494,7 +497,57 @@ export default function UnitEditPage() {
 
   async function uploadReplacement(file, type, metadata) {
     if (!file) return null;
-    return uploadDocument(file, type, activeCompany?.id ?? unit?.Uni_empresa_actual, { metadata });
+    return uploadDocument(file, type, unit?.Uni_empresa_actual ?? activeCompany?.id, { metadata });
+  }
+
+  async function handleCompanyTransfer() {
+    setTransferError('');
+    setSuccess('');
+    if (!isAdminGlobal || !unit) return;
+
+    const empresaDestinoId = Number(destinationCompanyId);
+    if (!Number.isSafeInteger(empresaDestinoId) || empresaDestinoId <= 0) {
+      setTransferError('Selecciona una empresa destino válida.');
+      return;
+    }
+    if (empresaDestinoId === Number(unit.Uni_empresa_actual)) {
+      setTransferError('La unidad ya pertenece a esa empresa.');
+      return;
+    }
+
+    const empresaDestino = companies.find((company) => Number(company.id) === empresaDestinoId);
+    if (!empresaDestino) {
+      setTransferError('La empresa seleccionada no está disponible en tu contexto global.');
+      return;
+    }
+
+    const confirmado = window.confirm(
+      `¿Traspasar la unidad ${unit.Uni_no_economico || id} de "${unit.empresa_nombre || 'su empresa actual'}" a "${empresaDestino.name}"? Las placas asociadas a sus tarjetas también se transferirán. El propietario y los documentos se conservarán.`
+    );
+    if (!confirmado) return;
+
+    setTransferringCompany(true);
+    try {
+      const result = await changeUnitCompany(id, { empresaDestinoId });
+      const updatedUnit = result?.unidad || result;
+      setUnit((current) => ({
+        ...current,
+        ...(updatedUnit || {}),
+        Uni_empresa_actual: empresaDestinoId,
+        empresa_nombre: empresaDestino.name,
+      }));
+      setDestinationCompanyId('');
+      setRelatedRefresh((current) => current + 1);
+      const movedCount = Array.isArray(result?.placasTransferidas) ? result.placasTransferidas.length : 0;
+      const alreadyCount = Array.isArray(result?.placasYaEnDestino) ? result.placasYaEnDestino.length : 0;
+      setSuccess(
+        `Unidad transferida a ${empresaDestino.name}. Placas transferidas: ${movedCount}; placas que ya pertenecían al destino: ${alreadyCount}. El propietario no fue modificado.`
+      );
+    } catch (requestError) {
+      setTransferError(requestError.message || 'No fue posible transferir la unidad y sus placas.');
+    } finally {
+      setTransferringCompany(false);
+    }
   }
 
   async function handleSubmit(event) {
@@ -504,7 +557,7 @@ export default function UnitEditPage() {
     if (!form || !unit) return;
     setSubmitting(true);
 
-    const companyId = activeCompany?.id ?? unit?.Uni_empresa_actual;
+    const companyId = unit?.Uni_empresa_actual ?? activeCompany?.id;
     const uploadedFiles = [];
     const replacedDocumentUrls = [];
 
@@ -618,7 +671,7 @@ export default function UnitEditPage() {
       title={title}
       fields={fields}
       canEdit={forceGlobal ? isAdminGlobal : hasReadPermission(permission)}
-      companyId={activeCompany?.id ?? unit?.Uni_empresa_actual}
+      companyId={unit?.Uni_empresa_actual ?? activeCompany?.id}
       onSave={(payload) => saveRelatedRecord(endpoint, recordId, payload)}
     />
   );
@@ -642,6 +695,46 @@ export default function UnitEditPage() {
         </div>
         {unit && <div className="create-company-chip"><Truck size={17} /> {unit.empresa_nombre || activeCompany?.name || 'Empresa actual'}</div>}
       </section>
+
+      {isAdminGlobal && !loading && unit && (
+        <section className="create-record-form unit-company-transfer-panel">
+          <SectionTitle
+            icon={Building2}
+            title="Traspasar unidad a otra empresa"
+            subtitle="La empresa actual cambiará y las placas vinculadas a sus tarjetas se transferirán automáticamente. El propietario se conservará."
+          />
+          <div className="create-form-grid">
+            <Field label="Empresa actual">
+              <input value={unit.empresa_nombre || activeCompany?.name || 'Empresa actual'} disabled readOnly />
+            </Field>
+            <Field label="Empresa destino" required>
+              <SelectInput
+                value={destinationCompanyId}
+                onChange={(value) => { setDestinationCompanyId(value); setTransferError(''); }}
+                options={companies
+                  .filter((company) => Number(company.id) !== Number(unit.Uni_empresa_actual))
+                  .map((company) => ({ value: String(company.id), label: company.name }))}
+                required
+              />
+            </Field>
+          </div>
+          <p className="registry-muted-note">
+            Propietario actual: {unit.propietario_nombre || 'Sin información'}. El traspaso no modifica el propietario.
+            Cada placa transferida recibirá un movimiento de tipo TRASPASO con costo $0 y fecha del día.
+          </p>
+          {transferError && <div className="create-alert is-error" role="alert"><CircleAlert size={16} /><p>{transferError}</p></div>}
+          <div className="create-form-actions">
+            <button
+              type="button"
+              className="workspace-primary-button"
+              onClick={handleCompanyTransfer}
+              disabled={transferringCompany || !destinationCompanyId}
+            >
+              {transferringCompany ? 'Transfiriendo…' : 'Confirmar traspaso'}
+            </button>
+          </div>
+        </section>
+      )}
 
       {loading && <div className="workspace-loading">Cargando información de la unidad…</div>}
       {!loading && error && <div className="create-alert is-error" role="alert"><CircleAlert size={18} /><p>{error}</p><button type="button" onClick={() => navigate('/unidades')}><X size={16} /></button></div>}
@@ -771,9 +864,9 @@ export default function UnitEditPage() {
               numberLabel="Número de endoso"
               fieldName="endoso"
               uploadType="endoso"
-              companyId={activeCompany?.id ?? unit?.Uni_empresa_actual}
+              companyId={unit?.Uni_empresa_actual ?? activeCompany?.id}
               onCreate={async ({ endoso, url }) => {
-                const companyId = activeCompany?.id ?? unit?.Uni_empresa_actual;
+                const companyId = unit?.Uni_empresa_actual ?? activeCompany?.id;
                 await createEndorsement({ endoso, polizaId: Number(policy.Pol_id), url }, companyId);
                 setRelatedRefresh((current) => current + 1);
                 setSuccess('Endoso agregado correctamente.');
@@ -791,9 +884,9 @@ export default function UnitEditPage() {
                   numberLabel="Número de inciso"
                   fieldName="inciso"
                   uploadType="inciso"
-                  companyId={activeCompany?.id ?? unit?.Uni_empresa_actual}
+                  companyId={unit?.Uni_empresa_actual ?? activeCompany?.id}
                   onCreate={async ({ inciso, url }) => {
-                    const companyId = activeCompany?.id ?? unit?.Uni_empresa_actual;
+                    const companyId = unit?.Uni_empresa_actual ?? activeCompany?.id;
                     await createInciso({ inciso, endosoId: Number(endorsement.End_id), url }, companyId);
                     setRelatedRefresh((current) => current + 1);
                     setSuccess('Inciso agregado correctamente.');
