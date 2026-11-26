@@ -1,4 +1,5 @@
 const unidadesRepository = require('./unidades.repository');
+const uploadRepository = require('../upload/upload.repository');
 const { withTransaction } = require('../../utils/transaction');
 const { registrarMovimiento } = require('../../utils/audit');
 const { existeRegistro } = require('../../utils/validators');
@@ -362,6 +363,14 @@ class UnidadesService {
         throw error;
       }
 
+      // Reasignar la titularidad documental solo cuando el archivo no está
+      // compartido por registros ajenos a esta unidad o a sus placas transferidas.
+      const documentosReasignados = await uploadRepository.transferUnsharedFilesForUnit(
+        id,
+        empresaNueva,
+        connection
+      );
+
       await registrarMovimiento(
         'Unidades',
         id,
@@ -373,12 +382,19 @@ class UnidadesService {
           estadoNuevo: estadoId,
           placasTransferidas,
           placasYaEnDestino,
+          documentosReasignados: documentosReasignados.length,
         },
         usuarioId,
         connection
       );
 
-      return { placasTransferidas, placasYaEnDestino, empresaAnterior, empresaNueva };
+      return {
+        placasTransferidas,
+        placasYaEnDestino,
+        documentosReasignados: documentosReasignados.length,
+        empresaAnterior,
+        empresaNueva,
+      };
     });
 
     // El registro se consulta después del COMMIT para devolver los datos actuales.
