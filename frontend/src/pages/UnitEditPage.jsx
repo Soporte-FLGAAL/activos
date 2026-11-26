@@ -682,6 +682,13 @@ export default function UnitEditPage() {
   if (!activeCompany?.id && !isAdminGlobal) {
     return <Navigate to="/seleccionar-empresa" replace state={{ from: `/unidades/${id}/editar` }} />;
   }
+  if (
+    unit && !isAdminGlobal && activeCompany?.id != null &&
+    Number(unit.Uni_propietario) === Number(activeCompany.id) &&
+    Number(unit.Uni_empresa_actual) !== Number(activeCompany.id)
+  ) {
+    return <Navigate to={`/unidades/${id}`} replace state={{ ownerReadOnly: true }} />;
+  }
   if (!isAdminGlobal && !can('unidades:editar')) {
     return <Navigate to={`/unidades/${id}`} replace />;
   }
