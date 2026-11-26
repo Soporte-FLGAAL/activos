@@ -82,11 +82,12 @@ class UploadService {
         const archivo = await uploadRepository.findByUuid(uuid, connection, true);
         if (!archivo) return { deleted: false, reason: 'not_found' };
 
-        if (!esAdminGlobal && (
-          empresaId == null ||
-          Number(archivo.Arc_empresa) !== Number(empresaId)
-        )) {
-          return { deleted: false, reason: 'forbidden' };
+        if (!esAdminGlobal) {
+          const empresaValida = empresaId != null && (
+            Number(archivo.Arc_empresa) === Number(empresaId) ||
+            await uploadRepository.isReferencedByCompany(uuid, empresaId, connection)
+          );
+          if (!empresaValida) return { deleted: false, reason: 'forbidden' };
         }
 
         const referenced = await uploadRepository.hasDocumentReference(uuid, connection);
