@@ -11,7 +11,7 @@ class CotejosRepository {
       WHERE 1=1
     `;
     const params = [];
-    if (empresaId) { sql += ' AND u.Uni_empresa_actual = ?'; params.push(empresaId); }
+    if (empresaId) { sql += ' AND (u.Uni_empresa_actual = ? OR u.Uni_propietario = ?)'; params.push(empresaId, empresaId); }
     if (tarjetaId) { sql += ' AND c.Cot_tarjeta_id = ?'; params.push(tarjetaId); }
     sql += ' ORDER BY c.Cot_id DESC';
     if (limit !== undefined && offset !== undefined) {
@@ -32,7 +32,7 @@ class CotejosRepository {
       WHERE 1=1
     `;
     const params = [];
-    if (empresaId) { sql += ' AND u.Uni_empresa_actual = ?'; params.push(empresaId); }
+    if (empresaId) { sql += ' AND (u.Uni_empresa_actual = ? OR u.Uni_propietario = ?)'; params.push(empresaId, empresaId); }
     if (tarjetaId) { sql += ' AND c.Cot_tarjeta_id = ?'; params.push(tarjetaId); }
     const [rows] = await db.query(sql, params);
     return rows[0].total;
@@ -47,7 +47,7 @@ class CotejosRepository {
       WHERE c.Cot_id = ?
     `;
     const params = [id];
-    if (empresaId) { sql += ' AND u.Uni_empresa_actual = ?'; params.push(empresaId); }
+    if (empresaId) { sql += ' AND (u.Uni_empresa_actual = ? OR u.Uni_propietario = ?)'; params.push(empresaId, empresaId); }
     const [rows] = await db.query(sql, params);
     return rows[0] || null;
   }
