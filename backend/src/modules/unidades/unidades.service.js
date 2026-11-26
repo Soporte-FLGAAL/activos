@@ -13,6 +13,18 @@ class UnidadesService {
     return unidadesRepository.count(filters);
   }
 
+  async _validarEmpresaActualParaEscritura(id, empresaId = null) {
+    if (empresaId == null) return;
+    const unidad = await this.obtener(id);
+    if (Number(unidad.Uni_empresa_actual) !== Number(empresaId)) {
+      const error = new Error(
+        'La empresa propietaria conserva acceso de consulta, pero la administración de la unidad corresponde a la empresa actual.'
+      );
+      error.status = 403;
+      throw error;
+    }
+  }
+
   async obtener(id, empresaId = null) {
     const unidad = await unidadesRepository.findById(id, empresaId);
     if (!unidad) {
@@ -98,7 +110,7 @@ class UnidadesService {
   }
 
   async actualizar(id, data, usuarioId, empresaId = null) {
-    await this.obtener(id, empresaId);
+    await this._validarEmpresaActualParaEscritura(id, empresaId);
 
     const dbData = this._toDbData(data, true);
 
@@ -134,7 +146,7 @@ class UnidadesService {
       throw error;
     }
 
-    await this.obtener(id, empresaId);
+    await this._validarEmpresaActualParaEscritura(id, empresaId);
     // Validar que el campo sea permitido y el valor adecuado según el campo
     if (campo === 'Uni_status') {
       if (!['ALTA', 'BAJA'].includes(valor)) {
@@ -403,7 +415,7 @@ class UnidadesService {
   }
 
   async eliminar(id, usuarioId, empresaId = null) {
-    await this.obtener(id, empresaId);
+    await this._validarEmpresaActualParaEscritura(id, empresaId);
 
     return withTransaction(async (connection) => {
       const ok = await unidadesRepository.delete(id, empresaId, connection);
