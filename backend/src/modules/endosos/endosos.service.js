@@ -1,4 +1,5 @@
 const endososRepository = require('./endosos.repository');
+const { validarEmpresaActual } = require('../../utils/empresa');
 const { withTransaction } = require('../../utils/transaction');
 const { registrarMovimiento } = require('../../utils/audit');
 const { existeRegistro } = require('../../utils/validators');
@@ -52,7 +53,8 @@ class EndososService {
   }
 
   async actualizar(id, data, usuarioId, empresaId = null) {
-    await this.obtener(id, empresaId);
+    const actual = await this.obtener(id, empresaId);
+    validarEmpresaActual(actual, empresaId, 'endoso');
     const map = { endoso: 'End_endoso', polizaId: 'End_poliza', url: 'End_url' };
     const dbData = {};
     for (const key in data) if (map[key]) dbData[map[key]] = data[key];
@@ -86,7 +88,8 @@ class EndososService {
   }
 
   async eliminar(id, usuarioId, empresaId = null) {
-    await this.obtener(id, empresaId);
+    const actual = await this.obtener(id, empresaId);
+    validarEmpresaActual(actual, empresaId, 'endoso');
     return withTransaction(async (connection) => {
       const ok = await endososRepository.delete(id, empresaId, connection);
       if (!ok) {
