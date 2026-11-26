@@ -46,6 +46,75 @@ class UploadRepository {
     return false;
   }
 
+  async isReferencedByCompany(uuid, empresaId, connection = null) {
+    const dbConn = connection || db;
+    const marker = `/upload/${uuid}`;
+    const [rows] = await dbConn.query(
+      `SELECT 1
+       FROM Unidades u
+       WHERE u.Uni_empresa_actual = ?
+         AND (
+           LOCATE(?, COALESCE(u.Uni_factura_url, '')) > 0 OR
+           LOCATE(?, COALESCE(u.Uni_url_verificacion_mecanica, '')) > 0 OR
+           LOCATE(?, COALESCE(u.Uni_url_verificacion_contaminantes, '')) > 0
+         )
+       UNION ALL
+       SELECT 1
+       FROM Tarjeta_circulacion tc
+       INNER JOIN Unidades u ON u.Uni_id = tc.TC_unidad_id
+       WHERE u.Uni_empresa_actual = ?
+         AND (
+           LOCATE(?, COALESCE(tc.TC_url, '')) > 0 OR
+           LOCATE(?, COALESCE(tc.TC_url_reposicion, '')) > 0
+         )
+       UNION ALL
+       SELECT 1
+       FROM Polizas p
+       INNER JOIN Unidades u ON u.Uni_id = p.Pol_unidad_id
+       WHERE u.Uni_empresa_actual = ? AND LOCATE(?, COALESCE(p.Pol_url, '')) > 0
+       UNION ALL
+       SELECT 1
+       FROM Endoso e
+       INNER JOIN Polizas p ON p.Pol_id = e.End_poliza
+       INNER JOIN Unidades u ON u.Uni_id = p.Pol_unidad_id
+       WHERE u.Uni_empresa_actual = ? AND LOCATE(?, COALESCE(e.End_url, '')) > 0
+       UNION ALL
+       SELECT 1
+       FROM Inciso i
+       INNER JOIN Endoso e ON e.End_id = i.Inc_endoso
+       INNER JOIN Polizas p ON p.Pol_id = e.End_poliza
+       INNER JOIN Unidades u ON u.Uni_id = p.Pol_unidad_id
+       WHERE u.Uni_empresa_actual = ? AND LOCATE(?, COALESCE(i.Inc_url, '')) > 0
+       UNION ALL
+       SELECT 1
+       FROM Doble_articulado d
+       INNER JOIN Unidades u ON u.Uni_id = d.PDA_unidad_id
+       WHERE u.Uni_empresa_actual = ? AND LOCATE(?, COALESCE(d.PDA_url, '')) > 0
+       UNION ALL
+       SELECT 1
+       FROM SICT s
+       INNER JOIN Unidades u ON u.Uni_id = s.SICT_unidad_id
+       WHERE u.Uni_empresa_actual = ? AND LOCATE(?, COALESCE(s.SICT_url, '')) > 0
+       UNION ALL
+       SELECT 1
+       FROM Detalle_placas dp
+       INNER JOIN Placas p ON p.Pla_id = dp.DP_placas_id
+       WHERE p.Pla_empresa_actual = ? AND LOCATE(?, COALESCE(dp.DP_url, '')) > 0
+       LIMIT 1`,
+      [
+        empresaId, marker, marker, marker,
+        empresaId, marker, marker,
+        empresaId, marker,
+        empresaId, marker,
+        empresaId, marker,
+        empresaId, marker,
+        empresaId, marker,
+        empresaId, marker,
+      ]
+    );
+    return rows.length > 0;
+  },
+
   async findById(id, connection = null) {
     const dbConn = connection || db;
     const [rows] = await dbConn.query(
