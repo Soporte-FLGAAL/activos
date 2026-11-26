@@ -1,4 +1,5 @@
 const dobleArticuladoRepository = require('./doble_articulado.repository');
+const { validarEmpresaActual } = require('../../utils/empresa');
 const { withTransaction } = require('../../utils/transaction');
 const { registrarMovimiento } = require('../../utils/audit');
 const { existeRegistro } = require('../../utils/validators');
@@ -50,7 +51,8 @@ class DobleArticuladoService {
   }
 
   async actualizar(id, data, usuarioId, empresaId = null) {
-    await this.obtener(id, empresaId);
+    const actual = await this.obtener(id, empresaId);
+    validarEmpresaActual(actual, empresaId, 'permiso especial');
     const map = {
       permiso: 'PDA_permiso',
       unidadId: 'PDA_unidad_id',
@@ -87,7 +89,8 @@ class DobleArticuladoService {
   }
 
   async eliminar(id, usuarioId, empresaId = null) {
-    await this.obtener(id, empresaId);
+    const actual = await this.obtener(id, empresaId);
+    validarEmpresaActual(actual, empresaId, 'permiso especial');
     return withTransaction(async (connection) => {
       const ok = await dobleArticuladoRepository.delete(id, empresaId, connection);
       if (!ok) {

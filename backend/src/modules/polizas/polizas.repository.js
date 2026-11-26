@@ -14,8 +14,8 @@ class PolizasRepository {
     const params = [];
 
     if (empresaId) {
-      sql += ' AND u.Uni_empresa_actual = ?';
-      params.push(empresaId);
+      sql += ' AND (u.Uni_empresa_actual = ? OR u.Uni_propietario = ?)';
+      params.push(empresaId, empresaId);
     }
     if (unidadId) {
       sql += ' AND p.Pol_unidad_id = ?';
@@ -53,7 +53,7 @@ class PolizasRepository {
     `;
     const params = [];
 
-    if (empresaId) { sql += ' AND u.Uni_empresa_actual = ?'; params.push(empresaId); }
+    if (empresaId) { sql += ' AND (u.Uni_empresa_actual = ? OR u.Uni_propietario = ?)'; params.push(empresaId, empresaId); }
     if (unidadId) { sql += ' AND p.Pol_unidad_id = ?'; params.push(unidadId); }
     if (aseguradoraId) { sql += ' AND p.Pol_aseguradora = ?'; params.push(aseguradoraId); }
     if (vigente === 'true') { sql += ' AND p.Pol_fecha_fin >= CURDATE()'; }
@@ -65,7 +65,7 @@ class PolizasRepository {
 
   async findById(id, empresaId = null) {
     let sql = 
-      `SELECT p.*, a.Ase_nombre AS aseguradora_nombre, u.Uni_no_economico, tp.TpP_nombre AS tipo_poliza_nombre
+      `SELECT p.*, a.Ase_nombre AS aseguradora_nombre, u.Uni_no_economico, u.Uni_empresa_actual, tp.TpP_nombre AS tipo_poliza_nombre
        FROM Polizas p
        JOIN Aseguradoras a ON p.Pol_aseguradora = a.Ase_id
        JOIN Unidades u ON p.Pol_unidad_id = u.Uni_id
@@ -74,8 +74,8 @@ class PolizasRepository {
 
     const params = [id];
     if (empresaId) {
-      sql += ' AND u.Uni_empresa_actual = ?';
-      params.push(empresaId);
+      sql += ' AND (u.Uni_empresa_actual = ? OR u.Uni_propietario = ?)';
+      params.push(empresaId, empresaId);
     }
     const [rows] = await db.query(sql, params);
     return rows[0] || null;

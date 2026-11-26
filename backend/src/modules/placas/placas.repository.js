@@ -7,8 +7,15 @@ class PlacasRepository {
     const params = [];
 
     if (empresaId) {
-      where += ' AND p.Pla_empresa_actual = ?';
-      params.push(empresaId);
+      where += ` AND (
+        p.Pla_empresa_actual = ? OR EXISTS (
+          SELECT 1
+          FROM Tarjeta_circulacion tc
+          INNER JOIN Unidades u ON u.Uni_id = tc.TC_unidad_id
+          WHERE tc.TC_placas_id = p.Pla_id AND u.Uni_propietario = ?
+        )
+      )`;
+      params.push(empresaId, empresaId);
     }
     if (status) {
       where += ' AND p.Pla_status = ?';
@@ -66,8 +73,15 @@ class PlacasRepository {
     `;
     const params = [id];
     if (empresaId) {
-      sql += ' AND p.Pla_empresa_actual = ?';
-      params.push(empresaId);
+      sql += ` AND (
+        p.Pla_empresa_actual = ? OR EXISTS (
+          SELECT 1
+          FROM Tarjeta_circulacion tc
+          INNER JOIN Unidades u ON u.Uni_id = tc.TC_unidad_id
+          WHERE tc.TC_placas_id = p.Pla_id AND u.Uni_propietario = ?
+        )
+      )`;
+      params.push(empresaId, empresaId);
     }
     const [rows] = await dbConn.query(sql, params);
     return rows[0] || null;

@@ -12,7 +12,17 @@ class DetallePlacasRepository {
       WHERE 1=1
     `;
     const params = [];
-    if (empresaId) { sql += ' AND p.Pla_empresa_actual = ?'; params.push(empresaId); }
+    if (empresaId) {
+      sql += ` AND (
+        p.Pla_empresa_actual = ? OR EXISTS (
+          SELECT 1
+          FROM Tarjeta_circulacion tc
+          INNER JOIN Unidades u ON u.Uni_id = tc.TC_unidad_id
+          WHERE tc.TC_placas_id = p.Pla_id AND u.Uni_propietario = ?
+        )
+      )`;
+      params.push(empresaId, empresaId);
+    }
     if (placasId) { sql += ' AND dp.DP_placas_id = ?'; params.push(placasId); }
     sql += ' ORDER BY dp.DP_id DESC';
     if (limit !== undefined && offset !== undefined) {
@@ -32,7 +42,17 @@ class DetallePlacasRepository {
       WHERE 1=1
     `;
     const params = [];
-    if (empresaId) { sql += ' AND p.Pla_empresa_actual = ?'; params.push(empresaId); }
+    if (empresaId) {
+      sql += ` AND (
+        p.Pla_empresa_actual = ? OR EXISTS (
+          SELECT 1
+          FROM Tarjeta_circulacion tc
+          INNER JOIN Unidades u ON u.Uni_id = tc.TC_unidad_id
+          WHERE tc.TC_placas_id = p.Pla_id AND u.Uni_propietario = ?
+        )
+      )`;
+      params.push(empresaId, empresaId);
+    }
     if (placasId) { sql += ' AND dp.DP_placas_id = ?'; params.push(placasId); }
     const [rows] = await db.query(sql, params);
     return rows[0].total;
@@ -49,7 +69,17 @@ class DetallePlacasRepository {
       WHERE dp.DP_id = ?
     `;
     const params = [id];
-    if (empresaId) { sql += ' AND p.Pla_empresa_actual = ?'; params.push(empresaId); }
+    if (empresaId) {
+      sql += ` AND (
+        p.Pla_empresa_actual = ? OR EXISTS (
+          SELECT 1
+          FROM Tarjeta_circulacion tc
+          INNER JOIN Unidades u ON u.Uni_id = tc.TC_unidad_id
+          WHERE tc.TC_placas_id = p.Pla_id AND u.Uni_propietario = ?
+        )
+      )`;
+      params.push(empresaId, empresaId);
+    }
     const [rows] = await dbConn.query(sql, params);
     return rows[0] || null;
   }

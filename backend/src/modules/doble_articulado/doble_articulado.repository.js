@@ -10,7 +10,7 @@ class DobleArticuladoRepository {
       WHERE 1=1
     `;
     const params = [];
-    if (empresaId) { sql += ' AND u.Uni_empresa_actual = ?'; params.push(empresaId); }
+    if (empresaId) { sql += ' AND (u.Uni_empresa_actual = ? OR u.Uni_propietario = ?)'; params.push(empresaId, empresaId); }
     if (unidadId) { sql += ' AND pda.PDA_unidad_id = ?'; params.push(unidadId); }
     sql += ' ORDER BY pda.PDA_id DESC';
     if (limit !== undefined && offset !== undefined) {
@@ -30,7 +30,7 @@ class DobleArticuladoRepository {
       WHERE 1=1
     `;
     const params = [];
-    if (empresaId) { sql += ' AND u.Uni_empresa_actual = ?'; params.push(empresaId); }
+    if (empresaId) { sql += ' AND (u.Uni_empresa_actual = ? OR u.Uni_propietario = ?)'; params.push(empresaId, empresaId); }
     if (unidadId) { sql += ' AND pda.PDA_unidad_id = ?'; params.push(unidadId); }
     const [rows] = await db.query(sql, params);
     return rows[0].total;
@@ -44,7 +44,7 @@ class DobleArticuladoRepository {
       WHERE pda.PDA_id = ?
     `;
     const params = [id];
-    if (empresaId) { sql += ' AND u.Uni_empresa_actual = ?'; params.push(empresaId); }
+    if (empresaId) { sql += ' AND (u.Uni_empresa_actual = ? OR u.Uni_propietario = ?)'; params.push(empresaId, empresaId); }
     const [rows] = await db.query(sql, params);
     return rows[0] || null;
   }

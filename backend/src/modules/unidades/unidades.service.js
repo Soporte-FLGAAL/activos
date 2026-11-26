@@ -1,4 +1,5 @@
 const unidadesRepository = require('./unidades.repository');
+const uploadRepository = require('../upload/upload.repository');
 const { withTransaction } = require('../../utils/transaction');
 const { registrarMovimiento } = require('../../utils/audit');
 const { existeRegistro } = require('../../utils/validators');
@@ -10,6 +11,18 @@ class UnidadesService {
 
     async contar(filters) {
     return unidadesRepository.count(filters);
+  }
+
+  async _validarEmpresaActualParaEscritura(id, empresaId = null) {
+    if (empresaId == null) return;
+    const unidad = await this.obtener(id);
+    if (Number(unidad.Uni_empresa_actual) !== Number(empresaId)) {
+      const error = new Error(
+        'La empresa propietaria conserva acceso de consulta, pero la administración de la unidad corresponde a la empresa actual.'
+      );
+      error.status = 403;
+      throw error;
+    }
   }
 
   async obtener(id, empresaId = null) {
@@ -97,7 +110,7 @@ class UnidadesService {
   }
 
   async actualizar(id, data, usuarioId, empresaId = null) {
-    await this.obtener(id, empresaId);
+    await this._validarEmpresaActualParaEscritura(id, empresaId);
 
     const dbData = this._toDbData(data, true);
 
@@ -133,7 +146,7 @@ class UnidadesService {
       throw error;
     }
 
-    await this.obtener(id, empresaId);
+    await this._validarEmpresaActualParaEscritura(id, empresaId);
     // Validar que el campo sea permitido y el valor adecuado según el campo
     if (campo === 'Uni_status') {
       if (!['ALTA', 'BAJA'].includes(valor)) {
@@ -201,44 +214,175 @@ class UnidadesService {
   }
 
   async cambiarEmpresa(id, { empresaDestinoId, estadoId }, usuarioId) {
-    // Validar que la empresa destino exista
-    if (!(await existeRegistro('Empresas', 'Emp_id', empresaDestinoId))) {
-      const error = new Error('La empresa destino no existe');
-      error.status = 422;
-      throw error;
-    }
-    if (estadoId && !(await existeRegistro('Estado_unidad', 'EsU_id', estadoId))) {
-      const error = new Error('El estado indicado no existe');
-      error.status = 422;
-      throw error;
-    }
+    const resultado = await withTransaction(async (connection) => {
+      const [destinoRows] = await connection.query(
+        'SELECT Emp_id FROM Empresas WHERE Emp_id = ? LIMIT 1',
+        [empresaDestinoId]
+      );
+      if (destinoRows.length === 0) {
+        const error = new Error('La empresa destino no existe');
+        error.status = 422;
+        throw error;
+      }
 
-    // Obtener la unidad actual (sin filtro de empresa: solo ADMIN_GLOBAL llega aquí)
-    const unidad = await this.obtener(id);
-    const empresaAnterior = unidad.Uni_empresa_actual;
+      if (estadoId !== undefined) {
+        const [estadoRows] = await connection.query(
+          'SELECT EsU_id FROM Estado_unidad WHERE EsU_id = ? LIMIT 1',
+          [estadoId]
+        );
+        if (estadoRows.length === 0) {
+          const error = new Error('El estado indicado no existe');
+          error.status = 422;
+          throw error;
+        }
+      }
 
-    if (empresaAnterior === empresaDestinoId) {
-      const error = new Error('La unidad ya pertenece a esa empresa');
-      error.status = 409;
-      throw error;
-    }
+      const [unidadRows] = await connection.query(
+        `SELECT Uni_id, Uni_no_economico, Uni_empresa_actual
+         FROM Unidades
+         WHERE Uni_id = ?
+         FOR UPDATE`,
+        [id]
+      );
+      const unidad = unidadRows[0];
+      if (!unidad) {
+        const error = new Error('Unidad no encontrada');
+        error.status = 404;
+        throw error;
+      }
 
-    return withTransaction(async (connection) => {
-      // Actualizar empresa actual y opcionalmente el estado
+      const empresaAnterior = Number(unidad.Uni_empresa_actual);
+      const empresaNueva = Number(empresaDestinoId);
+      if (empresaAnterior === empresaNueva) {
+        const error = new Error('La unidad ya pertenece a esa empresa');
+        error.status = 409;
+        throw error;
+      }
+
+      // Obtener una sola vez cada placa vinculada a las tarjetas de esta unidad.
+      const [placas] = await connection.query(
+        `SELECT p.Pla_id, p.Pla_placas, p.Pla_empresa_actual
+         FROM Placas p
+         WHERE p.Pla_id IN (
+           SELECT DISTINCT tc.TC_placas_id
+           FROM Tarjeta_circulacion tc
+           WHERE tc.TC_unidad_id = ?
+         )
+         ORDER BY p.Pla_id
+         FOR UPDATE`,
+        [id]
+      );
+
+      // Una placa no puede cambiar de empresa si también está ligada a otra unidad.
+      // Evita romper el expediente histórico de la otra unidad.
+      for (const placa of placas) {
+        const [otrasUnidades] = await connection.query(
+          `SELECT DISTINCT u.Uni_id, u.Uni_no_economico
+           FROM Tarjeta_circulacion tc
+           INNER JOIN Unidades u ON u.Uni_id = tc.TC_unidad_id
+           WHERE tc.TC_placas_id = ?
+             AND tc.TC_unidad_id <> ?
+           LIMIT 1`,
+          [placa.Pla_id, id]
+        );
+        if (otrasUnidades.length > 0) {
+          const otra = otrasUnidades[0];
+          const error = new Error(
+            `No se puede transferir automáticamente la placa ${placa.Pla_placas}: también está vinculada a la unidad ${otra.Uni_no_economico || otra.Uni_id}. Revisa esa relación antes de volver a intentar el traspaso.`
+          );
+          error.status = 409;
+          throw error;
+        }
+      }
+
+      // Crear/recuperar el tipo de movimiento sin requerir una actualización manual
+      // del catálogo en instalaciones que ya están operando.
+      await connection.query(
+        'INSERT IGNORE INTO Tipo_movimiento_placa (TpMP_nombre) VALUES (?)',
+        ['TRASPASO']
+      );
+      const [tipoMovimientoRows] = await connection.query(
+        'SELECT TpMP_id FROM Tipo_movimiento_placa WHERE TpMP_nombre = ? LIMIT 1',
+        ['TRASPASO']
+      );
+      if (tipoMovimientoRows.length === 0) {
+        const error = new Error('No se pudo preparar el tipo de movimiento TRASPASO');
+        error.status = 500;
+        throw error;
+      }
+      const tipoMovimientoTraspaso = tipoMovimientoRows[0].TpMP_id;
+
+      const placasTransferidas = [];
+      const placasYaEnDestino = [];
+      for (const placa of placas) {
+        const empresaPlacaAnterior = Number(placa.Pla_empresa_actual);
+        if (empresaPlacaAnterior === empresaNueva) {
+          placasYaEnDestino.push(Number(placa.Pla_id));
+          continue;
+        }
+
+        const [updateResult] = await connection.query(
+          'UPDATE Placas SET Pla_empresa_actual = ? WHERE Pla_id = ?',
+          [empresaNueva, placa.Pla_id]
+        );
+        if (updateResult.affectedRows === 0) {
+          const error = new Error(`No se pudo transferir la placa ${placa.Pla_placas || placa.Pla_id}`);
+          error.status = 500;
+          throw error;
+        }
+
+        // El movimiento queda registrado en el historial propio de la placa.
+        // El costo es cero y el comprobante es opcional para un traspaso administrativo.
+        await connection.query(
+          `INSERT INTO Detalle_placas
+             (DP_placas_id, DP_tipo_movimiento, DP_costo, DP_fecha, DP_url)
+           VALUES (?, ?, 0, CURDATE(), NULL)`,
+          [placa.Pla_id, tipoMovimientoTraspaso]
+        );
+
+        await registrarMovimiento(
+          'Placas',
+          placa.Pla_id,
+          'UPDATE',
+          {
+            campo: 'Pla_empresa_actual',
+            empresaAnterior: empresaPlacaAnterior,
+            empresaNueva,
+            motivo: `Traspaso automático junto con la unidad ${unidad.Uni_no_economico || id}`,
+            tipoMovimiento: 'TRASPASO',
+          },
+          usuarioId,
+          connection
+        );
+        placasTransferidas.push(Number(placa.Pla_id));
+      }
+
       const campos = ['Uni_empresa_actual = ?'];
-      const valores = [empresaDestinoId];
-      if (estadoId) {
+      const valores = [empresaNueva];
+      if (estadoId !== undefined) {
         campos.push('Uni_estado = ?');
         valores.push(estadoId);
       }
       valores.push(id);
 
-      await connection.query(
+      const [unitUpdate] = await connection.query(
         `UPDATE Unidades SET ${campos.join(', ')} WHERE Uni_id = ?`,
         valores
       );
+      if (unitUpdate.affectedRows === 0) {
+        const error = new Error('No se pudo actualizar la empresa de la unidad');
+        error.status = 500;
+        throw error;
+      }
 
-      // Auditoría con detalle del cambio
+      // Reasignar la titularidad documental solo cuando el archivo no está
+      // compartido por registros ajenos a esta unidad o a sus placas transferidas.
+      const documentosReasignados = await uploadRepository.transferUnsharedFilesForUnit(
+        id,
+        empresaNueva,
+        connection
+      );
+
       await registrarMovimiento(
         'Unidades',
         id,
@@ -246,19 +390,32 @@ class UnidadesService {
         {
           campo: 'Uni_empresa_actual',
           empresaAnterior,
-          empresaNueva: empresaDestinoId,
-          estadoNuevo: estadoId || undefined,
+          empresaNueva,
+          estadoNuevo: estadoId,
+          placasTransferidas,
+          placasYaEnDestino,
+          documentosReasignados: documentosReasignados.length,
         },
         usuarioId,
         connection
       );
 
-      return true;
-    }).then(() => this.obtener(id));
+      return {
+        placasTransferidas,
+        placasYaEnDestino,
+        documentosReasignados: documentosReasignados.length,
+        empresaAnterior,
+        empresaNueva,
+      };
+    });
+
+    // El registro se consulta después del COMMIT para devolver los datos actuales.
+    const unidad = await this.obtener(id);
+    return { ...resultado, unidad };
   }
 
   async eliminar(id, usuarioId, empresaId = null) {
-    await this.obtener(id, empresaId);
+    await this._validarEmpresaActualParaEscritura(id, empresaId);
 
     return withTransaction(async (connection) => {
       const ok = await unidadesRepository.delete(id, empresaId, connection);

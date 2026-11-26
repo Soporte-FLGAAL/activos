@@ -7,8 +7,8 @@ class TarjetasRepository {
     const params = [];
 
     if (empresaId) {
-      where += ' AND u.Uni_empresa_actual = ?';
-      params.push(empresaId);
+      where += ' AND (u.Uni_empresa_actual = ? OR u.Uni_propietario = ?)';
+      params.push(empresaId, empresaId);
     }
     if (unidadId) {
       where += ' AND tc.TC_unidad_id = ?';
@@ -83,8 +83,8 @@ class TarjetasRepository {
     `;
     const params = [id];
     if (empresaId) {
-      sql += ' AND u.Uni_empresa_actual = ?';
-      params.push(empresaId);
+      sql += ' AND (u.Uni_empresa_actual = ? OR u.Uni_propietario = ?)';
+      params.push(empresaId, empresaId);
     }
     const [rows] = await dbConn.query(sql, params);
     return rows[0] || null;

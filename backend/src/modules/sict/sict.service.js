@@ -1,4 +1,5 @@
 const sictRepository = require('./sict.repository');
+const { validarEmpresaActual } = require('../../utils/empresa');
 const { withTransaction } = require('../../utils/transaction');
 const { registrarMovimiento } = require('../../utils/audit');
 const { existeRegistro } = require('../../utils/validators');
@@ -50,7 +51,8 @@ class SictService {
   }
 
   async actualizar(id, data, usuarioId, empresaId = null) {
-    await this.obtener(id, empresaId);
+    const actual = await this.obtener(id, empresaId);
+    validarEmpresaActual(actual, empresaId, 'permiso SICT');
     const map = {
       permiso: 'SICT_permiso',
       unidadId: 'SICT_unidad_id',
@@ -86,7 +88,8 @@ class SictService {
   }
 
   async eliminar(id, usuarioId, empresaId = null) {
-    await this.obtener(id, empresaId);
+    const actual = await this.obtener(id, empresaId);
+    validarEmpresaActual(actual, empresaId, 'permiso SICT');
     return withTransaction(async (connection) => {
       const ok = await sictRepository.delete(id, empresaId, connection);
       if (!ok) {

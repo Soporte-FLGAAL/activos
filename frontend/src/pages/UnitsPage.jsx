@@ -214,8 +214,8 @@ export default function UnitsPage() {
             onOpen={() => navigate(`/unidades/${unitId(unit)}`)}
             onEdit={() => navigate(`/unidades/${unitId(unit)}/editar`)}
             onDelete={() => handleDeleteUnit(unit)}
-            canEdit={isAdminGlobal || can('unidades:editar')}
-            canDelete={isAdminGlobal || can('unidades:eliminar')}
+            canEdit={isAdminGlobal || (Number(unit.Uni_empresa_actual) === Number(activeCompany?.id) && can('unidades:editar'))}
+            canDelete={isAdminGlobal || (Number(unit.Uni_empresa_actual) === Number(activeCompany?.id) && can('unidades:eliminar'))}
             deleting={deletingId === unitId(unit)}
           />)}
         </div>

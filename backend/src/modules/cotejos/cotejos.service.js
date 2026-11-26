@@ -1,4 +1,5 @@
 const cotejosRepository = require('./cotejos.repository');
+const { validarEmpresaActual } = require('../../utils/empresa');
 const { withTransaction } = require('../../utils/transaction');
 const { registrarMovimiento } = require('../../utils/audit');
 const { existeRegistro } = require('../../utils/validators');
@@ -51,7 +52,8 @@ class CotejosService {
   }
 
   async actualizar(id, data, usuarioId, empresaId = null) {
-    await this.obtener(id, empresaId);
+    const actual = await this.obtener(id, empresaId);
+    validarEmpresaActual(actual, empresaId, 'cotejo');
     const map = { tarjetaId: 'Cot_tarjeta_id', tarjetaCotejo: 'Cot_tarjeta_cotejo', fecha: 'Cot_fecha' };
     const dbData = {};
     for (const key in data) if (map[key]) dbData[map[key]] = data[key];
@@ -85,7 +87,8 @@ class CotejosService {
   }
 
   async eliminar(id, usuarioId, empresaId = null) {
-    await this.obtener(id, empresaId);
+    const actual = await this.obtener(id, empresaId);
+    validarEmpresaActual(actual, empresaId, 'cotejo');
     return withTransaction(async (connection) => {
       const ok = await cotejosRepository.delete(id, empresaId, connection);
       if (!ok) {

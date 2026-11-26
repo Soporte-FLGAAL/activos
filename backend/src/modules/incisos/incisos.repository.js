@@ -13,8 +13,8 @@ class IncisosRepository {
     `;
     const params = [];
     if (empresaId) {
-      sql += ' AND u.Uni_empresa_actual = ?';
-      params.push(empresaId);
+      sql += ' AND (u.Uni_empresa_actual = ? OR u.Uni_propietario = ?)';
+      params.push(empresaId, empresaId);
     }
     if (endosoId) {
       sql += ' AND i.Inc_endoso = ?';
@@ -40,7 +40,7 @@ class IncisosRepository {
       WHERE 1=1
     `;
     const params = [];
-    if (empresaId) { sql += ' AND u.Uni_empresa_actual = ?'; params.push(empresaId); }
+    if (empresaId) { sql += ' AND (u.Uni_empresa_actual = ? OR u.Uni_propietario = ?)'; params.push(empresaId, empresaId); }
     if (endosoId) { sql += ' AND i.Inc_endoso = ?'; params.push(endosoId); }
     const [rows] = await db.query(sql, params);
     return rows[0].total;
@@ -56,7 +56,7 @@ class IncisosRepository {
       WHERE i.Inc_id = ?
     `;
     const params = [id];
-    if (empresaId) { sql += ' AND u.Uni_empresa_actual = ?'; params.push(empresaId); }
+    if (empresaId) { sql += ' AND (u.Uni_empresa_actual = ? OR u.Uni_propietario = ?)'; params.push(empresaId, empresaId); }
     const [rows] = await db.query(sql, params);
     return rows[0] || null;
   }

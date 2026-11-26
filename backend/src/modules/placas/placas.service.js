@@ -1,4 +1,5 @@
 const placasRepository = require('./placas.repository');
+const { validarEmpresaActual } = require('../../utils/empresa');
 const { registrarMovimiento } = require('../../utils/audit');
 const { existeRegistro } = require('../../utils/validators');
 const { withTransaction } = require('../../utils/transaction');
@@ -70,6 +71,7 @@ class PlacasService {
 
   async actualizarPlacaConMovimiento(idPlaca, dataPlaca, dataMovimiento, usuarioId, empresaId = null, esAdminGlobal = false) {
     const placaActual = await this.obtener(idPlaca, empresaId);
+    validarEmpresaActual(placaActual, empresaId, 'placa');
     if (dataPlaca?.propietarioId !== undefined) {
       if (!esAdminGlobal) {
         const error = new Error('Solo un administrador global puede cambiar el propietario de una placa');
@@ -166,7 +168,8 @@ class PlacasService {
   }
 
   async actualizar(id, data, usuarioId, empresaId = null, esAdminGlobal = false) {
-    await this.obtener(id, empresaId);
+    const actual = await this.obtener(id, empresaId);
+    validarEmpresaActual(actual, empresaId, 'placa');
     if (data.propietarioId !== undefined) {
       if (!esAdminGlobal) {
         const error = new Error('Solo un administrador global puede cambiar el propietario de una placa');
@@ -215,7 +218,8 @@ class PlacasService {
   }
 
   async eliminar(id, usuarioId, empresaId = null) {
-    await this.obtener(id, empresaId);
+    const actual = await this.obtener(id, empresaId);
+    validarEmpresaActual(actual, empresaId, 'placa');
 
     return withTransaction(async (connection) => {
       const ok = await placasRepository.delete(id, empresaId, connection);

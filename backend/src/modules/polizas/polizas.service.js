@@ -1,4 +1,5 @@
 const polizasRepository = require('./polizas.repository');
+const { validarEmpresaActual } = require('../../utils/empresa');
 const { registrarMovimiento } = require('../../utils/audit');
 const { existeRegistro } = require('../../utils/validators');
 const { withTransaction } = require('../../utils/transaction');
@@ -154,7 +155,8 @@ class PolizasService {
   }
 
   async actualizar(id, data, usuarioId, empresaId = null) {
-    await this.obtener(id, empresaId);
+    const actual = await this.obtener(id, empresaId);
+    validarEmpresaActual(actual, empresaId, 'póliza');
 
     const map = {
       poliza: 'Pol_poliza',
@@ -205,7 +207,8 @@ class PolizasService {
   }
 
   async actualizarUrl(id, url, usuarioId, empresaId = null) {
-    await this.obtener(id, empresaId);
+    const actual = await this.obtener(id, empresaId);
+    validarEmpresaActual(actual, empresaId, 'póliza');
 
     return withTransaction(async (connection) => {
       const ok = await polizasRepository.updateUrl(id, url, empresaId, connection);
@@ -220,7 +223,8 @@ class PolizasService {
   }
 
   async eliminar(id, usuarioId, empresaId = null) {
-    await this.obtener(id, empresaId);
+    const actual = await this.obtener(id, empresaId);
+    validarEmpresaActual(actual, empresaId, 'póliza');
 
     return withTransaction(async (connection) => {
       const ok = await polizasRepository.delete(id, empresaId, connection);
