@@ -65,7 +65,7 @@ class PolizasRepository {
 
   async findById(id, empresaId = null) {
     let sql = 
-      `SELECT p.*, a.Ase_nombre AS aseguradora_nombre, u.Uni_no_economico, tp.TpP_nombre AS tipo_poliza_nombre
+      `SELECT p.*, a.Ase_nombre AS aseguradora_nombre, u.Uni_no_economico, u.Uni_empresa_actual, tp.TpP_nombre AS tipo_poliza_nombre
        FROM Polizas p
        JOIN Aseguradoras a ON p.Pol_aseguradora = a.Ase_id
        JOIN Unidades u ON p.Pol_unidad_id = u.Uni_id
