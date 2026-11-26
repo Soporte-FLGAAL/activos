@@ -58,6 +58,21 @@ class UploadService {
     return uploadRepository.findById(nuevoId);
   }
 
+  async puedeAccederPorEmpresa(archivo, empresaId) {
+    if (!archivo || !empresaId) return false;
+
+    // Si el archivo sigue ligado a un registro, la empresa autorizada es la
+    // empresa actual de ese registro, no necesariamente la que lo subió.
+    const tieneReferencias = await uploadRepository.hasDocumentReference(archivo.Arc_uuid);
+    if (tieneReferencias) {
+      return uploadRepository.isReferencedByCompany(archivo.Arc_uuid, empresaId);
+    }
+
+    // Compatibilidad para archivos registrados que aún no tienen referencia
+    // directa en las columnas documentales.
+    return Number(archivo.Arc_empresa) === Number(empresaId);
+  }
+
   async eliminarSiNoReferenciado(uuid, empresaId, esAdminGlobal, usuarioId) {
     let originalPath = null;
     let quarantinePath = null;
