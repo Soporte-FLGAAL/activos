@@ -13,8 +13,8 @@ class IncisosRepository {
     `;
     const params = [];
     if (empresaId) {
-      sql += ' AND u.Uni_empresa_actual = ?';
-      params.push(empresaId);
+      sql += ' AND (u.Uni_empresa_actual = ? OR u.Uni_propietario = ?)';
+      params.push(empresaId, empresaId);
     }
     if (endosoId) {
       sql += ' AND i.Inc_endoso = ?';
