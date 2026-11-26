@@ -144,7 +144,7 @@ class UploadRepository {
 
     const uuids = new Set();
     for (const document of documents) {
-      const matches = String(document.url || '').matchAll(/\\/upload\\/([0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})(?:[/?#]|$)/gi);
+      const matches = String(document.url || '').matchAll(/\/upload\/([0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})(?:[/?#]|$)/gi);
       for (const match of matches) uuids.add(match[1].toLowerCase());
     }
 
