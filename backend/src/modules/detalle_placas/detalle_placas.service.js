@@ -1,4 +1,5 @@
 const detallePlacasRepository = require('./detalle_placas.repository');
+const { validarEmpresaActual } = require('../../utils/empresa');
 const { withTransaction } = require('../../utils/transaction');
 const { registrarMovimiento } = require('../../utils/audit');
 const { existeRegistro } = require('../../utils/validators');
@@ -65,7 +66,8 @@ class DetallePlacasService {
 
   async actualizar(id, data, usuarioId, empresaId = null) {
     // Verifica existencia + pertenencia
-    await this.obtener(id, empresaId);
+    const actual = await this.obtener(id, empresaId);
+    validarEmpresaActual(actual, empresaId, 'movimiento de placa');
 
     const map = {
       placasId: 'DP_placas_id',
@@ -123,7 +125,8 @@ class DetallePlacasService {
   }
 
   async eliminar(id, usuarioId, empresaId = null) {
-    await this.obtener(id, empresaId);
+    const actual = await this.obtener(id, empresaId);
+    validarEmpresaActual(actual, empresaId, 'movimiento de placa');
 
     return withTransaction(async (connection) => {
       const ok = await detallePlacasRepository.delete(id, empresaId, connection);
