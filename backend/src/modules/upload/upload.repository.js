@@ -119,7 +119,7 @@ class UploadRepository {
       ]
     );
     return rows.length > 0;
-  },
+  }
 
   async transferUnsharedFilesForUnit(unidadId, empresaDestinoId, connection = null) {
     const dbConn = connection || db;
@@ -220,7 +220,7 @@ class UploadRepository {
     }
 
     return reassigned;
-  },
+  }
 
   async findById(id, connection = null) {
     const dbConn = connection || db;
