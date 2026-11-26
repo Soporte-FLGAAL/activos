@@ -1,4 +1,5 @@
 const tarjetasRepository = require('./tarjetas.repository');
+const { validarEmpresaActual } = require('../../utils/empresa');
 const { registrarMovimiento } = require('../../utils/audit');
 const { withTransaction } = require('../../utils/transaction');
 
@@ -142,6 +143,8 @@ class TarjetasService {
         throw error;
       }
 
+      validarEmpresaActual(actual, empresaId, 'tarjeta de circulación');
+
       const map = {
         tarjeta: 'TC_tarjeta',
         unidadId: 'TC_unidad_id',
@@ -186,7 +189,8 @@ class TarjetasService {
   }
 
   async actualizarUrl(id, url, usuarioId, empresaId = null) {
-    await this.obtener(id, empresaId);
+    const actual = await this.obtener(id, empresaId);
+    validarEmpresaActual(actual, empresaId, 'tarjeta de circulación');
     return withTransaction(async (connection) => {
       const ok = await tarjetasRepository.updateUrl(id, url, empresaId, connection);
       if (!ok) {
@@ -200,7 +204,8 @@ class TarjetasService {
   }
 
   async eliminar(id, usuarioId, empresaId = null) {
-    await this.obtener(id, empresaId);
+    const actual = await this.obtener(id, empresaId);
+    validarEmpresaActual(actual, empresaId, 'tarjeta de circulación');
     return withTransaction(async (connection) => {
       const ok = await tarjetasRepository.delete(id, empresaId, connection);
       if (!ok) {
