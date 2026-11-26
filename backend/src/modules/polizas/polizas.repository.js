@@ -14,8 +14,8 @@ class PolizasRepository {
     const params = [];
 
     if (empresaId) {
-      sql += ' AND u.Uni_empresa_actual = ?';
-      params.push(empresaId);
+      sql += ' AND (u.Uni_empresa_actual = ? OR u.Uni_propietario = ?)';
+      params.push(empresaId, empresaId);
     }
     if (unidadId) {
       sql += ' AND p.Pol_unidad_id = ?';
@@ -74,8 +74,8 @@ class PolizasRepository {
 
     const params = [id];
     if (empresaId) {
-      sql += ' AND u.Uni_empresa_actual = ?';
-      params.push(empresaId);
+      sql += ' AND (u.Uni_empresa_actual = ? OR u.Uni_propietario = ?)';
+      params.push(empresaId, empresaId);
     }
     const [rows] = await db.query(sql, params);
     return rows[0] || null;
