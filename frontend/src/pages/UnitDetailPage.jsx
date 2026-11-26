@@ -296,6 +296,11 @@ export default function UnitDetailPage() {
   }, [id, activeCompany?.id, isAdminGlobal]);
 
   const unitName = useMemo(() => unit?.Uni_no_economico || id, [unit, id]);
+  const isOwnerReadOnly = Boolean(
+    unit && !isAdminGlobal && activeCompany?.id != null &&
+    Number(unit.Uni_propietario) === Number(activeCompany.id) &&
+    Number(unit.Uni_empresa_actual) !== Number(activeCompany.id)
+  );
 
   if (!activeCompany?.id && !isAdminGlobal) return <Navigate to="/seleccionar-empresa" replace state={{ from: `/unidades/${id}` }} />;
 
@@ -316,7 +321,7 @@ export default function UnitDetailPage() {
         <button type="button" className="unit-detail-back" onClick={() => navigate('/unidades')} aria-label="Volver al catálogo"><ArrowLeft size={19} /></button>
         <div className="unit-detail-title-group"><div className="unit-detail-title-row"><h1>Unidad {unitName}</h1>{unit?.tipo_nombre && <span className="unit-type-pill">{unit.tipo_nombre}</span>}</div><p className="workspace-subtitle">Detalles y administración del vehículo{activeCompany ? ` · ${activeCompany.name}` : isAdminGlobal ? ' · Vista global' : ''}</p></div>
         <div className="unit-detail-heading-actions">
-          {(isAdminGlobal || can('unidades:editar')) && <button type="button" className="workspace-primary-button unit-edit-button" onClick={() => navigate(`/unidades/${id}/editar`)}><Pencil size={15} /> Editar unidad</button>}
+          {!isOwnerReadOnly && (isAdminGlobal || can('unidades:editar')) && <button type="button" className="workspace-primary-button unit-edit-button" onClick={() => navigate(`/unidades/${id}/editar`)}><Pencil size={15} /> Editar unidad</button>}
           <div className="unit-detail-mode-toggle" aria-label="Modo de presentación">
             <button type="button" className={layoutMode === 'accordion' ? 'is-selected' : ''} onClick={() => setLayoutMode('accordion')}><LayoutList size={15} /> Acordeón</button>
             <button type="button" className={layoutMode === 'tabs' ? 'is-selected' : ''} onClick={() => setLayoutMode('tabs')}><CarFront size={15} /> Pestañas</button>
@@ -324,6 +329,12 @@ export default function UnitDetailPage() {
         </div>
       </section>
 
+      {isOwnerReadOnly && !loading && unit && (
+        <p className="registry-muted-note" role="status">
+          Esta unidad pertenece a {unit.propietario_nombre || 'tu empresa'} y actualmente está asignada a {unit.empresa_nombre || 'otra empresa'}.
+          Puedes consultar su información y documentos; la administración y edición corresponden a la empresa actual.
+        </p>
+      )}
       {loading && <div className="workspace-loading">Cargando detalle y documentos…</div>}
       {!loading && error && <div className="workspace-error"><AlertCircle size={18} /><span>{error}</span><button type="button" onClick={() => window.location.reload()}>Reintentar</button></div>}
       {!loading && !error && unit && layoutMode === 'accordion' && <div className="unit-detail-accordion">
