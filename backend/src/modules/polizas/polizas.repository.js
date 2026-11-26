@@ -53,7 +53,7 @@ class PolizasRepository {
     `;
     const params = [];
 
-    if (empresaId) { sql += ' AND u.Uni_empresa_actual = ?'; params.push(empresaId); }
+    if (empresaId) { sql += ' AND (u.Uni_empresa_actual = ? OR u.Uni_propietario = ?)'; params.push(empresaId, empresaId); }
     if (unidadId) { sql += ' AND p.Pol_unidad_id = ?'; params.push(unidadId); }
     if (aseguradoraId) { sql += ' AND p.Pol_aseguradora = ?'; params.push(aseguradoraId); }
     if (vigente === 'true') { sql += ' AND p.Pol_fecha_fin >= CURDATE()'; }
