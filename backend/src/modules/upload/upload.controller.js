@@ -149,7 +149,7 @@ exports.descargarDeUnidad = async (req, res, next) => {
     if (uuidMatch) {
       const archivo = await uploadService.obtenerPorUuid(uuidMatch[1]);
       if (!archivo) return error(res, 'Archivo no encontrado en el registro de archivos', 404);
-      if (!req.esAdminGlobal && Number(archivo.Arc_empresa) !== Number(unidad.Uni_empresa_actual)) {
+      if (!req.esAdminGlobal && !(await uploadService.puedeAccederPorEmpresa(archivo, unidad.Uni_empresa_actual))) {
         return error(res, 'No tiene acceso a este archivo', 403);
       }
       const fullPath = uploadService.rutaAbsoluta(archivo);
@@ -203,7 +203,7 @@ exports.descargar = async (req, res, next) => {
       return error(res, 'Archivo no encontrado', 404);
     }
 
-    if (!req.esAdminGlobal && Number(archivo.Arc_empresa) !== Number(req.empresaId)) {
+    if (!req.esAdminGlobal && !(await uploadService.puedeAccederPorEmpresa(archivo, req.empresaId))) {
       return error(res, 'No tiene acceso a este archivo', 403);
     }
 
@@ -244,7 +244,7 @@ exports.eliminar = async (req, res, next) => {
     const permisosRequeridos = permisosPorTipo[archivo.Arc_tipo] || [];
 
     if (!req.esAdminGlobal) {
-      if (!req.empresaId || Number(archivo.Arc_empresa) !== Number(req.empresaId)) {
+      if (!req.empresaId || !(await uploadService.puedeAccederPorEmpresa(archivo, req.empresaId))) {
         return error(res, 'No tiene acceso a este archivo', 403);
       }
       if (permisosRequeridos.length === 0) {
