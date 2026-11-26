@@ -21,8 +21,8 @@ class UnidadesRepository {
     const params = [];
 
     if (empresaId) {
-      sql += ' AND u.Uni_empresa_actual = ?';
-      params.push(empresaId);
+      sql += ' AND (u.Uni_empresa_actual = ? OR u.Uni_propietario = ?)';
+      params.push(empresaId, empresaId);
     }
     if (tipoId) {
       sql += ' AND u.Uni_tipo = ?';
@@ -59,7 +59,7 @@ class UnidadesRepository {
     let sql = `SELECT COUNT(*) AS total FROM Unidades u WHERE 1=1`;
     const params = [];
     // aplicar mismas condiciones de filtrado que en findAll (sin limit/offset)
-    if (empresaId) { sql += ' AND u.Uni_empresa_actual = ?'; params.push(empresaId); }
+    if (empresaId) { sql += ' AND (u.Uni_empresa_actual = ? OR u.Uni_propietario = ?)'; params.push(empresaId, empresaId); }
     if (tipoId) { sql += ' AND u.Uni_tipo = ?'; params.push(tipoId); }
     if (combustibleId) { sql += ' AND u.Uni_combustible = ?'; params.push(combustibleId); }
     if (ejes) { sql += ' AND u.Uni_ejes = ?'; params.push(ejes); }
@@ -87,8 +87,8 @@ class UnidadesRepository {
     `;
     const params = [id];
     if (empresaId) {
-      sql += ' AND u.Uni_empresa_actual = ?';
-      params.push(empresaId);
+      sql += ' AND (u.Uni_empresa_actual = ? OR u.Uni_propietario = ?)';
+      params.push(empresaId, empresaId);
     }
     const [rows] = await db.query(sql, params);
     return rows[0] || null;
@@ -130,8 +130,8 @@ class UnidadesRepository {
 
   async countByEmpresa(empresaId) {
     const [rows] = await db.query(
-      'SELECT COUNT(*) AS total FROM Unidades WHERE Uni_empresa_actual = ? AND Uni_status = "ALTA"',
-      [empresaId]
+      'SELECT COUNT(*) AS total FROM Unidades WHERE (Uni_empresa_actual = ? OR Uni_propietario = ?) AND Uni_status = "ALTA"',
+      [empresaId, empresaId]
     );
     return rows[0].total;
   }
@@ -140,9 +140,9 @@ class UnidadesRepository {
     const [rows] = await db.query(
       `SELECT Uni_id, Uni_no_economico, Uni_status, Uni_marca, Uni_modelo, Uni_anio_modelo
        FROM Unidades
-       WHERE Uni_empresa_actual = ?
+       WHERE (Uni_empresa_actual = ? OR Uni_propietario = ?)
        ORDER BY Uni_no_economico`,
-      [empresaId]
+      [empresaId, empresaId]
     );
     return rows;
   }
