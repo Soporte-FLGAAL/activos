@@ -10,8 +10,8 @@ const schemas = require('./polizas.schema');
 router.use(auth);
 router.use(setEmpresa);
 
-router.get('/', rbac('polizas:ver'), validate({ query: schemas.filtrosPolizaSchema }), controller.listar);
-router.get('/:id', rbac('polizas:ver'), validate({ params: schemas.paramsIdSchema }), controller.obtener);
+router.get('/', rbac(['polizas:ver', 'unidades:ver']), validate({ query: schemas.filtrosPolizaSchema }), controller.listar);
+router.get('/:id', rbac(['polizas:ver', 'unidades:ver']), validate({ params: schemas.paramsIdSchema }), controller.obtener);
 router.post('/', rbac('polizas:crear'), validate({ body: schemas.crearPolizaSchema }), controller.crear);
 router.post('/crear-con-endosos', rbac('polizas:crear'), validate({ body: schemas.crearPolizaConEndososSchema }), controller.crearConEndosos);
 router.put('/:id', rbac('polizas:editar'), validate({ params: schemas.paramsIdSchema, body: schemas.actualizarPolizaSchema }), controller.actualizar);
