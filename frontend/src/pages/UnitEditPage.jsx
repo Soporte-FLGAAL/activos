@@ -540,8 +540,9 @@ export default function UnitEditPage() {
       setRelatedRefresh((current) => current + 1);
       const movedCount = Array.isArray(result?.placasTransferidas) ? result.placasTransferidas.length : 0;
       const alreadyCount = Array.isArray(result?.placasYaEnDestino) ? result.placasYaEnDestino.length : 0;
+      const documentsCount = Number(result?.documentosReasignados || 0);
       setSuccess(
-        `Unidad transferida a ${empresaDestino.name}. Placas transferidas: ${movedCount}; placas que ya pertenecían al destino: ${alreadyCount}. El propietario no fue modificado.`
+        `Unidad transferida a ${empresaDestino.name}. Placas transferidas: ${movedCount}; placas que ya pertenecían al destino: ${alreadyCount}; documentos con titularidad reasignada: ${documentsCount}. El propietario no fue modificado.`
       );
     } catch (requestError) {
       setTransferError(requestError.message || 'No fue posible transferir la unidad y sus placas.');
