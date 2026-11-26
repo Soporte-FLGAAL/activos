@@ -128,7 +128,7 @@ exports.descargarDeUnidad = async (req, res, next) => {
 
     const db = require('../../config/database');
     const [unidades] = await db.query(
-      `SELECT Uni_id, Uni_empresa_actual, ${columna} AS documento
+      `SELECT Uni_id, Uni_empresa_actual, Uni_propietario, ${columna} AS documento
        FROM Unidades
        WHERE Uni_id = ?
        LIMIT 1`,
@@ -137,7 +137,7 @@ exports.descargarDeUnidad = async (req, res, next) => {
     const unidad = unidades[0];
     if (!unidad) return error(res, 'Unidad no encontrada', 404);
 
-    if (!req.esAdminGlobal && Number(unidad.Uni_empresa_actual) !== Number(req.empresaId)) {
+    if (!req.esAdminGlobal && Number(unidad.Uni_empresa_actual) !== Number(req.empresaId) && Number(unidad.Uni_propietario) !== Number(req.empresaId)) {
       return error(res, 'No tiene acceso a los documentos de esta unidad', 403);
     }
 
@@ -149,7 +149,7 @@ exports.descargarDeUnidad = async (req, res, next) => {
     if (uuidMatch) {
       const archivo = await uploadService.obtenerPorUuid(uuidMatch[1]);
       if (!archivo) return error(res, 'Archivo no encontrado en el registro de archivos', 404);
-      if (!req.esAdminGlobal && !(await uploadService.puedeAccederPorEmpresa(archivo, unidad.Uni_empresa_actual))) {
+      if (!req.esAdminGlobal && !(await uploadService.puedeAccederPorEmpresa(archivo, req.empresaId))) {
         return error(res, 'No tiene acceso a este archivo', 403);
       }
       const fullPath = uploadService.rutaAbsoluta(archivo);
